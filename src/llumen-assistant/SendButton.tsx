@@ -1,6 +1,7 @@
-import { llumenAssets } from './assets'
+import { ArrowRight } from '@phosphor-icons/react'
 import styles from './compact-assistant.module.css'
 
+/** Maps to Figma Lumen-UI Send (node 678:7024): Inactive | Active | Stop */
 export type SendVisualState = 'inactive' | 'active' | 'stop'
 
 export type SendButtonProps = {
@@ -24,21 +25,9 @@ export function SendButton({ state, onClick }: SendButtonProps) {
         {isStop ? (
           <span className={styles.sendStopInner} />
         ) : isActive ? (
-          <img
-            className={`${styles.sendIcon} ${styles.sendIconActive}`}
-            src={llumenAssets.arrowRightActive}
-            alt=""
-            width={20}
-            height={20}
-          />
+          <ArrowRight className={styles.sendArrow} size={20} weight="bold" aria-hidden />
         ) : (
-          <img
-            className={styles.sendIcon}
-            src={llumenAssets.arrowRight}
-            alt=""
-            width={20}
-            height={20}
-          />
+          <ArrowRight className={styles.sendArrow} size={20} weight="regular" aria-hidden />
         )}
       </button>
     </div>

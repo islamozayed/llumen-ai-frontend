@@ -2,10 +2,34 @@
  * Lumen compact assistant — tokens match Figma file Lumen-UI (gGAXWwuoHrfYmZEBAt9T1g),
  * variant Chat=2 (529:16302). See src/llumen-assistant/CompactAssistantDemo.tsx for the full map.
  * Icon files: public/llumen-assets/*.svg (Figma MCP exports SVG; keep .svg extension).
- * Replace --ll-font-sans with Innovator Grotesk in production when licensed.
+ * Sans: Innovator Grotesk (self-hosted OTF under /fonts).
  */
+@font-face {
+  font-family: "Innovator Grotesk";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../fonts/InnovatorGrotesk-Regular.otf") format("opentype");
+}
+
+@font-face {
+  font-family: "Innovator Grotesk";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../../fonts/InnovatorGrotesk-Medium.otf") format("opentype");
+}
+
+@font-face {
+  font-family: "Innovator Grotesk";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../../fonts/InnovatorGrotesk-SemiBold.otf") format("opentype");
+}
+
 :root {
-  --ll-font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  --ll-font-sans: "Innovator Grotesk", system-ui, "Segoe UI", Roboto, sans-serif;
 
   --ll-bg-page: #05060a;
   --ll-bg-panel-overlay: rgba(8, 11, 23, 0.8);
@@ -31,8 +55,8 @@
   --ll-success: #22c55e;
   --ll-bg-agent-activity: rgba(30, 41, 59, 0.55);
   --ll-bg-plan-body: rgba(15, 23, 42, 0.65);
-  --ll-font-mono: ui-monospace, "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas,
-    monospace;
+  --ll-font-mono: "IBM Plex Mono", ui-monospace, "JetBrains Mono", "Fira Code", "Cascadia Code",
+    Consolas, monospace;
 
   --ll-radius-shell: 40px;
   --ll-radius-box: 20px;
@@ -65,6 +89,11 @@
 
   --ll-duration: 220ms;
   --ll-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Floating scrollbars (overlay content, frosted thumb) */
+  --ll-scrollbar-overlay-blur: 12px;
+  --ll-scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --ll-scrollbar-thumb-hover: rgba(255, 255, 255, 0.18);
 }
 
 @media (prefers-reduced-motion: reduce) {

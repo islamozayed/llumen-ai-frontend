@@ -1,6 +1,16 @@
-export { AgentThinkingPanel } from './AgentThinkingPanel'
-export type { AgentActivityItem, AgentThinkingPanelProps } from './AgentThinkingPanel'
+export type {
+  AssistantReplyPayload,
+  LegacyAgentActivity,
+  LegacyThinkingPayload,
+  TechnicalBlock,
+  TechnicalFormat,
+  TimelineStep,
+  TimelineStepKind,
+} from './assistantReplyTypes'
+export { legacyThinkingToReplyPayload } from './assistantReplyTypes'
 export { AssistantPanel } from './AssistantPanel'
+export { AssistantTimelineReply } from './AssistantTimelineReply'
+export type { AssistantTimelineReplyProps } from './AssistantTimelineReply'
 export { CompactAssistantDemo } from './CompactAssistantDemo'
 export { SessionsPanel } from './SessionsPanel'
 export type { AssistantMode } from './ModeSelector'

@@ -13,7 +13,22 @@
   min-height: 0;
   overflow-y: auto;
   padding: 0 0 8px 0;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
+  scrollbar-width: thin;
+}
+
+@supports (overflow: overlay) {
+  .scroll {
+    overflow-y: overlay;
+  }
+}
+
+.scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .heading {
@@ -54,11 +69,6 @@
   transition:
     background var(--ll-duration) var(--ll-ease),
     border-color var(--ll-duration) var(--ll-ease);
-}
-
-.actionBtn:hover {
-  background: var(--ll-bg-control-strong);
-  border-color: var(--ll-border-control);
 }
 
 .actionBtn:focus-visible {

@@ -7,8 +7,17 @@ export const MESH_COLORS_LUMEN_DARK = ['#03071E', '#070F2C', '#202E5D'] as const
 export const MESH_FRAME_PANEL = 17852.964999998498
 
 /**
- * MeshGradient `frame` — Paper node 3-0 (demo page backdrop).
- * https://app.paper.design/file/01KN21NGBCH4Z53EEN70RM327Y?node=3-0 — if Paper’s React export shows a different `frame`, paste it here.
- * Initialized to the G-0 value so timing matches the panel mesh until you sync from node 3-0.
+ * MeshGradient demo page — Paper export Apr 5, 2026
+ * https://app.paper.design/file/01KN21NGBCH4Z53EEN70RM327Y?node=4-0
  */
-export const MESH_FRAME_DEMO_PAGE = 17852.964999998498
+export const MESH_FRAME_DEMO_PAGE = 77672.56499999807
+
+export const MESH_COLORS_DEMO_PAGE = [
+  '#FF7676',
+  '#97C1FD',
+  '#84B1F5',
+  '#5C9DFF',
+  '#DFEAFB',
+  '#74A3EA',
+  '#74A3EA',
+] as const

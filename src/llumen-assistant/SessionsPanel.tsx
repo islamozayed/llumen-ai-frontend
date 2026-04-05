@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
 import { FolderPlus, PlusCircle } from '@phosphor-icons/react'
 import styles from './SessionsPanel.module.css'
 
@@ -37,6 +38,7 @@ export type SessionsPanelProps = {
 }
 
 export function SessionsPanel({ onOpenSession, onNewSession, onNewProject }: SessionsPanelProps) {
+  const scrollRef = useRevealScrollbarOnScroll()
   const open = useCallback(
     (id: string) => {
       onOpenSession(id)
@@ -46,7 +48,7 @@ export function SessionsPanel({ onOpenSession, onNewSession, onNewProject }: Ses
 
   return (
     <div className={styles.root}>
-      <div className={styles.scroll}>
+      <div ref={scrollRef} className={styles.scroll}>
         <h2 className={styles.heading}>Sessions</h2>
         <p className={styles.subtitle}>
           Open a recent conversation or start something new. Projects group related sessions.

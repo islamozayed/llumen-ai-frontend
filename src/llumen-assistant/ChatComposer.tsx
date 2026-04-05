@@ -5,6 +5,7 @@ import type { SendVisualState } from './SendButton'
 import { SendButton } from './SendButton'
 import type { AssistantMode } from './ModeSelector'
 import { ModeSelector } from './ModeSelector'
+import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
 
 /** Fits Figma ChatBox max-h 180px with 20px pad ×2, 16px gap, Params + chip row */
 const MAX_COMPOSER_PX = 60
@@ -20,6 +21,8 @@ export type ChatComposerProps = {
   showParameters?: boolean
   onAttachClick?: () => void
   disabled?: boolean
+  /** After the first message in the thread, placeholder switches to reply-focused copy. */
+  hasThreadMessages?: boolean
 }
 
 export function ChatComposer({
@@ -33,9 +36,11 @@ export function ChatComposer({
   showParameters = true,
   onAttachClick,
   disabled = false,
+  hasThreadMessages = false,
 }: ChatComposerProps) {
   const taRef = useRef<HTMLTextAreaElement>(null)
   const [contextRowOpen, setContextRowOpen] = useState(false)
+  const chatScrollRef = useRevealScrollbarOnScroll()
 
   useEffect(() => {
     const el = taRef.current
@@ -53,18 +58,18 @@ export function ChatComposer({
   }
 
   return (
-    <div className={styles.chatBox}>
+    <div ref={chatScrollRef} className={styles.chatBox}>
       <div className={styles.textAreaWrap}>
         <textarea
           ref={taRef}
           className={styles.textArea}
-          placeholder="Ask about anything"
+          placeholder={hasThreadMessages ? 'Reply...' : 'Ask about anything'}
           rows={1}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
           disabled={disabled || sendState === 'stop'}
-          aria-label="Message"
+          aria-label={hasThreadMessages ? 'Reply' : 'Message'}
         />
       </div>
       <div className={styles.paramsCol}>

@@ -4,8 +4,7 @@
   min-height: 100dvh;
   width: 100%;
   color-scheme: dark;
-  /* Fallback under WebGL mesh */
-  background: var(--ll-bg-page);
+  background-color: var(--ll-bg-page);
 }
 
 .demoPageShader {
@@ -14,7 +13,6 @@
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  background: var(--ll-bg-page);
 }
 
 .demoPageShaderCanvas {
@@ -23,6 +21,18 @@
   width: 100%;
   height: 100%;
   display: block;
+}
+
+/* Figma landing (449:7433) — scrolls above MeshGradient */
+.demoLandingLayer {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  pointer-events: auto;
 }
 
 .backdrop {
@@ -80,7 +90,7 @@
   max-height: calc(100dvh - 140px);
   padding: 20px;
   border-radius: 28px;
-  border: 1px solid rgba(90, 90, 90, 1);
+  border: 1px solid rgba(47, 54, 101, 1);
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -166,10 +176,6 @@
   border-radius: 8px;
   color: var(--ll-text-primary);
   transition: background var(--ll-duration) var(--ll-ease);
-}
-
-.headerBtn:hover {
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .headerBtn:focus-visible {
@@ -267,22 +273,23 @@
   flex-direction: column;
   gap: var(--ll-space-sm);
   margin-bottom: var(--ll-space-sm);
-  padding-right: 4px;
+  padding-right: 0;
+  scrollbar-gutter: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+
+@supports (overflow: overlay) {
+  .transcript {
+    overflow-y: overlay;
+  }
 }
 
 .transcript::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .transcript::-webkit-scrollbar-track {
   background: transparent;
-}
-
-.transcript::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 99px;
 }
 
 .msgUser,
@@ -297,17 +304,25 @@
 
 .msgUser {
   align-self: flex-end;
+  max-width: 360px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid var(--ll-border-control);
 }
 
 .msgAssistant {
-  align-self: flex-start;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  padding: 6px 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: rgba(226, 232, 240, 0.92);
 }
 
-.msgAssistantBlock {
+.msgAssistantTimeline {
   align-self: stretch;
   width: 100%;
   max-width: 100%;
@@ -356,7 +371,7 @@
   padding: var(--ll-figma-chatbox-pad);
   padding-left: 17px;
   border-radius: var(--ll-radius-box);
-  border: 1px solid rgba(90, 90, 90, 1);
+  border: 1px solid rgba(47, 54, 101, 1);
   background: var(--ll-bg-glass);
   backdrop-filter: blur(var(--ll-blur-panel));
   display: flex;
@@ -367,6 +382,23 @@
   max-height: 180px;
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: auto;
+  scrollbar-width: thin;
+}
+
+@supports (overflow: overlay) {
+  .chatBox {
+    overflow-x: hidden;
+    overflow-y: overlay;
+  }
+}
+
+.chatBox::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chatBox::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .textAreaWrap {
@@ -443,10 +475,6 @@
   transition: background var(--ll-duration) var(--ll-ease);
 }
 
-.contextBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
 .contextBtn:focus-visible {
   outline: 2px solid rgba(132, 177, 245, 0.8);
   outline-offset: 2px;
@@ -470,10 +498,6 @@
   flex-shrink: 0;
   color: inherit;
   transition: background var(--ll-duration) var(--ll-ease);
-}
-
-.iconBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
 }
 
 .iconBtn:focus-visible {
@@ -504,10 +528,6 @@
   color: inherit;
   font-size: 12px;
   color: var(--ll-text-muted);
-}
-
-.modeBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
 }
 
 .modeBtnOpen {
@@ -599,11 +619,11 @@
   white-space: nowrap;
 }
 
+/* Send control — Figma ChatBox Send (678:7024): ArrowRight; inactive vs Active/Stop */
 .sendRotate {
   display: flex;
   align-items: center;
   justify-content: center;
-  transform: scaleX(-1);
 }
 
 .sendBtn {
@@ -619,8 +639,7 @@
   flex-shrink: 0;
   transition:
     background var(--ll-duration) var(--ll-ease),
-    border-color var(--ll-duration) var(--ll-ease),
-    transform var(--ll-duration) var(--ll-ease);
+    border-color var(--ll-duration) var(--ll-ease);
 }
 
 .sendBtn:focus-visible {
@@ -634,24 +653,16 @@
 
 .sendInactive:disabled {
   cursor: not-allowed;
-  opacity: 0.85;
+  opacity: 0.7;
 }
 
 .sendActive {
-  background: linear-gradient(
-    90deg,
-    var(--ll-send-gradient-start) 0%,
-    var(--ll-send-gradient-end) 100%
-  );
+  background: rgba(132, 177, 245, 0.8);
   border-color: #ffffff;
 }
 
 .sendStop {
-  background: linear-gradient(
-    90deg,
-    var(--ll-send-gradient-start) 0%,
-    var(--ll-send-gradient-end) 100%
-  );
+  background: rgba(132, 177, 245, 0.8);
   border-color: #ffffff;
 }
 
@@ -662,13 +673,15 @@
   border-radius: 3px;
 }
 
-.sendIcon {
-  width: 20px;
-  height: 20px;
+.sendArrow {
+  flex-shrink: 0;
   display: block;
-  transform: scaleY(-1) rotate(180deg);
 }
 
-.sendIconActive {
-  transform: none;
+.sendInactive .sendArrow {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.sendActive .sendArrow {
+  color: #ffffff;
 }

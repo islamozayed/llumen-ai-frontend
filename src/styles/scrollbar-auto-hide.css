@@ -1,0 +1,40 @@
+/**
+ * Elements with data-ll-scrollbar (set by useRevealScrollbarOnScroll):
+ * - no arrow buttons (WebKit)
+ * - thumb hidden until data-ll-scrollbar-active is set during scroll
+ */
+
+[data-ll-scrollbar] {
+  scrollbar-color: transparent transparent;
+}
+
+[data-ll-scrollbar][data-ll-scrollbar-active='true'] {
+  scrollbar-color: var(--ll-scrollbar-thumb) transparent;
+}
+
+[data-ll-scrollbar]::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+[data-ll-scrollbar]::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition:
+    background 0.22s ease,
+    backdrop-filter 0.22s ease,
+    -webkit-backdrop-filter 0.22s ease;
+}
+
+[data-ll-scrollbar][data-ll-scrollbar-active='true']::-webkit-scrollbar-thumb {
+  background: var(--ll-scrollbar-thumb);
+  backdrop-filter: blur(var(--ll-scrollbar-overlay-blur));
+  -webkit-backdrop-filter: blur(var(--ll-scrollbar-overlay-blur));
+}
+
+[data-ll-scrollbar][data-ll-scrollbar-active='true']::-webkit-scrollbar-thumb:hover {
+  background: var(--ll-scrollbar-thumb-hover);
+}

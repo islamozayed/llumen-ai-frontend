@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+/* Figma Dev Mode maps this to flex “fill” / stretched content along the cross axis */
+@utility content-stretch {
+  align-content: stretch;
+}
