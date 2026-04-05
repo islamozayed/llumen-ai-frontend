@@ -1,0 +1,674 @@
+.demoPage {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  color-scheme: dark;
+  /* Fallback under WebGL mesh */
+  background: var(--ll-bg-page);
+}
+
+.demoPageShader {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: var(--ll-bg-page);
+}
+
+.demoPageShaderCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.35);
+  border: none;
+  padding: 0;
+  cursor: default;
+  transition: opacity var(--ll-duration) var(--ll-ease);
+}
+
+.fabColumn {
+  position: fixed;
+  right: var(--ll-space-lg);
+  bottom: var(--ll-space-lg);
+  top: var(--ll-space-lg);
+  z-index: 2;
+  width: 480px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: var(--ll-space-sm);
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.panelWrap {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  transition:
+    opacity var(--ll-duration) var(--ll-ease),
+    transform var(--ll-duration) var(--ll-ease);
+}
+
+.panelWrapHidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+}
+
+.requestBox {
+  position: relative;
+  width: 100%;
+  /* Figma 529:16303 */
+  height: 634px;
+  max-height: calc(100vh - 140px);
+  max-height: calc(100dvh - 140px);
+  padding: 20px;
+  border-radius: 28px;
+  border: 1px solid rgba(90, 90, 90, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  overflow: hidden;
+  box-shadow: var(--ll-shadow-panel);
+}
+
+.panelExpanded {
+  /* Anchor bottom-right: width grows left; height capped so stack stays in viewport above launcher */
+  width: min(900px, calc(100vw - var(--ll-space-lg) * 2));
+  height: min(
+    720px,
+    calc(100vh - var(--ll-space-lg) * 2 - var(--ll-space-sm) - 50px)
+  );
+  height: min(
+    720px,
+    calc(100dvh - var(--ll-space-lg) * 2 - var(--ll-space-sm) - 50px)
+  );
+  max-height: none;
+}
+
+.panelBackdrop {
+  position: absolute;
+  inset: -1px;
+  border-radius: 20px;
+  overflow: hidden;
+  z-index: 0;
+  /* Fallback if WebGL is unavailable */
+  background: #070f2c;
+}
+
+.panelBackdropShader {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.panelInner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.headerPill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--ll-radius-icon-btn);
+  background: var(--ll-bg-control-strong);
+  border: 1px solid var(--ll-border-control);
+}
+
+.headerBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px;
+  color: var(--ll-text-primary);
+  transition: background var(--ll-duration) var(--ll-ease);
+}
+
+.headerBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.headerBtn:focus-visible {
+  outline: 2px solid rgba(132, 177, 245, 0.8);
+  outline-offset: 2px;
+}
+
+.headerIcon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.headerPhosphor {
+  display: block;
+  flex-shrink: 0;
+  color: var(--ll-text-primary);
+}
+
+.middle {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 0;
+  /* Figma Request box: gap-[40px] between header cluster and main column */
+  margin-top: var(--ll-figma-panel-header-gap);
+}
+
+.heroBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ll-figma-hero-stack-gap);
+  flex-shrink: 0;
+}
+
+.orbWrap {
+  position: relative;
+  width: 70px;
+  height: 70px;
+  flex-shrink: 0;
+}
+
+.orbOuter {
+  position: absolute;
+  left: 17.5px;
+  top: 17.5px;
+  width: 35px;
+  height: 35px;
+}
+
+.orbOuter img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.orbInner {
+  position: absolute;
+  left: 21.88px;
+  top: 21.88px;
+  width: 26.25px;
+  height: 26.25px;
+}
+
+.orbInner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.greeting {
+  margin: 0;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--ll-text-primary);
+}
+
+.greeting p {
+  margin: 0;
+}
+
+.transcript {
+  width: 100%;
+  max-width: 447px;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ll-space-sm);
+  margin-bottom: var(--ll-space-sm);
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+
+.transcript::-webkit-scrollbar {
+  width: 8px;
+}
+
+.transcript::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.transcript::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 99px;
+}
+
+.msgUser,
+.msgAssistant {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.msgUser {
+  align-self: flex-end;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--ll-border-control);
+}
+
+.msgAssistant {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.msgAssistantBlock {
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+}
+
+.launcher {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ll-figma-toolbar-gap);
+  min-width: 60px;
+  height: 50px;
+  padding: 8px 12px;
+  border-radius: var(--ll-radius-pill);
+  border: 1px solid var(--ll-border-outer);
+  background: var(--ll-bg-launcher);
+  backdrop-filter: blur(var(--ll-blur-launcher));
+  cursor: pointer;
+  transition:
+    transform var(--ll-duration) var(--ll-ease),
+    box-shadow var(--ll-duration) var(--ll-ease);
+}
+
+.launcher:hover {
+  transform: scale(1.03);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.launcher:focus-visible {
+  outline: 2px solid rgba(132, 177, 245, 0.8);
+  outline-offset: 3px;
+}
+
+.launcherIcon {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+/* ChatComposer / ChatBox — Figma node 678:6915 */
+.chatBox {
+  width: 100%;
+  align-self: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: var(--ll-figma-chatbox-pad);
+  padding-left: 17px;
+  border-radius: var(--ll-radius-box);
+  border: 1px solid rgba(90, 90, 90, 1);
+  background: var(--ll-bg-glass);
+  backdrop-filter: blur(var(--ll-blur-panel));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: var(--ll-figma-chatbox-inner-gap);
+  max-height: 180px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.textAreaWrap {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.textArea {
+  width: 100%;
+  flex: 1 0 auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  resize: none;
+  font: inherit;
+  font-size: 16px;
+  line-height: normal;
+  color: var(--ll-text-primary);
+  min-height: 1em;
+  max-height: 60px;
+}
+
+.textArea::placeholder {
+  opacity: 0.32;
+  color: var(--ll-text-primary);
+}
+
+.textArea:focus {
+  outline: none;
+}
+
+.paramsCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ll-figma-params-stack-gap);
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.rowPrimary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ll-figma-toolbar-gap);
+  width: 100%;
+}
+
+.rowPrimaryLeft {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--ll-figma-toolbar-gap);
+  min-width: 0;
+}
+
+.contextBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 60px;
+  min-width: 60px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--ll-radius-pill);
+  border: 1px solid var(--ll-border-pill);
+  background: var(--ll-bg-control);
+  cursor: pointer;
+  flex-shrink: 0;
+  color: inherit;
+  transition: background var(--ll-duration) var(--ll-ease);
+}
+
+.contextBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.contextBtn:focus-visible {
+  outline: 2px solid rgba(132, 177, 245, 0.8);
+  outline-offset: 2px;
+}
+
+.contextBtnActive {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--ll-radius-icon-btn);
+  border: 1px solid var(--ll-border-pill);
+  background: var(--ll-bg-control);
+  cursor: pointer;
+  flex-shrink: 0;
+  color: inherit;
+  transition: background var(--ll-duration) var(--ll-ease);
+}
+
+.iconBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.iconBtn:focus-visible {
+  outline: 2px solid rgba(132, 177, 245, 0.8);
+  outline-offset: 2px;
+}
+
+.iconBtnImg {
+  width: 20px;
+  height: 20px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.modeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ll-figma-narrative-gap);
+  height: 36px;
+  min-width: 60px;
+  padding: 0 10px;
+  border-radius: var(--ll-radius-pill);
+  border: 1px solid var(--ll-border-pill);
+  background: var(--ll-bg-control);
+  cursor: pointer;
+  flex-shrink: 0;
+  color: inherit;
+  font-size: 12px;
+  color: var(--ll-text-muted);
+}
+
+.modeBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.modeBtnOpen {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.modeLabel {
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.caret {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.modeMenu {
+  position: absolute;
+  z-index: 10;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 160px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--ll-border-control);
+  background: rgba(12, 16, 28, 0.95);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--ll-shadow-panel);
+  list-style: none;
+  margin: 0;
+}
+
+.modeMenuItem {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ll-text-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.modeMenuItem:hover,
+.modeMenuItemActive {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.modeWrap {
+  position: relative;
+}
+
+.rowSecondary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ll-figma-chip-row-gap);
+  overflow-x: auto;
+  overflow-y: clip;
+  width: 100%;
+  scrollbar-width: thin;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ll-figma-chip-gap);
+  padding: var(--ll-figma-chip-pad-y) var(--ll-figma-chip-pad-x);
+  border-radius: var(--ll-radius-pill);
+  background: var(--ll-bg-chip);
+  flex-shrink: 0;
+}
+
+.chipIcon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.chipLabel {
+  margin: 0;
+  font-size: 10px;
+  color: var(--ll-text-primary);
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+.sendRotate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: scaleX(-1);
+}
+
+.sendBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--ll-radius-icon-btn);
+  border: 1px solid var(--ll-border-pill);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background var(--ll-duration) var(--ll-ease),
+    border-color var(--ll-duration) var(--ll-ease),
+    transform var(--ll-duration) var(--ll-ease);
+}
+
+.sendBtn:focus-visible {
+  outline: 2px solid rgba(132, 177, 245, 0.8);
+  outline-offset: 2px;
+}
+
+.sendInactive {
+  background: var(--ll-bg-control);
+}
+
+.sendInactive:disabled {
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.sendActive {
+  background: linear-gradient(
+    90deg,
+    var(--ll-send-gradient-start) 0%,
+    var(--ll-send-gradient-end) 100%
+  );
+  border-color: #ffffff;
+}
+
+.sendStop {
+  background: linear-gradient(
+    90deg,
+    var(--ll-send-gradient-start) 0%,
+    var(--ll-send-gradient-end) 100%
+  );
+  border-color: #ffffff;
+}
+
+.sendStopInner {
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 3px;
+}
+
+.sendIcon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  transform: scaleY(-1) rotate(180deg);
+}
+
+.sendIconActive {
+  transform: none;
+}

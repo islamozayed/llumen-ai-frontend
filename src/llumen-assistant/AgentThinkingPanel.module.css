@@ -1,0 +1,212 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  max-width: 100%;
+  border-radius: var(--ll-radius-box);
+  border: 1px solid var(--ll-border-control);
+  background: rgba(8, 11, 23, 0.72);
+  overflow: hidden;
+  color-scheme: dark;
+}
+
+.accordionRoot {
+  width: 100%;
+}
+
+.accordionItem {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.accordionHeader {
+  margin: 0;
+}
+
+.activityTrigger {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  margin: 0;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  background: var(--ll-bg-agent-activity);
+  color: rgba(147, 197, 253, 0.95);
+  transition:
+    background var(--ll-duration) var(--ll-ease),
+    color var(--ll-duration) var(--ll-ease);
+}
+
+.activityTrigger:hover {
+  background: rgba(51, 65, 85, 0.55);
+}
+
+.activityTrigger:focus-visible {
+  outline: 2px solid rgba(132, 177, 245, 0.75);
+  outline-offset: -2px;
+}
+
+.activityChevron {
+  flex-shrink: 0;
+  color: var(--ll-accent-blue);
+  transition: transform var(--ll-duration) var(--ll-ease);
+}
+
+.activityTrigger[data-state='open'] > .activityChevron {
+  transform: rotate(0deg);
+}
+
+.activityTrigger[data-state='closed'] > .activityChevron {
+  transform: rotate(-90deg);
+}
+
+.activityTitle {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(147, 197, 253, 0.92);
+}
+
+.activityContent {
+  overflow: hidden;
+  background: rgba(8, 11, 23, 0.35);
+}
+
+.activityList {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.activityRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-family: var(--ll-font-mono);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgba(226, 232, 240, 0.88);
+}
+
+.activityRow[data-tone='muted'] {
+  color: rgba(148, 163, 184, 0.85);
+}
+
+.activityRow[data-tone='highlight'] {
+  color: rgba(147, 197, 253, 0.98);
+  font-style: italic;
+}
+
+.activityIcon {
+  flex-shrink: 0;
+  display: flex;
+  margin-top: 1px;
+}
+
+.iconComplete {
+  color: var(--ll-success);
+}
+
+.iconActive {
+  color: rgba(147, 197, 253, 0.95);
+}
+
+.activityLabel {
+  min-width: 0;
+}
+
+.planShell {
+  border-left: 3px solid var(--ll-accent-blue);
+  background: var(--ll-bg-plan-body);
+}
+
+.planScrollRoot {
+  width: 100%;
+  max-height: 240px;
+  background: transparent;
+}
+
+.planViewport {
+  width: 100%;
+}
+
+.planInner {
+  padding: var(--ll-space-md) var(--ll-space-md) var(--ll-space-sm);
+  padding-right: 8px;
+}
+
+.planSummaryLabel,
+.planDetailLabel {
+  margin: 0 0 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgba(241, 245, 249, 0.94);
+}
+
+.planDetailLabel {
+  margin-top: var(--ll-space-md);
+}
+
+.planSummaryText {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: rgba(203, 213, 225, 0.92);
+}
+
+.planBody {
+  margin: 0;
+  font-family: var(--ll-font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: rgba(203, 213, 225, 0.92);
+}
+
+.replyStream {
+  margin-top: var(--ll-space-md);
+  padding: var(--ll-space-sm) 0 var(--ll-space-sm);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ll-text-primary);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(8, 11, 23, 0.45);
+  flex-shrink: 0;
+}
+
+.scrollbar {
+  display: flex;
+  user-select: none;
+  touch-action: none;
+  padding: 4px 3px;
+  width: 10px;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.scrollThumb {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 99px;
+  position: relative;
+}
+
+.scrollThumb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 100%;
+  height: 100%;
+  min-height: 28px;
+}

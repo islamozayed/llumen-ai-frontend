@@ -1,0 +1,74 @@
+/**
+ * Lumen compact assistant — tokens match Figma file Lumen-UI (gGAXWwuoHrfYmZEBAt9T1g),
+ * variant Chat=2 (529:16302). See src/llumen-assistant/CompactAssistantDemo.tsx for the full map.
+ * Icon files: public/llumen-assets/*.svg (Figma MCP exports SVG; keep .svg extension).
+ * Replace --ll-font-sans with Innovator Grotesk in production when licensed.
+ */
+:root {
+  --ll-font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+
+  --ll-bg-page: #05060a;
+  --ll-bg-panel-overlay: rgba(8, 11, 23, 0.8);
+  --ll-bg-glass: rgba(8, 11, 23, 0.5);
+  --ll-bg-control: rgba(255, 255, 255, 0.04);
+  --ll-bg-control-strong: rgba(255, 255, 255, 0.08);
+  --ll-bg-chip: rgba(255, 255, 255, 0.05);
+  --ll-bg-launcher: rgba(37, 40, 45, 0.4);
+
+  --ll-border-outer: #999999;
+  --ll-border-control: rgba(255, 255, 255, 0.07);
+  --ll-border-pill: rgba(255, 255, 255, 0.07);
+
+  --ll-text-primary: #ffffff;
+  --ll-text-muted: rgba(255, 255, 255, 0.5);
+  --ll-text-placeholder: rgba(255, 255, 255, 0.32);
+
+  --ll-send-gradient-start: rgba(132, 177, 245, 0.8);
+  --ll-send-gradient-end: rgba(255, 118, 118, 0.8);
+
+  /* Agent thinking / activity UI */
+  --ll-accent-blue: #3b82f6;
+  --ll-success: #22c55e;
+  --ll-bg-agent-activity: rgba(30, 41, 59, 0.55);
+  --ll-bg-plan-body: rgba(15, 23, 42, 0.65);
+  --ll-font-mono: ui-monospace, "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas,
+    monospace;
+
+  --ll-radius-shell: 40px;
+  --ll-radius-box: 20px;
+  --ll-radius-pill: 360px;
+  --ll-radius-icon-btn: 999px;
+
+  --ll-blur-panel: 25px;
+  --ll-blur-launcher: 15px;
+
+  --ll-shadow-panel: 0 24px 80px rgba(0, 0, 0, 0.45);
+
+  --ll-space-xs: 8px;
+  --ll-space-sm: 12px;
+  --ll-space-md: 16px;
+  --ll-space-lg: 24px;
+  --ll-space-xl: 40px;
+
+  /* Figma Chat=2 (529:16302) — Request box ↔ content, ChatBox internals */
+  --ll-figma-panel-header-gap: 12px; /* gap below header cluster */
+  --ll-figma-hero-stack-gap: 32px; /* orb ↔ greeting */
+  --ll-figma-chatbox-pad: 20px;
+  --ll-figma-chatbox-inner-gap: 16px; /* placeholder block ↔ Params */
+  --ll-figma-params-stack-gap: 12px; /* Primary ↔ Secondary */
+  --ll-figma-toolbar-gap: 8px; /* tool groups */
+  --ll-figma-narrative-gap: 4px; /* stack | label | caret */
+  --ll-figma-chip-gap: 4px;
+  --ll-figma-chip-pad-x: 8px;
+  --ll-figma-chip-pad-y: 4px;
+  --ll-figma-chip-row-gap: 8px;
+
+  --ll-duration: 220ms;
+  --ll-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ll-duration: 0ms;
+  }
+}
