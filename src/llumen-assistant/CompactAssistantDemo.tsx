@@ -133,44 +133,95 @@ export function CompactAssistantDemo() {
   const streamTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const assistantMsgId = useRef<string | null>(null)
   const assistantPanelRef = useRef<HTMLDivElement>(null)
-  const pendingPanelSizeRef = useRef<{ width: number; height: number } | null>(null)
+  const pendingPanelAnimRef = useRef<{ width: number; height: number; top: number; left: number } | null>(
+    null,
+  )
   const transcriptScrollRef = useRevealScrollbarOnScroll()
 
   const toggleExpanded = useCallback(() => {
     const el = assistantPanelRef.current
     if (el) {
       gsap.killTweensOf(el)
-      gsap.set(el, { clearProps: 'width,height' })
+      gsap.set(el, { clearProps: 'width,height,top,left,right,bottom,margin,maxWidth,maxHeight,position' })
       void el.offsetWidth
-      pendingPanelSizeRef.current = {
-        width: el.offsetWidth,
-        height: el.offsetHeight,
+      const r = el.getBoundingClientRect()
+      pendingPanelAnimRef.current = {
+        width: r.width,
+        height: r.height,
+        top: r.top,
+        left: r.left,
       }
     }
     setExpanded((v) => !v)
   }, [])
 
   useLayoutEffect(() => {
-    const start = pendingPanelSizeRef.current
+    const start = pendingPanelAnimRef.current
     if (!start) return
-    pendingPanelSizeRef.current = null
+    pendingPanelAnimRef.current = null
     const el = assistantPanelRef.current
     if (!el) return
 
-    const endWidth = el.offsetWidth
-    const endHeight = el.offsetHeight
+    const vw = window.innerWidth
+    const vh = window.innerHeight
 
     gsap.killTweensOf(el)
-    gsap.set(el, { width: start.width, height: start.height })
-    gsap.to(el, {
-      width: endWidth,
-      height: endHeight,
+
+    if (expanded) {
+      const end = { top: 0, left: 0, width: vw, height: vh }
+      gsap.set(el, {
+        position: 'fixed',
+        top: start.top,
+        left: start.left,
+        width: start.width,
+        height: start.height,
+        margin: 0,
+        right: 'auto',
+        bottom: 'auto',
+      })
+      const tween = gsap.to(el, {
+        top: end.top,
+        left: end.left,
+        width: end.width,
+        height: end.height,
+        duration: 0.62,
+        ease: 'power3.inOut',
+        onComplete: () => {
+          gsap.set(el, { clearProps: 'top,left,width,height,margin,right,bottom,position' })
+        },
+      })
+      return () => {
+        tween.kill()
+        gsap.set(el, { clearProps: 'top,left,width,height,margin,right,bottom,position' })
+      }
+    }
+
+    const endRect = el.getBoundingClientRect()
+    gsap.set(el, {
+      position: 'fixed',
+      top: start.top,
+      left: start.left,
+      width: start.width,
+      height: start.height,
+      margin: 0,
+      right: 'auto',
+      bottom: 'auto',
+    })
+    const tween = gsap.to(el, {
+      top: endRect.top,
+      left: endRect.left,
+      width: endRect.width,
+      height: endRect.height,
       duration: 0.62,
       ease: 'power3.inOut',
       onComplete: () => {
-        gsap.set(el, { clearProps: 'width,height' })
+        gsap.set(el, { clearProps: 'top,left,width,height,margin,right,bottom,position' })
       },
     })
+    return () => {
+      tween.kill()
+      gsap.set(el, { clearProps: 'top,left,width,height,margin,right,bottom,position' })
+    }
   }, [expanded])
 
   const clearStream = useCallback(() => {

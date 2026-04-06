@@ -30,9 +30,18 @@
   min-height: 100vh;
   min-height: 100dvh;
   width: 100%;
+  max-width: none;
+  box-sizing: border-box;
   overflow-x: auto;
   overflow-y: auto;
   pointer-events: auto;
+}
+
+.demoLandingLayer > * {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .backdrop {
@@ -100,17 +109,21 @@
 }
 
 .panelExpanded {
-  /* Anchor bottom-right: width grows left; height capped so stack stays in viewport above launcher */
-  width: min(900px, calc(100vw - var(--ll-space-lg) * 2));
-  height: min(
-    720px,
-    calc(100vh - var(--ll-space-lg) * 2 - var(--ll-space-sm) - 50px)
-  );
-  height: min(
-    720px,
-    calc(100dvh - var(--ll-space-lg) * 2 - var(--ll-space-sm) - 50px)
-  );
+  /* Settled state: full viewport (during expand/collapse, GSAP sets inline top/left/width/height) */
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  width: auto;
+  height: auto;
+  max-width: none;
   max-height: none;
+  border-radius: 0;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+.panelExpanded .panelBackdrop {
+  border-radius: 0;
 }
 
 .panelBackdrop {
@@ -265,7 +278,7 @@
 
 .transcript {
   width: 100%;
-  max-width: 447px;
+  max-width: 520px;
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -365,6 +378,7 @@
 /* ChatComposer / ChatBox — Figma node 678:6915 */
 .chatBox {
   width: 100%;
+  max-width: 520px;
   align-self: center;
   flex-shrink: 0;
   box-sizing: border-box;

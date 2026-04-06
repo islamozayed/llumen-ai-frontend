@@ -180,9 +180,9 @@ function StoryListing({ className, showProgressBar = true }: StoryListingProps) 
 
 export default function LandingHomeDefault() {
   return (
-    <div className="backdrop-blur-[100px] relative size-full" data-name="Landing - Home - Default" data-node-id="449:7433">
-      <div className="-translate-x-1/2 absolute backdrop-blur-[100px] bg-[rgba(44,44,44,0.6)] h-[3096px] left-1/2 top-0 w-full" data-node-id="449:7442" />
-      <div className="absolute content-stretch flex flex-col h-[941px] items-start left-0 top-[144px] w-full" data-node-id="449:7510">
+    <div className="backdrop-blur-[100px] relative min-h-full min-w-0 w-full max-w-none" data-name="Landing - Home - Default" data-node-id="449:7433">
+      <div className="absolute inset-x-0 top-0 h-[3096px] backdrop-blur-[100px] bg-[rgba(44,44,44,0.6)]" data-node-id="449:7442" />
+      <div className="absolute inset-x-0 top-[144px] flex h-[941px] w-full min-w-0 flex-col content-stretch items-start" data-node-id="449:7510">
         <div className="content-stretch flex flex-col gap-[12px] items-start p-[24px] relative shrink-0 w-full" data-node-id="449:8010">
           <p className="font-['IBM_Plex_Mono',ui-monospace,monospace] font-bold leading-[normal] not-italic relative shrink-0 text-[16px] text-white uppercase whitespace-nowrap" data-node-id="449:7508">
             Latest Briefings
@@ -996,7 +996,7 @@ export default function LandingHomeDefault() {
           </div>
         </div>
       </div>
-      <div className="absolute left-0 top-0 w-full backdrop-blur-[45px] bg-[rgba(0,0,0,0.1)] content-stretch flex flex-col gap-[10px] items-start justify-center px-[24px] py-[20px] box-border" data-name="Nav" data-node-id="1777:45885">
+      <div className="absolute inset-x-0 top-0 box-border flex w-full min-w-0 flex-col content-stretch items-start justify-center gap-[10px] bg-[rgba(0,0,0,0.1)] px-[24px] py-[20px] backdrop-blur-[45px]" data-name="Nav" data-node-id="1777:45885">
         <div className="content-stretch flex items-center justify-between relative shrink-0 w-full" data-name="header" data-node-id="I1777:45885;1777:45709">
           <LogoContainer className="content-stretch flex gap-[8px] h-[40px] items-center relative shrink-0" />
           <div className="content-stretch flex gap-[10px] items-center relative shrink-0 text-white whitespace-nowrap" data-node-id="I1777:45885;1777:45714">
