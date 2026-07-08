@@ -13,8 +13,8 @@ export function AssistantHero() {
         </div>
       </div>
       <div className={styles.greeting}>
-        <p>Hello! I&apos;m Llumen</p>
-        <p>How can I help you today?</p>
+        <p className={styles.greetingLead}>Hello! I&apos;m Llumen</p>
+        <p className={styles.greetingSub}>How can I help you today?</p>
       </div>
     </div>
   )

@@ -1,16 +1,16 @@
-import {
-  Content as AccordionContent,
-  Header as AccordionHeader,
-  Item as AccordionItem,
-  Root as AccordionRoot,
-  Trigger as AccordionTrigger,
-} from '@radix-ui/react-accordion'
-import { CheckCircle, Clock, Globe } from '@phosphor-icons/react'
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import type { AssistantReplyPayload, TechnicalBlock, TimelineStep } from './assistantReplyTypes'
-import { PROACTIVE_SCENARIOS } from './proactiveScenarios'
+import { CheckCircle, Globe, ChartLine, Database, SquaresFour, Table, CaretRight } from '@phosphor-icons/react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
+import type {
+  AssistantReplyPayload,
+  CreatedComponent,
+  CreatedComponentType,
+  ThinkingStep,
+  ThinkingStepKind,
+  TimelineStep,
+} from './assistantReplyTypes'
+import { thinkingStepsFromTimeline } from './thinkingSteps'
 import styles from './AssistantTimelineReply.module.css'
-import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
 
 export type AssistantTimelineReplyProps = {
   reply: AssistantReplyPayload
@@ -18,20 +18,21 @@ export type AssistantTimelineReplyProps = {
   streamingText?: string
   /** When true, the trailing word of `streamingText` is still typing — skip its reveal until complete. */
   isAnswerStreaming?: boolean
-  /** Fired with a scenario id when the user picks a proactive follow-up (parent sends user msg + assistant turn). */
-  onProactivePick?: (scenarioId: string) => void
-  /** False for older assistant turns so only the latest reply shows follow-ups. */
-  showProactiveSuggestions?: boolean
+  /** Fired when the user opens a created component in the detail sub-panel. */
+  onComponentSelect?: (component: CreatedComponent) => void
+  /** Highlights the chip for the component currently open in the detail panel. */
+  selectedComponentId?: string | null
+  /** When true, skip step animation (used for older turns in the transcript). */
+  instantTimeline?: boolean
+  /** Conversation column used to center the thinking popover. */
+  conversationPanelRef?: RefObject<HTMLElement | null>
   className?: string
 }
 
-const HEADLINE_LEAD_MS = 500
-const STEP_PROGRESS_MS = 2000
-const STEP_GAP_MS = 350
-
-function normalizeTechnical(technical: TechnicalBlock | TechnicalBlock[]): TechnicalBlock[] {
-  return Array.isArray(technical) ? technical : [technical]
-}
+const HEADLINE_LEAD_MS = 180
+const STEP_PROGRESS_MS = 920
+const STEP_GAP_MS = 160
+const THINKING_STEP_REVEAL_MS = 380
 
 function subscribeReducedMotion(callback: () => void) {
   const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -59,8 +60,6 @@ function splitWordSpaceSegments(text: string): { text: string; isWord: boolean }
 }
 
 const WORD_REVEAL_STAGGER_MS = 48
-/** ~match `.wordReveal` animation duration in CSS */
-const WORD_REVEAL_DURATION_MS = 460
 
 /** Proactive section: title animates first (delay 0 in CSS); chips stagger after */
 const PROACTIVE_ITEM_BASE_MS = 88
@@ -124,100 +123,258 @@ function AnimatedWordsParagraph({
   )
 }
 
-function StepIcon({ kind, className }: { kind: TimelineStep['kind']; className?: string }) {
-  const cls = [styles.kindIcon, className].filter(Boolean).join(' ')
-  const tone =
-    kind === 'tool'
-      ? `${cls} ${styles.kindIconTool}`
-      : kind === 'outcome'
-        ? `${cls} ${styles.kindIconOutcome}`
-        : cls
-  return (
-    <span className={tone} aria-hidden>
-      {kind === 'tool' ? (
+function ThinkingStepIcon({ kind }: { kind: ThinkingStepKind }) {
+  if (kind === 'search') {
+    return (
+      <span className={`${styles.thinkingStepIcon} ${styles.thinkingStepIconSearch}`} aria-hidden>
         <Globe weight="duotone" size={14} />
-      ) : kind === 'outcome' ? (
+      </span>
+    )
+  }
+  if (kind === 'done') {
+    return (
+      <span className={`${styles.thinkingStepIcon} ${styles.thinkingStepIconDone}`} aria-hidden>
         <CheckCircle weight="fill" size={14} />
-      ) : (
-        <Clock weight="duotone" size={14} />
-      )}
-    </span>
-  )
+      </span>
+    )
+  }
+  return <span className={styles.thinkingStepDot} aria-hidden />
 }
 
-function TechBlockPre({ children }: { children: string }) {
-  const scrollRef = useRevealScrollbarOnScroll()
-  return (
-    <pre ref={scrollRef} className={styles.techBlockPre}>
-      {children}
-    </pre>
-  )
-}
+function ThinkingPopover({
+  open,
+  anchorRef,
+  panelRef,
+  steps,
+  reduceMotion,
+  onClose,
+}: {
+  open: boolean
+  anchorRef: RefObject<HTMLButtonElement | null>
+  panelRef?: RefObject<HTMLElement | null>
+  steps: ThinkingStep[]
+  reduceMotion: boolean
+  onClose: () => void
+}) {
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const [layout, setLayout] = useState({ top: 0, left: 0, width: 360 })
 
-function TechnicalDisclosure({ blocks }: { blocks: TechnicalBlock[] }) {
-  if (blocks.length === 0) return null
-  return (
-    <details className={styles.techDetails}>
-      <summary className={styles.techSummary}>View technical details</summary>
-      <div className={styles.techBody}>
-        {blocks.map((block, i) => (
-          <div key={`${block.label ?? 'block'}-${i}`}>
-            {block.label ? <p className={styles.techBlockLabel}>{block.label}</p> : null}
-            <TechBlockPre>{block.content}</TechBlockPre>
-          </div>
+  const updatePosition = useCallback(() => {
+    const trigger = anchorRef.current
+    if (!trigger) return
+
+    const triggerRect = trigger.getBoundingClientRect()
+    const panelRect = panelRef?.current?.getBoundingClientRect() ?? {
+      left: 24,
+      top: 24,
+      width: window.innerWidth - 48,
+      height: window.innerHeight - 48,
+      right: window.innerWidth - 24,
+      bottom: window.innerHeight - 24,
+    }
+
+    const width = Math.min(420, Math.max(300, panelRect.width - 48))
+    const left = panelRect.left + (panelRect.width - width) / 2
+    const popoverHeight = popoverRef.current?.offsetHeight ?? 0
+    const gap = 12
+    const minTop = panelRect.top + 16
+
+    let top = triggerRect.top - popoverHeight - gap
+    if (top < minTop) top = triggerRect.bottom + gap
+
+    setLayout({ top, left, width })
+  }, [anchorRef, panelRef])
+
+  useLayoutEffect(() => {
+    if (!open) return
+    updatePosition()
+    requestAnimationFrame(updatePosition)
+  }, [open, steps.length, updatePosition])
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (anchorRef.current?.contains(target)) return
+      if (popoverRef.current?.contains(target)) return
+      onClose()
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open, anchorRef, onClose])
+
+  useEffect(() => {
+    if (!open) return
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [open, updatePosition])
+
+  if (!open) return null
+
+  return createPortal(
+    <div
+      ref={popoverRef}
+      className={styles.thinkingPopover}
+      style={{
+        top: layout.top,
+        left: layout.left,
+        width: layout.width,
+      }}
+      role="dialog"
+      aria-label="Thinking"
+    >
+      <p className={styles.thinkingPanelTitle}>Thinking</p>
+      <ol className={styles.thinkingStepList}>
+        {steps.map((step, index) => (
+          <li
+            key={step.id}
+            className={styles.thinkingStepItem}
+            style={reduceMotion ? undefined : { animationDelay: `${index * 40}ms` }}
+          >
+            <ThinkingStepIcon kind={step.kind} />
+            <div className={styles.thinkingStepText}>
+              <span className={styles.thinkingStepTitle}>{step.title}</span>
+              {step.description ? <p className={styles.thinkingStepDesc}>{step.description}</p> : null}
+            </div>
+          </li>
         ))}
-      </div>
-    </details>
+      </ol>
+    </div>,
+    document.body,
   )
 }
 
 const OPENING_SUFFIX = ', let me work on this report for you.'
 
+function ComponentCardPreview({ component }: { component: CreatedComponent }) {
+  const preview = component.preview
+
+  if (preview?.kind === 'image') {
+    const cover = preview.fit === 'cover'
+    return (
+      <img
+        className={cover ? styles.componentPreviewImageCover : styles.componentPreviewImage}
+        src={preview.src}
+        alt={preview.alt ?? component.title}
+        loading="lazy"
+      />
+    )
+  }
+
+  if (preview?.kind === 'kpi') {
+    return (
+      <div className={styles.componentPreviewKpi}>
+        <span className={styles.componentPreviewKpiValue}>
+          {preview.value}
+          {preview.unit ? <span className={styles.componentPreviewKpiUnit}>{preview.unit}</span> : null}
+        </span>
+        <span className={styles.componentPreviewKpiCaption}>{component.title}</span>
+      </div>
+    )
+  }
+
+  if (preview?.kind === 'text') {
+    return <p className={styles.componentPreviewText}>{preview.content}</p>
+  }
+
+  return (
+    <div className={styles.componentPreviewFallback} aria-hidden>
+      <CreatedComponentIcon type={component.type} className={styles.componentPreviewFallbackIcon} />
+    </div>
+  )
+}
+
+function CreatedComponentIcon({ type, className }: { type: CreatedComponentType; className?: string }) {
+  const iconProps = { className, size: 14 as const, weight: 'regular' as const, 'aria-hidden': true as const }
+  switch (type) {
+    case 'kpi':
+      return <ChartLine {...iconProps} />
+    case 'data-sample':
+      return <Database {...iconProps} />
+    case 'visual':
+      return <SquaresFour {...iconProps} />
+    case 'briefing':
+      return <Table {...iconProps} />
+    case 'domain':
+      return <Globe {...iconProps} />
+    default:
+      return <Table {...iconProps} />
+  }
+}
+
 export function AssistantTimelineReply({
   reply,
   streamingText,
   isAnswerStreaming = false,
-  onProactivePick,
-  showProactiveSuggestions = true,
+  onComponentSelect,
+  selectedComponentId = null,
+  instantTimeline = false,
+  conversationPanelRef,
   className,
 }: AssistantTimelineReplyProps) {
-  const { confirmation, timeline } = reply
+  const { confirmation, timeline, createdComponents = [] } = reply
+  const thinkingSteps = useMemo(
+    () => reply.thinkingSteps ?? thinkingStepsFromTimeline(timeline),
+    [reply.thinkingSteps, timeline],
+  )
   const reduceMotion = usePrefersReducedMotion()
 
   const [revealedCount, setRevealedCount] = useState(0)
   const [runningIndex, setRunningIndex] = useState<number | null>(null)
   const [sequenceComplete, setSequenceComplete] = useState(false)
-  const [proactiveReady, setProactiveReady] = useState(false)
-  const [hoveredStepId, setHoveredStepId] = useState<string | null>(null)
+  const [thoughtExpanded, setThoughtExpanded] = useState(false)
+  const [thoughtSeconds, setThoughtSeconds] = useState<number | null>(null)
+  const [revealedThinkingCount, setRevealedThinkingCount] = useState(0)
+  const thoughtTriggerRef = useRef<HTMLButtonElement>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const thoughtStartRef = useRef(Date.now())
 
   useEffect(() => {
-    if (!showProactiveSuggestions || !onProactivePick) {
-      setProactiveReady(false)
+    if (instantTimeline || reduceMotion) {
+      if (revealedCount > 0 && thoughtSeconds === null) {
+        setThoughtSeconds(Math.max(1, Math.round((Date.now() - thoughtStartRef.current) / 1000)))
+      }
       return
     }
-    if (!sequenceComplete || isAnswerStreaming || !streamingText || streamingText.length === 0) {
-      setProactiveReady(false)
+    if (revealedCount > 0 && thoughtSeconds === null) {
+      setThoughtSeconds(Math.max(1, Math.round((Date.now() - thoughtStartRef.current) / 1000)))
+    }
+  }, [instantTimeline, reduceMotion, revealedCount, thoughtSeconds])
+
+  const isThinking = !instantTimeline && revealedCount === 0 && timeline.length > 0
+
+  useEffect(() => {
+    if (instantTimeline || reduceMotion) {
+      setRevealedThinkingCount(thinkingSteps.length)
       return
     }
-    if (reduceMotion) {
-      setProactiveReady(true)
+    if (!isThinking) {
+      setRevealedThinkingCount(thinkingSteps.length)
       return
     }
-    const wordCount = splitWordSpaceSegments(streamingText).filter((s) => s.isWord).length
-    const lastStaggerStart = Math.max(0, wordCount - 1) * WORD_REVEAL_STAGGER_MS
-    const delay = lastStaggerStart + WORD_REVEAL_DURATION_MS + 60
-    const id = window.setTimeout(() => setProactiveReady(true), delay)
-    return () => clearTimeout(id)
-  }, [
-    showProactiveSuggestions,
-    onProactivePick,
-    sequenceComplete,
-    isAnswerStreaming,
-    streamingText,
-    reduceMotion,
-  ])
+
+    setRevealedThinkingCount(0)
+    let i = 0
+    const interval = window.setInterval(() => {
+      i += 1
+      setRevealedThinkingCount(i)
+      if (i >= thinkingSteps.length) clearInterval(interval)
+    }, THINKING_STEP_REVEAL_MS)
+
+    return () => clearInterval(interval)
+  }, [instantTimeline, isThinking, reduceMotion, thinkingSteps.length])
 
   useEffect(() => {
     const clearT = () => {
@@ -232,7 +389,7 @@ export function AssistantTimelineReply({
     startTimeoutRef.current = window.setTimeout(() => {
       if (cancelled) return
 
-      if (reduceMotion) {
+      if (instantTimeline || reduceMotion) {
         setRevealedCount(timeline.length)
         setRunningIndex(null)
         setSequenceComplete(true)
@@ -279,12 +436,31 @@ export function AssistantTimelineReply({
       }
       clearT()
     }
-  }, [timeline, reduceMotion])
+  }, [timeline, reduceMotion, instantTimeline])
 
   const openingLine =
     confirmation && confirmation.trim().length > 0
       ? `${confirmation.trim()}${OPENING_SUFFIX}`
       : null
+
+  const responseComplete =
+    sequenceComplete && Boolean(streamingText && streamingText.length > 0) && !isAnswerStreaming
+  const showThoughtRow = responseComplete && thoughtSeconds != null
+  const thoughtLabel =
+    thoughtSeconds != null
+      ? `Thought for ${thoughtSeconds} second${thoughtSeconds === 1 ? '' : 's'}`
+      : ''
+  const visibleThinkingSteps = thinkingSteps.slice(
+    0,
+    isThinking ? revealedThinkingCount : thinkingSteps.length,
+  )
+
+  const showComponents =
+    sequenceComplete &&
+    Boolean(streamingText && streamingText.length > 0) &&
+    !isAnswerStreaming &&
+    createdComponents.length > 0 &&
+    Boolean(onComponentSelect)
 
   return (
     <div className={[styles.root, className].filter(Boolean).join(' ')}>
@@ -296,58 +472,15 @@ export function AssistantTimelineReply({
         />
       ) : null}
 
-      <div className={styles.timeline} onMouseLeave={() => setHoveredStepId(null)}>
-        <AccordionRoot type="multiple" className={styles.stepsAccordion}>
-          {timeline.map((step, index) => {
-            if (index >= revealedCount) return null
-
-            const raw = step.body
-            const showBody = raw != null && raw !== ''
-            const technicalBlocks = step.technical ? normalizeTechnical(step.technical) : []
-            const isRunning = runningIndex === index
-            const showProgressCopy = isRunning && Boolean(step.titleInProgress)
-            const rowTitle = showProgressCopy ? (step.titleInProgress as string) : step.title
-            const showMeta = step.meta?.resultCount != null && !isRunning
-            const dimStep = hoveredStepId !== null && hoveredStepId !== step.id
-
-            return (
-              <AccordionItem
-                key={step.id}
-                value={step.id}
-                className={[styles.stepItem, dimStep ? styles.stepItemDimmed : ''].filter(Boolean).join(' ')}
-              >
-                <AccordionHeader className={styles.stepAccordionHeader}>
-                  <AccordionTrigger
-                    className={styles.stepTrigger}
-                    onMouseEnter={() => setHoveredStepId(step.id)}
-                  >
-                    <StepIcon kind={step.kind} />
-                    <span
-                      className={
-                        isRunning && step.titleInProgress
-                          ? `${styles.stepTitle} ${styles.stepTitleShimmer}`
-                          : styles.stepTitle
-                      }
-                    >
-                      {rowTitle}
-                    </span>
-                    {showMeta && step.meta?.resultCount != null ? (
-                      <span className={styles.resultChip}>{step.meta.resultCount} results</span>
-                    ) : null}
-                  </AccordionTrigger>
-                </AccordionHeader>
-                <AccordionContent
-                  className={styles.stepAccordionContent}
-                  onMouseEnter={() => setHoveredStepId(step.id)}
-                >
-                  {showBody ? <p className={styles.stepBody}>{raw}</p> : null}
-                  {technicalBlocks.length > 0 ? <TechnicalDisclosure blocks={technicalBlocks} /> : null}
-                </AccordionContent>
-              </AccordionItem>
-            )
-          })}
-        </AccordionRoot>
-      </div>
+      {runningIndex != null && timeline[runningIndex] ? (
+        <div className={styles.statusWrap} aria-live="polite">
+          <div key={timeline[runningIndex].id} className={styles.statusLine}>
+            <span className={`${styles.stepTitle} ${styles.stepTitleShimmer}`}>
+              {timeline[runningIndex].titleInProgress ?? timeline[runningIndex].title}
+            </span>
+          </div>
+        </div>
+      ) : null}
 
       {sequenceComplete ? (
         <div className={styles.finalReply} aria-live="polite">
@@ -364,34 +497,72 @@ export function AssistantTimelineReply({
         </div>
       ) : null}
 
-      {sequenceComplete &&
-      proactiveReady &&
-      showProactiveSuggestions &&
-      onProactivePick &&
-      streamingText &&
-      streamingText.length > 0 &&
-      !isAnswerStreaming ? (
-        <div className={styles.proactiveWrap} aria-label="Things I can do next">
-          <p className={styles.proactiveLabel}>Things I can do next</p>
-          <ul className={styles.proactiveList}>
-            {PROACTIVE_SCENARIOS.map((scenario, index) => (
-              <li
-                key={scenario.id}
-                className={styles.proactiveListItem}
-                style={{
-                  animationDelay: `${PROACTIVE_ITEM_BASE_MS + index * PROACTIVE_ITEM_STAGGER_MS}ms`,
-                }}
-              >
-                <button
-                  type="button"
-                  className={styles.proactiveBtn}
-                  onClick={() => onProactivePick(scenario.id)}
+      {showComponents ? (
+        <div className={styles.createdComponentsWrap} aria-label="Created components">
+          <p className={styles.createdComponentsLabel}>Created components</p>
+          <ul className={styles.createdComponentsGrid}>
+            {createdComponents.map((component, index) => {
+              const isActive = selectedComponentId === component.id
+              const previewFillsCard =
+                component.preview?.kind === 'image' && component.preview.fit === 'cover'
+              return (
+                <li
+                  key={component.id}
+                  className={styles.createdComponentsItem}
+                  style={{
+                    animationDelay: `${PROACTIVE_ITEM_BASE_MS + index * PROACTIVE_ITEM_STAGGER_MS}ms`,
+                  }}
                 >
-                  {scenario.suggestion}
-                </button>
-              </li>
-            ))}
+                  <button
+                    type="button"
+                    className={`${styles.componentCard}${isActive ? ` ${styles.componentCardActive}` : ''}`}
+                    onClick={() => onComponentSelect?.(component)}
+                    aria-pressed={isActive}
+                  >
+                    <div
+                      className={`${styles.componentCardPreview}${previewFillsCard ? ` ${styles.componentCardPreviewFill}` : ''}`}
+                    >
+                      <ComponentCardPreview component={component} />
+                    </div>
+                    <div className={styles.componentCardContent}>
+                      <p className={styles.componentCardTitle}>{component.title}</p>
+                    </div>
+                  </button>
+                </li>
+              )
+            })}
           </ul>
+        </div>
+      ) : null}
+
+      {showThoughtRow ? (
+        <div className={styles.thinkingWrap}>
+          <button
+            ref={thoughtTriggerRef}
+            type="button"
+            className={styles.thinkingRow}
+            onClick={() => setThoughtExpanded((open) => !open)}
+            aria-expanded={thoughtExpanded}
+            aria-haspopup="dialog"
+          >
+            <span className={isThinking ? styles.thinkingLabelActive : styles.thinkingLabel}>
+              {thoughtLabel}
+            </span>
+            <CaretRight
+              className={`${styles.thinkingCaret}${thoughtExpanded ? ` ${styles.thinkingCaretOpen}` : ''}`}
+              size={14}
+              weight="bold"
+              aria-hidden
+            />
+          </button>
+          <ThinkingPopover
+            open={thoughtExpanded}
+            anchorRef={thoughtTriggerRef}
+            panelRef={conversationPanelRef}
+            steps={visibleThinkingSteps}
+            reduceMotion={reduceMotion}
+            onClose={() => setThoughtExpanded(false)}
+          />
         </div>
       ) : null}
     </div>

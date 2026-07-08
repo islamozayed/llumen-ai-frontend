@@ -1,6 +1,6 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
-import { FolderPlus, PlusCircle } from '@phosphor-icons/react'
+import { ArrowLeft, DotsThreeVertical, Gear, Plus } from '@phosphor-icons/react'
 import styles from './SessionsPanel.module.css'
 
 export type SessionSummary = {
@@ -34,10 +34,88 @@ const MOCK_SESSIONS: SessionSummary[] = [
 export type SessionsPanelProps = {
   onOpenSession: (id: string) => void
   onNewSession: () => void
-  onNewProject: () => void
+  onBack: () => void
+  onSettings?: () => void
 }
 
-export function SessionsPanel({ onOpenSession, onNewSession, onNewProject }: SessionsPanelProps) {
+const SESSION_MENU_ITEMS = [
+  { id: 'rename', label: 'Rename' },
+  { id: 'delete', label: 'Delete conversation' },
+] as const
+
+function SessionRowItem({
+  session,
+  onOpen,
+}: {
+  session: SessionSummary
+  onOpen: (id: string) => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (menuRef.current?.contains(event.target as Node)) return
+      setMenuOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [menuOpen])
+
+  return (
+    <li>
+      <div className={styles.sessionRow}>
+        <button type="button" className={styles.sessionOpenBtn} onClick={() => onOpen(session.id)}>
+          <div className={styles.sessionBody}>
+            <p className={styles.sessionTitle}>{session.title}</p>
+            <p className={styles.sessionPreview}>{session.preview}</p>
+            <p className={styles.sessionMeta}>{session.updatedLabel}</p>
+          </div>
+        </button>
+        <div className={styles.sessionMenuWrap} ref={menuRef}>
+          <button
+            type="button"
+            className={styles.sessionMenuBtn}
+            onClick={(event) => {
+              event.stopPropagation()
+              setMenuOpen((open) => !open)
+            }}
+            aria-label={`Options for ${session.title}`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <DotsThreeVertical size={16} weight="bold" aria-hidden />
+          </button>
+          {menuOpen ? (
+            <div className={styles.sessionMenu} role="menu" aria-label={`${session.title} options`}>
+              {SESSION_MENU_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="menuitem"
+                  className={styles.sessionMenuItem}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </li>
+  )
+}
+
+export function SessionsPanel({ onOpenSession, onNewSession, onBack, onSettings }: SessionsPanelProps) {
   const scrollRef = useRevealScrollbarOnScroll()
   const open = useCallback(
     (id: string) => {
@@ -48,20 +126,34 @@ export function SessionsPanel({ onOpenSession, onNewSession, onNewProject }: Ses
 
   return (
     <div className={styles.root}>
+      <div className={styles.header}>
+        <div className={styles.headerTitle}>
+          <button type="button" className={styles.headerBtn} onClick={onBack} aria-label="Back to chat">
+            <ArrowLeft size={20} weight="regular" aria-hidden />
+          </button>
+          <h2 className={styles.heading}>Conversations</h2>
+        </div>
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.headerBtn}
+            onClick={onSettings}
+            aria-label="Conversation settings"
+          >
+            <Gear size={20} weight="regular" aria-hidden />
+          </button>
+        </div>
+      </div>
+      <div className={styles.headerSeparator} />
       <div ref={scrollRef} className={styles.scroll}>
-        <h2 className={styles.heading}>Sessions</h2>
         <p className={styles.subtitle}>
-          Open a recent conversation or start something new. Projects group related sessions.
+          Open a recent conversation or start something new.
         </p>
 
         <div className={styles.actions}>
           <button type="button" className={styles.actionBtn} onClick={onNewSession}>
-            <PlusCircle size={18} weight="duotone" aria-hidden />
+            <Plus size={18} weight="regular" aria-hidden />
             New session
-          </button>
-          <button type="button" className={styles.actionBtn} onClick={onNewProject}>
-            <FolderPlus size={18} weight="duotone" aria-hidden />
-            New project
           </button>
         </div>
 
@@ -72,17 +164,7 @@ export function SessionsPanel({ onOpenSession, onNewSession, onNewProject }: Ses
         ) : (
           <ul className={styles.list}>
             {MOCK_SESSIONS.map((s) => (
-              <li key={s.id}>
-                <button type="button" className={styles.sessionRow} onClick={() => open(s.id)}>
-                  <div className={styles.sessionBody}>
-                    <div className={styles.sessionTitleRow}>
-                      <p className={styles.sessionTitle}>{s.title}</p>
-                      <p className={styles.sessionMeta}>{s.updatedLabel}</p>
-                    </div>
-                    <p className={styles.sessionPreview}>{s.preview}</p>
-                  </div>
-                </button>
-              </li>
+              <SessionRowItem key={s.id} session={s} onOpen={open} />
             ))}
           </ul>
         )}

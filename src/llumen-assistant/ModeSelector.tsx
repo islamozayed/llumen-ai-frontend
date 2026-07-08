@@ -1,5 +1,5 @@
+import { CaretDown, Stack } from '@phosphor-icons/react'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { llumenAssets } from './assets'
 import styles from './compact-assistant.module.css'
 
 export type AssistantMode = 'build' | 'analyze' | 'search'
@@ -70,9 +70,9 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
         aria-controls={listId}
         onClick={() => setOpen((o) => !o)}
       >
-        <img className={styles.iconBtnImg} src={llumenAssets.stack} alt="" width={20} height={20} />
+        <Stack className={styles.iconBtnImg} size={20} weight="regular" aria-hidden />
         <span className={styles.modeLabel}>{MODE_LABELS[value]}</span>
-        <img className={styles.caret} src={llumenAssets.caretDown} alt="" width={16} height={16} />
+        <CaretDown className={styles.caret} size={16} weight="bold" aria-hidden />
       </button>
       {open && (
         <ul className={styles.modeMenu} id={listId} role="listbox" aria-label="Assistant mode">

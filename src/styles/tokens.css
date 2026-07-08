@@ -65,6 +65,10 @@
 
   --ll-blur-panel: 25px;
   --ll-blur-launcher: 15px;
+  --ll-blur-menu: 30px;
+
+  --ll-bg-menu-glass: rgba(8, 11, 23, 0.45);
+  --ll-border-menu: rgba(255, 255, 255, 0.1);
 
   --ll-shadow-panel: 0 24px 80px rgba(0, 0, 0, 0.45);
 
@@ -73,6 +77,24 @@
   --ll-space-md: 16px;
   --ll-space-lg: 24px;
   --ll-space-xl: 40px;
+
+  /* Compact assistant dock (right rail) — narrow ≈ reference .narrow proportions */
+  --ll-panel-chat-width: min(680px, 34vw);
+  --ll-panel-width: var(--ll-panel-chat-width);
+  --ll-panel-split-width: min(1440px, calc(100dvw - 2 * var(--ll-space-lg)));
+  /* Split view: narrower chat rail so the component preview panel gets more width */
+  --ll-panel-chat-split-width: min(560px, 34vw);
+  --ll-panel-top-offset: 140px;
+  /* Align panel bottom with end of Featured live experiences (landing layout) */
+  --ll-landing-content-top: 144px;
+  --ll-landing-briefings-block: 318px;
+  --ll-landing-featured-block: 602px;
+  --ll-panel-bottom-align: calc(
+    var(--ll-landing-content-top) + var(--ll-landing-briefings-block) + var(--ll-landing-featured-block)
+  );
+  /* Bottom margin + launcher + gap above launcher */
+  --ll-panel-stack-bottom: calc(var(--ll-space-lg) + 50px + var(--ll-space-sm));
+  --ll-panel-compact-height: min(90dvh, calc(100dvh - var(--ll-panel-stack-bottom)));
 
   /* Figma Chat=2 (529:16302) — Request box ↔ content, ChatBox internals */
   --ll-figma-panel-header-gap: 12px; /* gap below header cluster */
@@ -90,10 +112,125 @@
   --ll-duration: 220ms;
   --ll-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
+  /* Header icon buttons */
+  --ll-header-icon-btn-size: 32px;
+  --ll-search-expanded-width: 6.875rem;
+  --ll-search-expanded-pad-x: 12px;
+  --ll-search-label-gap: 8px;
+  --ll-search-expand-duration: 0.38s;
+  --ll-search-expand-ease: cubic-bezier(0.33, 1, 0.68, 1);
+
   /* Floating scrollbars (overlay content, frosted thumb) */
-  --ll-scrollbar-overlay-blur: 12px;
-  --ll-scrollbar-thumb: rgba(255, 255, 255, 0.1);
-  --ll-scrollbar-thumb-hover: rgba(255, 255, 255, 0.18);
+  --ll-scrollbar-size: 4px;
+  --ll-scrollbar-edge-inset: 8px;
+  --ll-scrollbar-content-gap: 12px;
+  --ll-scrollbar-overlay-blur: 8px;
+  --ll-scrollbar-thumb: rgba(132, 177, 245, 0.14);
+  --ll-scrollbar-thumb-hover: rgba(132, 177, 245, 0.24);
+
+  /* ---------------------------------------------------------------------------
+   * Reference Lumen chat design tokens (from the production llumen app).
+   * Names mirror the real app's --color-* / --gradient-* system so the ported
+   * component styles render 1:1. Values are derived for our dark theme.
+   * ------------------------------------------------------------------------ */
+
+  /* Text */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-text-muted: rgba(255, 255, 255, 0.5);
+  --color-text-placeholder: rgba(255, 255, 255, 0.32);
+
+  /* Borders */
+  --color-border-default: rgba(255, 255, 255, 0.12);
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-subtle-strong: rgba(255, 255, 255, 0.1);
+  --color-border-light: rgba(255, 255, 255, 0.2);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* Buttons */
+  --color-button-ghost-bg: rgba(255, 255, 255, 0.04);
+  --color-button-ghost-hover: rgba(255, 255, 255, 0.08);
+  --color-button-default-bg: rgba(255, 255, 255, 0.06);
+  --color-button-default-hover: rgba(255, 255, 255, 0.12);
+  --color-button-hover-shine: rgba(255, 255, 255, 0.14);
+  --color-button-active-glow: rgba(132, 177, 245, 0.45);
+  --color-button-active-border: rgba(132, 177, 245, 0.85);
+
+  /* Feedback — info (blue) */
+  --color-feedback-info: #3884ff;
+  --color-feedback-info-subtle: rgba(56, 132, 255, 0.08);
+  --color-feedback-info-muted: rgba(56, 132, 255, 0.16);
+  --color-feedback-info-border: rgba(56, 132, 255, 0.45);
+  --color-feedback-info-bg: rgba(56, 132, 255, 0.2);
+
+  /* Feedback — error (red) */
+  --color-feedback-error: #ff6b6b;
+  --color-feedback-error-muted: rgba(255, 107, 107, 0.16);
+  --color-feedback-error-border: rgba(255, 107, 107, 0.45);
+  --color-feedback-error-bg: rgba(255, 107, 107, 0.2);
+
+  /* Feedback — success (green) */
+  --color-feedback-success: #2eb86d;
+  --color-feedback-success-bg: rgba(46, 184, 109, 0.16);
+  --color-feedback-success-glow: rgba(46, 184, 109, 0.4);
+
+  /* Feedback — warning (amber) */
+  --color-feedback-warning: #f0a830;
+  --color-feedback-warning-bg: rgba(240, 168, 48, 0.18);
+  --color-feedback-warning-border: rgba(240, 168, 48, 0.5);
+  --color-feedback-warning-highlight: rgba(240, 168, 48, 0.35);
+
+  /* Surfaces */
+  --color-surface-card: rgba(255, 255, 255, 0.03);
+  --color-surface-dark: rgba(8, 11, 23, 0.85);
+  --color-surface-subtle: rgba(255, 255, 255, 0.02);
+  --color-surface-raised: rgba(255, 255, 255, 0.04);
+  --color-surface-chip: rgba(255, 255, 255, 0.06);
+  --color-surface-map-popup: rgba(8, 11, 23, 0.55);
+
+  /* Neutral muted */
+  --color-neutral-muted-surface: rgba(255, 255, 255, 0.04);
+  --color-neutral-muted-border-light: rgba(255, 255, 255, 0.08);
+  --color-neutral-muted-text: rgba(255, 255, 255, 0.7);
+  --color-neutral-muted-text-subtle: rgba(255, 255, 255, 0.5);
+
+  /* Accent — edit (violet) */
+  --color-accent-edit: #a78bfa;
+  --color-accent-edit-subtle: rgba(167, 139, 250, 0.08);
+  --color-accent-edit-muted: rgba(167, 139, 250, 0.16);
+  --color-accent-edit-border: rgba(167, 139, 250, 0.4);
+  --color-accent-edit-bg: rgba(167, 139, 250, 0.2);
+
+  /* Overlays */
+  --color-overlay-muted: rgba(0, 0, 0, 0.35);
+  --color-overlay-backdrop: rgba(0, 0, 0, 0.5);
+
+  /* Trend / glow / misc */
+  --color-trend-positive: #2eb86d;
+  --color-secondary-glow: rgba(255, 118, 118, 0.5);
+  --color-background-dark: #05060a;
+
+  /* Chat bubble */
+  --color-chat-user-bubble-bg: rgba(255, 255, 255, 0.06);
+  --color-chat-user-bubble-border: rgba(255, 255, 255, 0.1);
+
+  /* Gradients */
+  --gradient-chat-separator: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    transparent 100%
+  );
+  --gradient-chat-panel: linear-gradient(180deg, rgba(8, 11, 23, 0.4) 0%, rgba(8, 11, 23, 0.2) 100%);
+  --gradient-feedback-info: linear-gradient(
+    135deg,
+    rgba(56, 132, 255, 0.9) 0%,
+    rgba(56, 132, 255, 0.6) 100%
+  );
+
+  /* Mono font aliases used by ported styles */
+  --font-family-mono: var(--ll-font-mono);
+  --font-mono: var(--ll-font-mono);
 }
 
 @media (prefers-reduced-motion: reduce) {

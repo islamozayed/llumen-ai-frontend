@@ -16,12 +16,15 @@ import { AssistantHero } from './AssistantHero'
 import { AssistantLauncher } from './AssistantLauncher'
 import { AssistantPanel } from './AssistantPanel'
 import { ChatComposer } from './ChatComposer'
-import type { AssistantMode } from './ModeSelector'
 import { PanelHeader } from './PanelHeader'
 import type { PanelView } from './PanelHeader'
 import type { AssistantReplyPayload } from './assistantReplyTypes'
 import { AssistantTimelineReply } from './AssistantTimelineReply'
-import { getProactiveScenarioById } from './proactiveScenarios'
+import { ComponentDetailPanel } from './ComponentDetailPanel'
+import { DATA_FETCH_REPLY, DATA_FETCH_STREAM, withCreatedComponents, COMPONENT_STREAM_SUFFIX } from './createdComponentsDemo'
+import { DEMO_THINKING_STEPS } from './thinkingSteps'
+import { buildStandardTimeline } from './standardTimeline'
+import type { CreatedComponent } from './assistantReplyTypes'
 import { SessionsPanel } from './SessionsPanel'
 import type { SendVisualState } from './SendButton'
 import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
@@ -31,91 +34,20 @@ type ChatMessage =
   | { id: string; role: 'assistant'; text: string; reply?: AssistantReplyPayload }
 
 const MOCK_STREAM =
-  'Net store sales for January 2026 land at about $4.2M after returns, at store-channel grain. Dubai Marina stores follow the same definition—last 45 minutes of filings included. Say if you want this broken out by day or region.'
+  'Net store sales for January 2026 land at about $4.2M after returns, at store-channel grain. Dubai Marina stores follow the same definition—last 45 minutes of filings included. Say if you want this broken out by day or region.' +
+  COMPONENT_STREAM_SUFFIX
 
 /** Demo structured reply — non-technical surface, technical behind disclosure */
 const DEMO_REPLY: AssistantReplyPayload = {
   confirmation: 'Absolutely',
+  thinkingSteps: DEMO_THINKING_STEPS,
   headline: 'Pulled January 2026 store-channel net sales and lined it up with how your dashboards count revenue.',
   headlineDetail:
     'We used the retail semantic model, filtered to brick-and-mortar, net of returns, for the calendar month. Open the first timeline step for the same story plus raw definitions you can audit.',
-  timeline: [
-    {
-      id: 'pull-jan-2026',
-      kind: 'tool',
-      titleInProgress: 'Pulling January 2026 store-channel net sales and matching dashboard revenue rules…',
-      title: 'Pulled January 2026 store-channel net sales and lined it up with how your dashboards count revenue.',
-      body: 'We used the retail semantic model, filtered to brick-and-mortar, net of returns, for the calendar month. The figures you see match the executive store P&L view—not cart checkout or ship-from-store.',
-      technical: [
-        {
-          label: 'Dashboard parity contract',
-          format: 'json',
-          content: `{
-  "period": "2026-01",
-  "channel": "store",
-  "revenue_basis": "net_of_returns",
-  "return_window_days": 30,
-  "dashboard_surface": "exec_store_pl_monthly",
-  "excludes": ["online_fulfillment", "ship_from_store_allocations"]
-}`,
-        },
-        {
-          label: 'Semantic & grain',
-          format: 'plain',
-          content:
-            'datasource: retail_analytics\nsemantic: store_sales_monthly\ngrain: calendar_month × channel × region\nstores_included: Dubai Marina + all tagged brick-and-mortar under regional rollup',
-        },
-        {
-          label: 'Metric lineage (extract)',
-          format: 'markdown',
-          content:
-            '**Net store sales** ← `SUM(net_sales_after_returns)` on `fact_store_sales`\n- Joined `dim_channel` (`channel = store`)\n- Calendar: `dim_calendar` month = 2026-01\n- Returns: postings within 30-day window applied per store policy',
-        },
-      ],
-    },
-    {
-      id: 'schema',
-      kind: 'tool',
-      titleInProgress: 'Mapping your retail sales model and warehouse tables…',
-      title: 'Mapped your retail sales model and warehouse tables',
-      body: 'Matched your question to the live analytics model so the total matches what leadership sees in the monthly store P&L.',
-      meta: { resultCount: 3 },
-      technical: [
-        {
-          label: 'Schema snapshot',
-          format: 'plain',
-          content:
-            'datasource: retail_analytics\nsemantic: store_sales_monthly\ntables: fact_store_sales, dim_channel, dim_calendar\ngrain: month × channel × region',
-        },
-        {
-          label: 'Query run',
-          format: 'sql',
-          content: `SELECT
-  DATE_TRUNC('month', sale_ts) AS month,
-  channel_id,
-  SUM(net_sales_after_returns) AS net_sales
-FROM fact_store_sales
-JOIN dim_channel USING (channel_id)
-WHERE month = '2026-01' AND channel = 'store'
-GROUP BY 1, 2;`,
-        },
-      ],
-    },
-    {
-      id: 'reason',
-      kind: 'reasoning',
-      titleInProgress: 'Narrowing to stores and applying return rules…',
-      title: 'Narrowed to stores and applied return rules',
-      body: 'Filtered out online fulfillment, applied your standard 30-day return window, and sanity-checked row counts before reading the total.',
-    },
-    {
-      id: 'answer',
-      kind: 'outcome',
-      titleInProgress: 'Drafting what you can share back…',
-      title: 'What you can share back',
-      body: '',
-    },
-  ],
+  timeline: buildStandardTimeline(
+    'January 2026 store-channel net sales and how those figures align with executive dashboard revenue definitions',
+    'retail sales models, brick-and-mortar revenue semantics, and store P&L data sources',
+  ),
 }
 
 function uid() {
@@ -127,33 +59,17 @@ export function CompactAssistantDemo() {
   const [expanded, setExpanded] = useState(false)
   const [panelView, setPanelView] = useState<PanelView>('chat')
   const [draft, setDraft] = useState('')
-  const [mode, setMode] = useState<AssistantMode>('build')
+  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
   const streamTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const assistantMsgId = useRef<string | null>(null)
   const assistantPanelRef = useRef<HTMLDivElement>(null)
+  const chatMiddleRef = useRef<HTMLDivElement>(null)
   const pendingPanelAnimRef = useRef<{ width: number; height: number; top: number; left: number } | null>(
     null,
   )
   const transcriptScrollRef = useRevealScrollbarOnScroll()
-
-  const toggleExpanded = useCallback(() => {
-    const el = assistantPanelRef.current
-    if (el) {
-      gsap.killTweensOf(el)
-      gsap.set(el, { clearProps: 'width,height,top,left,right,bottom,margin,maxWidth,maxHeight,position' })
-      void el.offsetWidth
-      const r = el.getBoundingClientRect()
-      pendingPanelAnimRef.current = {
-        width: r.width,
-        height: r.height,
-        top: r.top,
-        left: r.left,
-      }
-    }
-    setExpanded((v) => !v)
-  }, [])
 
   useLayoutEffect(() => {
     const start = pendingPanelAnimRef.current
@@ -242,52 +158,57 @@ export function CompactAssistantDemo() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
+        if (selectedComponentId) {
+          setSelectedComponentId(null)
+          return
+        }
         setOpen(false)
         setExpanded(false)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open])
+  }, [open, selectedComponentId])
 
-  const startAssistantStream = useCallback((reply: AssistantReplyPayload, streamText: string) => {
-    const aid = uid()
-    assistantMsgId.current = aid
-    setMessages((m) => [...m, { id: aid, role: 'assistant', text: '', reply }])
-    setStreaming(true)
-    let i = 0
-    streamTimer.current = setInterval(() => {
-      i += 1
-      const next = streamText.slice(0, i)
-      setMessages((m) => m.map((msg) => (msg.id === aid ? { ...msg, text: next } : msg)))
-      if (i >= streamText.length) {
-        if (streamTimer.current) clearInterval(streamTimer.current)
-        streamTimer.current = null
-        assistantMsgId.current = null
-        setStreaming(false)
-      }
-    }, 28)
-  }, [])
+  const startAssistantStream = useCallback(
+    (reply: AssistantReplyPayload, streamText: string, onComplete?: () => void) => {
+      const aid = uid()
+      assistantMsgId.current = aid
+      setMessages((m) => [...m, { id: aid, role: 'assistant', text: '', reply }])
+      setStreaming(true)
+      let i = 0
+      streamTimer.current = setInterval(() => {
+        i += 1
+        const next = streamText.slice(0, i)
+        setMessages((m) => m.map((msg) => (msg.id === aid ? { ...msg, text: next } : msg)))
+        if (i >= streamText.length) {
+          if (streamTimer.current) clearInterval(streamTimer.current)
+          streamTimer.current = null
+          assistantMsgId.current = null
+          setStreaming(false)
+          onComplete?.()
+        }
+      }, 28)
+    },
+    [],
+  )
 
   const send = useCallback(() => {
     const t = draft.trim()
     if (!t || streaming) return
     setDraft('')
+    setSelectedComponentId(null)
     setMessages((m) => [...m, { id: uid(), role: 'user', text: t }])
-    startAssistantStream(DEMO_REPLY, MOCK_STREAM)
+    const lower = t.toLowerCase()
+    const reply =
+      lower.includes('data') && (lower.includes('fetch') || lower.includes('can you'))
+        ? DATA_FETCH_REPLY
+        : withCreatedComponents(DEMO_REPLY)
+    const streamText = reply === DATA_FETCH_REPLY ? DATA_FETCH_STREAM : MOCK_STREAM
+    startAssistantStream(reply, streamText, () => {
+      if (reply === DATA_FETCH_REPLY) setSelectedComponentId('high-heat-districts')
+    })
   }, [draft, streaming, startAssistantStream])
-
-  const onProactivePick = useCallback(
-    (scenarioId: string) => {
-      if (streaming) return
-      const scenario = getProactiveScenarioById(scenarioId)
-      if (!scenario) return
-      setDraft('')
-      setMessages((m) => [...m, { id: uid(), role: 'user', text: scenario.userMessage }])
-      startAssistantStream(scenario.reply, scenario.streamAnswer)
-    },
-    [streaming, startAssistantStream],
-  )
 
   const lastAssistantMessageId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -295,6 +216,29 @@ export function CompactAssistantDemo() {
     }
     return null
   }, [messages])
+
+  const selectedComponent = useMemo((): CreatedComponent | null => {
+    if (!selectedComponentId) return null
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i]
+      if (msg.role !== 'assistant' || !msg.reply?.createdComponents) continue
+      const found = msg.reply.createdComponents.find((c) => c.id === selectedComponentId)
+      if (found) return found
+    }
+    return null
+  }, [messages, selectedComponentId])
+
+  const onComponentSelect = useCallback(
+    (component: CreatedComponent) => {
+      if (streaming) return
+      setSelectedComponentId(component.id)
+    },
+    [streaming],
+  )
+
+  const closeComponentDetail = useCallback(() => {
+    setSelectedComponentId(null)
+  }, [])
 
   const stop = useCallback(() => {
     clearStream()
@@ -305,14 +249,63 @@ export function CompactAssistantDemo() {
   const closePanel = useCallback(() => {
     setOpen(false)
     setExpanded(false)
+    setSelectedComponentId(null)
     setPanelView('chat')
     clearStream()
+    setMessages([])
+    setDraft('')
   }, [clearStream])
 
   const openLauncher = useCallback(() => {
     setOpen(true)
     setPanelView('chat')
   }, [])
+
+  const isNewChat = messages.length === 0
+
+  const chatMiddle = (
+    <div ref={chatMiddleRef} className={`${styles.middle} ${isNewChat ? styles.middleEmpty : ''}`}>
+      {isNewChat ? (
+        <AssistantHero />
+      ) : (
+        <div ref={transcriptScrollRef} className={styles.transcript}>
+          {messages.map((msg) =>
+            msg.role === 'user' ? (
+              <div key={msg.id} className={styles.msgUser}>
+                {msg.text}
+              </div>
+            ) : msg.reply ? (
+              <div key={msg.id} className={styles.msgAssistantTimeline}>
+                <AssistantTimelineReply
+                  key={msg.id}
+                  reply={msg.reply}
+                  streamingText={msg.text}
+                  isAnswerStreaming={streaming && assistantMsgId.current === msg.id}
+                  onComponentSelect={onComponentSelect}
+                  selectedComponentId={selectedComponentId}
+                  instantTimeline={msg.id !== lastAssistantMessageId}
+                  conversationPanelRef={chatMiddleRef}
+                />
+              </div>
+            ) : (
+              <div key={msg.id} className={styles.msgAssistant}>
+                {msg.text || '\u00a0'}
+              </div>
+            ),
+          )}
+        </div>
+      )}
+      <ChatComposer
+        value={draft}
+        onChange={setDraft}
+        onSend={send}
+        onStop={stop}
+        sendState={sendVisual}
+        showParameters
+        onAttachClick={() => {}}
+      />
+    </div>
+  )
 
   return (
     <div className={styles.demoPage}>
@@ -338,80 +331,50 @@ export function CompactAssistantDemo() {
           onClick={closePanel}
         />
       )}
-      <div className={styles.fabColumn}>
+      <div className={`${styles.fabColumn}${selectedComponent ? ` ${styles.fabColumnSplit}` : ''}`}>
         <div
           className={`${styles.panelWrap} ${open ? '' : styles.panelWrapHidden}`}
           aria-hidden={!open}
         >
           {open && (
-            <AssistantPanel ref={assistantPanelRef} expanded={expanded}>
-              <PanelHeader
-                isExpanded={expanded}
-                onToggleExpand={toggleExpanded}
-                onClose={closePanel}
-                panelView={panelView}
-                onOpenSessions={() => setPanelView('sessions')}
-                onBackToChat={() => setPanelView('chat')}
-              />
-              {panelView === 'chat' ? (
-                <div className={styles.middle}>
-                  {messages.length === 0 ? <AssistantHero /> : null}
-                  {messages.length > 0 && (
-                    <div ref={transcriptScrollRef} className={styles.transcript}>
-                      {messages.map((msg) =>
-                        msg.role === 'user' ? (
-                          <div key={msg.id} className={styles.msgUser}>
-                            {msg.text}
-                          </div>
-                        ) : msg.reply ? (
-                          <div key={msg.id} className={styles.msgAssistantTimeline}>
-                            <AssistantTimelineReply
-                              key={msg.id}
-                              reply={msg.reply}
-                              streamingText={msg.text}
-                              isAnswerStreaming={streaming && assistantMsgId.current === msg.id}
-                              onProactivePick={onProactivePick}
-                              showProactiveSuggestions={!streaming && msg.id === lastAssistantMessageId}
-                            />
-                          </div>
-                        ) : (
-                          <div key={msg.id} className={styles.msgAssistant}>
-                            {msg.text || '\u00a0'}
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  )}
-                  <ChatComposer
-                    value={draft}
-                    onChange={setDraft}
-                    onSend={send}
-                    onStop={stop}
-                    sendState={sendVisual}
-                    mode={mode}
-                    onModeChange={setMode}
-                    showParameters
-                    onAttachClick={() => {}}
-                    hasThreadMessages={messages.length > 0}
-                  />
+            <AssistantPanel ref={assistantPanelRef} expanded={expanded} splitView={Boolean(selectedComponent)}>
+              <div className={styles.splitBody}>
+                <div className={`${styles.chatColumn} ${selectedComponent ? styles.chatColumnSplit : ''}`}>
+                  <div
+                    className={panelView === 'sessions' ? styles.panelViewHidden : styles.panelViewStack}
+                    aria-hidden={panelView === 'sessions'}
+                  >
+                    <PanelHeader
+                      onClose={closePanel}
+                      panelView={panelView}
+                      onOpenSessions={() => setPanelView('sessions')}
+                      onBackToChat={() => setPanelView('chat')}
+                    />
+                    <div className={selectedComponent ? styles.chatColumnSeparator : styles.separator} />
+                    {chatMiddle}
+                  </div>
+                  <div
+                    className={panelView === 'chat' ? styles.panelViewHidden : styles.panelViewStack}
+                    aria-hidden={panelView === 'chat'}
+                  >
+                    <SessionsPanel
+                      onBack={() => setPanelView('chat')}
+                      onOpenSession={() => setPanelView('chat')}
+                      onNewSession={() => {
+                        clearStream()
+                        setMessages([])
+                        setDraft('')
+                        setPanelView('chat')
+                      }}
+                    />
+                  </div>
                 </div>
-              ) : (
-                <SessionsPanel
-                  onOpenSession={() => setPanelView('chat')}
-                  onNewSession={() => {
-                    clearStream()
-                    setMessages([])
-                    setDraft('')
-                    setPanelView('chat')
-                  }}
-                  onNewProject={() => {
-                    clearStream()
-                    setMessages([])
-                    setDraft('')
-                    setPanelView('chat')
-                  }}
-                />
-              )}
+                {selectedComponent ? (
+                  <div className={styles.detailColumn}>
+                    <ComponentDetailPanel component={selectedComponent} onClose={closeComponentDetail} />
+                  </div>
+                ) : null}
+              </div>
             </AssistantPanel>
           )}
         </div>

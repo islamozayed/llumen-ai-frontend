@@ -30,8 +30,39 @@ export type TimelineStep = {
    */
   titleInProgress?: string
   body?: string
+  /** Muted one-line status shown under the step title. */
+  subtitle?: string
   technical?: TechnicalBlock | TechnicalBlock[]
   meta?: { resultCount?: number }
+}
+
+export type CreatedComponentType = 'kpi' | 'data-sample' | 'visual' | 'briefing' | 'domain'
+
+export type CreatedComponentPreview =
+  | { kind: 'kpi'; value: string; unit?: string }
+  | { kind: 'text'; content: string }
+  | { kind: 'image'; src: string; alt?: string; fit?: 'contain' | 'cover'; detailSrc?: string; detailView?: 'map' }
+
+export type CreatedComponent = {
+  id: string
+  /** Short label on the chip in the conversation. */
+  label: string
+  type: CreatedComponentType
+  /** Title shown in the detail sub-panel. */
+  title: string
+  description: string
+  /** Muted semantic identifier shown under the card title (e.g. "market_stability.cluster_average_score"). */
+  semanticId?: string
+  preview?: CreatedComponentPreview
+}
+
+export type ThinkingStepKind = 'reasoning' | 'search' | 'done'
+
+export type ThinkingStep = {
+  id: string
+  kind: ThinkingStepKind
+  title: string
+  description?: string
 }
 
 export type AssistantReplyPayload = {
@@ -43,7 +74,11 @@ export type AssistantReplyPayload = {
   headline: string
   /** Optional plain-English elaboration shown when the headline row is expanded. */
   headlineDetail?: string
+  /** Internal reasoning steps shown in the collapsible thought panel. */
+  thinkingSteps?: ThinkingStep[]
   timeline: TimelineStep[]
+  /** Artifacts the assistant created — shown as chips after the reply finishes. */
+  createdComponents?: CreatedComponent[]
 }
 
 /** Back-compat with older demo/API payloads */

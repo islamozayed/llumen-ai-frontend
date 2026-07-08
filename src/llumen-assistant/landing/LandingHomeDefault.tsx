@@ -3,6 +3,7 @@
  * https://www.figma.com/design/gGAXWwuoHrfYmZEBAt9T1g/Lumen-UI?node-id=449-7433
  * Generated via Figma MCP; launcher in this frame is omitted — use CompactAssistantDemo FAB.
  */
+import { DotsThreeVertical, Play, Plus, Sparkle } from '@phosphor-icons/react'
 import './landing-home-tailwind.css'
 
 const imgVector = "https://www.figma.com/api/mcp/asset/495b6897-9209-4b5a-a09a-de58321051e0";
@@ -14,25 +15,12 @@ const imgVector8 = "https://www.figma.com/api/mcp/asset/0a060817-3b1d-47d1-b091-
 const imgLLumenTrial1 = "https://www.figma.com/api/mcp/asset/f2072037-25bd-4538-9a53-08054251cdbc";
 const imgImage117 = "https://www.figma.com/api/mcp/asset/3517c681-4127-46a9-9f55-9d3f8de85374";
 const imgDotsThreeVertical = "https://www.figma.com/api/mcp/asset/f27a8aff-aed4-4d1b-95c6-b7899ec9087e";
-const imgCreateBriefingCta = "https://www.figma.com/api/mcp/asset/a0688f92-9807-4dbd-aefa-e8510d556c6b";
-const imgCreateBriefingCta1 = "https://www.figma.com/api/mcp/asset/09295900-f772-4156-a9a7-0eae5eccc0ef";
-const imgCreateBriefingCta2 = "https://www.figma.com/api/mcp/asset/f4b5b0ce-6d51-41e2-978c-fcb9f731fcbf";
-const imgCreateBriefingCta3 = "https://www.figma.com/api/mcp/asset/fcc5e8bc-75da-4e14-827d-ec31bddaf15a";
-const imgFrame427321102 = "https://www.figma.com/api/mcp/asset/29455b47-0e0a-465a-8bfd-8fb2a288fde5";
-const imgImage115 = "https://www.figma.com/api/mcp/asset/036d0b01-6522-4919-9b45-e6b5fb8b8ac1";
 const imgImage116 = "https://www.figma.com/api/mcp/asset/a6c9c22b-1730-4753-bb37-d89d4b6d17eb";
 const imgImage118 = "https://www.figma.com/api/mcp/asset/67dcfbcb-34bc-4408-8c08-f7461a839b03";
 const imgImage119 = "https://www.figma.com/api/mcp/asset/dab1ab94-553b-4dc0-9e7a-1058f0567a06";
 const imgImage120 = "https://www.figma.com/api/mcp/asset/fb863ed5-3c5e-479d-b966-a47d0ddfc59f";
 const imgImage121 = "https://www.figma.com/api/mcp/asset/af7840bd-aec7-47fc-89e0-7280298f8465";
 const imgImage122 = "https://www.figma.com/api/mcp/asset/1ec8d717-3296-494e-a641-d623ede5a80a";
-const imgPlus = "https://www.figma.com/api/mcp/asset/2c75bbb7-6cf9-4eda-9704-37b12800189e";
-const imgVector9 = "https://www.figma.com/api/mcp/asset/932bdfc2-0006-40a3-ad3c-220ccff3a5ae";
-const imgDotsThreeVertical1 = "https://www.figma.com/api/mcp/asset/48f980f3-3ba8-4b40-8ff5-2c374a8110db";
-const imgVector10 = "https://www.figma.com/api/mcp/asset/7dbb8666-058f-49d8-9745-5cbc083cfc07";
-const imgVector11 = "https://www.figma.com/api/mcp/asset/a5152005-46ad-4038-9fac-736db601fabe";
-const imgStarFour = "https://www.figma.com/api/mcp/asset/754ae77c-4dff-4ae8-a35f-043ee0a6666c";
-const imgPlay = "https://www.figma.com/api/mcp/asset/1b7773d7-3c25-4790-83d7-7d225e90921a";
 const imgLine8315 = "https://www.figma.com/api/mcp/asset/17c64859-58d5-453a-be47-3fccfd678fa6";
 const imgVector12 = "https://www.figma.com/api/mcp/asset/af59e11f-7f4d-4609-a1d0-b3d143006256";
 const imgArrowRight = "https://www.figma.com/api/mcp/asset/a61ff94b-716f-4474-aaea-643d2670a518";
@@ -180,7 +168,7 @@ function StoryListing({ className, showProgressBar = true }: StoryListingProps) 
 
 export default function LandingHomeDefault() {
   return (
-    <div className="backdrop-blur-[100px] relative min-h-full min-w-0 w-full max-w-none" data-name="Landing - Home - Default" data-node-id="449:7433">
+    <div className="backdrop-blur-[100px] relative min-h-full min-w-0 w-full max-w-full overflow-x-clip" data-name="Landing - Home - Default" data-node-id="449:7433">
       <div className="absolute inset-x-0 top-0 h-[3096px] backdrop-blur-[100px] bg-[rgba(44,44,44,0.6)]" data-node-id="449:7442" />
       <div className="absolute inset-x-0 top-[144px] flex h-[941px] w-full min-w-0 flex-col content-stretch items-start" data-node-id="449:7510">
         <div className="content-stretch flex flex-col gap-[12px] items-start p-[24px] relative shrink-0 w-full" data-node-id="449:8010">
@@ -189,35 +177,22 @@ export default function LandingHomeDefault() {
           </p>
           <div className="content-stretch flex gap-[12px] items-start relative shrink-0" data-node-id="449:7761">
             <div className="content-stretch flex flex-col gap-[10px] h-[242px] items-center justify-center overflow-clip p-[20px] relative rounded-[20px] shrink-0 w-[136px]" data-name="Create Briefing CTA" data-node-id="449:7538">
-              <div aria-hidden="true" className="absolute inset-0 pointer-events-none rounded-[20px]">
-                <div className="absolute bg-black inset-0 rounded-[20px]" />
-                <img alt="" className="absolute max-w-none object-cover opacity-60 rounded-[20px] size-full" src={imgCreateBriefingCta} />
-              </div>
-              <div className="relative shrink-0 size-[48px]" data-name="Plus" data-node-id="457:8804">
-                <img alt="" className="absolute block max-w-none size-full" src={imgPlus} />
-              </div>
+              <div aria-hidden="true" className="absolute inset-0 pointer-events-none rounded-[20px] bg-black" />
+              <Plus className="relative shrink-0 text-white" data-name="Plus" data-node-id="457:8804" size={48} weight="regular" aria-hidden />
               <div className="font-['Innovator_Grotesk:Regular',sans-serif] leading-[0] not-italic relative shrink-0 text-[16px] text-center text-white whitespace-nowrap" data-node-id="449:7539">
                 <p className="leading-[normal] mb-0">Create</p>
                 <p className="leading-[normal]">Briefing</p>
               </div>
             </div>
             <div className="content-stretch flex flex-col h-[242px] items-end justify-between overflow-clip relative rounded-[20px] shrink-0 w-[136px]" data-name="Create Briefing CTA" data-node-id="449:7759">
-              <div aria-hidden="true" className="absolute inset-0 pointer-events-none rounded-[20px]">
-                <div className="absolute bg-black inset-0 rounded-[20px]" />
-                <img alt="" className="absolute max-w-none object-cover rounded-[20px] size-full" src={imgCreateBriefingCta1} />
-              </div>
+              <div aria-hidden="true" className="absolute inset-0 pointer-events-none rounded-[20px] bg-black" />
               <div className="backdrop-blur-[0px] bg-gradient-to-b content-stretch flex from-[rgba(26,24,42,0.6)] items-center justify-between p-[8px] relative shrink-0 to-[rgba(26,24,42,0)] w-full" data-node-id="449:7775">
                 <div className="backdrop-blur-[10px] bg-[rgba(191,43,43,0.6)] border border-[#bf2b2b] border-solid content-stretch flex gap-[4px] items-center px-[8px] py-[4px] relative rounded-[360px] shrink-0" data-node-id="449:7783">
-                  <div className="h-[9px] relative shrink-0 w-[11px]" data-name="Vector" data-node-id="449:7781">
-                    <img alt="" className="absolute block max-w-none size-full" src={imgVector9} />
-                  </div>
                   <p className="font-['Innovator_Grotesk:Regular',sans-serif] leading-[normal] not-italic relative shrink-0 text-[8px] text-white whitespace-nowrap" data-node-id="449:7776">
                     Alert
                   </p>
                 </div>
-                <div className="h-[16px] relative shrink-0 w-[23px]" data-name="DotsThreeVertical" data-node-id="449:7772">
-                  <img alt="" className="absolute block max-w-none size-full" src={imgDotsThreeVertical1} />
-                </div>
+                <DotsThreeVertical className="relative shrink-0 text-white" data-name="DotsThreeVertical" data-node-id="449:7772" size={16} weight="bold" aria-hidden />
               </div>
               <div className="backdrop-blur-[5px] bg-gradient-to-t content-stretch flex flex-col from-[#c62c2c] gap-[2px] items-start justify-center leading-[normal] not-italic p-[12px] relative rounded-bl-[20px] rounded-br-[20px] shrink-0 text-white to-[108.14%] to-[rgba(198,44,44,0)] w-full" data-node-id="449:7765">
                 <p className="font-['Innovator_Grotesk:Regular',sans-serif] relative shrink-0 text-[8px] w-[112px]" data-node-id="449:7771">
@@ -232,22 +207,14 @@ export default function LandingHomeDefault() {
               </div>
             </div>
             <div className="content-stretch flex flex-col h-[242px] items-end justify-between overflow-clip relative rounded-[20px] shrink-0 w-[136px]" data-name="Create Briefing CTA" data-node-id="449:7828">
-              <div aria-hidden="true" className="absolute inset-0 pointer-events-none rounded-[20px]">
-                <div className="absolute bg-black inset-0 rounded-[20px]" />
-                <img alt="" className="absolute max-w-none object-cover rounded-[20px] size-full" src={imgCreateBriefingCta2} />
-              </div>
+              <div aria-hidden="true" className="absolute inset-0 pointer-events-none rounded-[20px] bg-black" />
               <div className="backdrop-blur-[0px] bg-gradient-to-b content-stretch flex from-[rgba(26,24,42,0.6)] items-center justify-between p-[8px] relative shrink-0 to-[rgba(26,24,42,0)] w-full" data-node-id="449:7829">
                 <div className="backdrop-blur-[10px] bg-[rgba(200,140,36,0.6)] border border-[#c88c24] border-solid content-stretch flex gap-[4px] items-center px-[8px] py-[4px] relative rounded-[360px] shrink-0" data-node-id="449:7830">
-                  <div className="h-[8px] relative shrink-0 w-[7px]" data-name="Vector" data-node-id="449:7844">
-                    <img alt="" className="absolute block max-w-none size-full" src={imgVector10} />
-                  </div>
                   <p className="font-['Innovator_Grotesk:Regular',sans-serif] leading-[normal] not-italic relative shrink-0 text-[8px] text-white whitespace-nowrap" data-node-id="449:7832">
                     Report
                   </p>
                 </div>
-                <div className="h-[16px] relative shrink-0 w-[23px]" data-name="DotsThreeVertical" data-node-id="449:7833">
-                  <img alt="" className="absolute block max-w-none size-full" src={imgDotsThreeVertical1} />
-                </div>
+                <DotsThreeVertical className="relative shrink-0 text-white" data-name="DotsThreeVertical" data-node-id="449:7833" size={16} weight="bold" aria-hidden />
               </div>
               <div className="backdrop-blur-[5px] bg-gradient-to-t content-stretch flex flex-col from-[32.754%] from-[rgba(200,140,36,0.8)] gap-[2px] items-start justify-center leading-[normal] not-italic p-[12px] relative rounded-bl-[20px] rounded-br-[20px] shrink-0 text-white to-[108.14%] to-[rgba(200,140,36,0)] w-full" data-node-id="449:7835">
                 <p className="font-['Innovator_Grotesk:Regular',sans-serif] relative shrink-0 text-[8px] w-[112px]" data-node-id="449:7836">
@@ -262,22 +229,14 @@ export default function LandingHomeDefault() {
               </div>
             </div>
             <div className="content-stretch flex flex-col h-[242px] items-end justify-between overflow-clip relative rounded-[20px] shrink-0 w-[136px]" data-name="Create Briefing CTA" data-node-id="449:7864">
-              <div aria-hidden="true" className="absolute inset-0 pointer-events-none rounded-[20px]">
-                <div className="absolute bg-black inset-0 rounded-[20px]" />
-                <img alt="" className="absolute max-w-none object-cover rounded-[20px] size-full" src={imgCreateBriefingCta3} />
-              </div>
+              <div aria-hidden="true" className="absolute inset-0 pointer-events-none rounded-[20px] bg-black" />
               <div className="backdrop-blur-[0px] bg-gradient-to-b content-stretch flex from-[rgba(26,24,42,0.6)] items-center justify-between p-[8px] relative shrink-0 to-[rgba(26,24,42,0)] w-full" data-node-id="449:7865">
                 <div className="backdrop-blur-[10px] bg-[rgba(40,163,211,0.6)] border border-[#28a3d3] border-solid content-stretch flex gap-[4px] items-center px-[8px] py-[4px] relative rounded-[360px] shrink-0" data-node-id="449:7866">
-                  <div className="h-[8px] relative shrink-0 w-[7px]" data-name="Vector" data-node-id="449:8008">
-                    <img alt="" className="absolute block max-w-none size-full" src={imgVector11} />
-                  </div>
                   <p className="font-['Innovator_Grotesk:Regular',sans-serif] leading-[normal] not-italic relative shrink-0 text-[8px] text-white whitespace-nowrap" data-node-id="449:7868">
                     Update
                   </p>
                 </div>
-                <div className="h-[16px] relative shrink-0 w-[23px]" data-name="DotsThreeVertical" data-node-id="449:7869">
-                  <img alt="" className="absolute block max-w-none size-full" src={imgDotsThreeVertical1} />
-                </div>
+                <DotsThreeVertical className="relative shrink-0 text-white" data-name="DotsThreeVertical" data-node-id="449:7869" size={16} weight="bold" aria-hidden />
               </div>
               <div className="backdrop-blur-[5px] bg-gradient-to-t content-stretch flex flex-col from-[37.433%] from-[rgba(40,163,211,0.8)] gap-[2px] items-start justify-center leading-[normal] not-italic p-[12px] relative rounded-bl-[20px] rounded-br-[20px] shrink-0 text-white to-[108.14%] to-[rgba(40,163,211,0)] w-full" data-node-id="449:7871">
                 <p className="font-['Innovator_Grotesk:Regular',sans-serif] relative shrink-0 text-[8px] w-[112px]" data-node-id="449:7872">
@@ -293,10 +252,10 @@ export default function LandingHomeDefault() {
             </div>
           </div>
         </div>
-        <div className="content-stretch flex flex-col h-[602px] items-start py-[24px] relative shrink-0 w-full" data-node-id="455:8200">
+        <div className="content-stretch flex flex-col h-[602px] items-start overflow-hidden py-[24px] relative shrink-0 w-full" data-node-id="455:8200">
           <div className="content-stretch flex flex-[1_0_0] gap-[12px] items-start min-h-px min-w-px relative w-full" data-node-id="455:8203">
-            <img alt="" className="absolute inset-0 max-w-none object-cover pointer-events-none size-full" src={imgFrame427321102} />
-            <div className="backdrop-blur-[30px] bg-[linear-gradient(90deg,rgba(0,0,0,0.4)_52%,rgba(0,0,0,0)_100%)] content-stretch flex flex-col gap-[16px] h-full items-start px-[24px] py-[32px] relative shrink-0 w-[649px]" data-node-id="455:8204">
+            <div aria-hidden className="featured-hero__bg" />
+            <div className="backdrop-blur-[30px] bg-[linear-gradient(90deg,rgba(0,0,0,0.4)_52%,rgba(0,0,0,0)_100%)] content-stretch flex flex-col gap-[16px] h-full items-start px-[24px] py-[32px] relative shrink-0 w-[649px] z-[1]" data-node-id="455:8204">
               <p className="font-['IBM_Plex_Mono',ui-monospace,monospace] font-bold leading-[normal] not-italic relative shrink-0 text-[16px] text-white uppercase whitespace-nowrap" data-node-id="455:8750">
                 Featured live experiences
               </p>
@@ -306,9 +265,7 @@ export default function LandingHomeDefault() {
                     <p className="font-['Innovator_Grotesk:Regular',sans-serif] leading-[1.1] not-italic relative shrink-0 text-[40px] text-white w-[636px]" data-node-id="1196:40383">{`Product Roadmap 2025: Innovations & User Experience`}</p>
                     <div className="content-stretch flex flex-col gap-[8px] items-start relative shrink-0" data-node-id="1196:40384">
                       <div className="content-stretch flex gap-[8px] items-center relative shrink-0 w-full" data-node-id="1196:40385">
-                        <div className="relative shrink-0 size-[20px]" data-name="StarFour" data-node-id="1196:40386">
-                          <img alt="" className="absolute block max-w-none size-full" src={imgStarFour} />
-                        </div>
+                        <Sparkle className="relative shrink-0 text-white" data-name="StarFour" data-node-id="1196:40386" size={20} weight="fill" aria-hidden />
                         <p className="font-['Innovator_Grotesk:Regular',sans-serif] leading-[normal] not-italic relative shrink-0 text-[12px] text-white whitespace-nowrap" data-node-id="1196:40388">
                           Executive Summary
                         </p>
@@ -323,25 +280,22 @@ export default function LandingHomeDefault() {
                   </p>
                 </div>
               </div>
-              <div className="border border-[#999] border-solid content-stretch flex gap-[10px] items-center justify-center px-[24px] py-[12px] relative rounded-[8px] shrink-0" data-node-id="455:8208" style={{ backgroundImage: "linear-gradient(134.42591268907609deg, rgba(254, 192, 192, 0.4) 0.31764%, rgba(89, 153, 152, 0.4) 99.682%)" }}>
-                <div className="relative shrink-0 size-[24px]" data-name="Play" data-node-id="455:8209">
-                  <img alt="" className="absolute block max-w-none size-full" src={imgPlay} />
-                </div>
-                <p className="font-['Innovator_Grotesk:Regular',sans-serif] leading-[normal] not-italic relative shrink-0 text-[16px] text-white whitespace-nowrap" data-node-id="455:8211">
+              <button
+                type="button"
+                className="border border-[#999] border-solid content-stretch flex gap-[10px] items-center justify-center px-[24px] py-[12px] relative rounded-[8px] shrink-0 cursor-pointer"
+                data-node-id="455:8208"
+                style={{ backgroundImage: 'linear-gradient(134.43deg, rgba(254, 192, 192, 0.4) 0.32%, rgba(89, 153, 152, 0.4) 99.68%)' }}
+              >
+                <Play className="relative shrink-0 text-white" data-name="Play" data-node-id="455:8209" size={24} weight="fill" aria-hidden />
+                <span className="font-['Innovator_Grotesk:Regular',sans-serif] leading-[normal] not-italic relative shrink-0 text-[16px] text-white whitespace-nowrap" data-node-id="455:8211">
                   Start
-                </p>
-              </div>
+                </span>
+              </button>
             </div>
-            <div className="-translate-x-1/2 absolute backdrop-blur-[10px] bg-[rgba(26,26,26,0.6)] border border-[#232323] border-solid content-stretch flex gap-[8px] items-center left-[calc(50%+0.5px)] p-[8px] rounded-[12px] top-[442px]" data-node-id="455:8235">
-              <div className="border border-[#fd7677] border-solid h-[64px] relative rounded-[12px] shrink-0 w-[114px]" data-name="image 114" data-node-id="455:8236">
-                <img alt="" className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[12px] size-full" src={imgFrame427321102} />
-              </div>
-              <div className="h-[64px] opacity-40 relative rounded-[12px] shrink-0 w-[114px]" data-name="image 115" data-node-id="455:8237">
-                <img alt="" className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[12px] size-full" src={imgImage115} />
-              </div>
-              <div className="h-[64px] opacity-40 relative rounded-[12px] shrink-0 w-[113px]" data-name="image 116" data-node-id="455:8238">
-                <img alt="" className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-[12px] size-full" src={imgImage116} />
-              </div>
+            <div className="-translate-x-1/2 absolute backdrop-blur-[10px] bg-[rgba(26,26,26,0.6)] border border-[#232323] border-solid content-stretch flex gap-[8px] items-center left-[calc(50%+0.5px)] p-[8px] rounded-[12px] top-[442px] z-[1]" data-node-id="455:8235">
+              <div aria-hidden className="featured-thumb featured-thumb--hero" data-name="image 114" data-node-id="455:8236" />
+              <div aria-hidden className="featured-thumb featured-thumb--gold" data-name="image 115" data-node-id="455:8237" />
+              <div aria-hidden className="featured-thumb featured-thumb--blue" data-name="image 116" data-node-id="455:8238" />
             </div>
           </div>
         </div>
@@ -351,7 +305,7 @@ export default function LandingHomeDefault() {
               Main topics
             </p>
           </div>
-          <div className="content-stretch flex gap-[20px] items-start px-[24px] relative shrink-0 w-full" data-node-id="1196:40205">
+          <div className="content-stretch flex gap-[20px] items-start px-[24px] relative shrink-0 w-full min-w-0 max-w-full overflow-x-auto scrollbar-thin" data-node-id="1196:40205">
             <div className="bg-[rgba(27,27,27,0.2)] border border-[#999] border-solid content-stretch flex flex-col items-start justify-between pb-[12px] pt-[16px] px-[16px] relative rounded-[16px] self-stretch shrink-0 w-[264px]" data-node-id="1196:40206">
               <div className="content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full" data-node-id="1196:40207">
                 <p className="font-['Innovator_Grotesk:Semi_Bold',sans-serif] leading-[normal] not-italic relative shrink-0 text-[18px] text-white w-full" data-node-id="1196:40208">
@@ -779,7 +733,7 @@ export default function LandingHomeDefault() {
             </p>
           </div>
           <div className="content-stretch flex flex-col gap-[40px] items-start relative shrink-0 w-full" data-node-id="455:8559">
-            <div className="content-stretch flex gap-[20px] items-start px-[24px] relative shrink-0 w-full" data-node-id="455:8349">
+            <div className="content-stretch flex gap-[20px] items-start px-[24px] relative shrink-0 w-full min-w-0 max-w-full overflow-x-auto scrollbar-thin" data-node-id="455:8349">
               <div className="content-stretch flex flex-col items-center relative shrink-0 w-[453px]" data-name="Story Listing" data-node-id="455:8610">
                 <div className="aspect-[3840/2160] relative rounded-tl-[16px] rounded-tr-[16px] shrink-0 w-full" data-name="image 117" data-node-id="I455:8610;492:517">
                   <img alt="" className="absolute inset-0 max-w-none object-cover pointer-events-none rounded-tl-[16px] rounded-tr-[16px] size-full" src={imgImage118} />
@@ -1026,7 +980,7 @@ export default function LandingHomeDefault() {
           </div>
         </div>
         <div
-          className="content-stretch flex w-full min-w-0 flex-nowrap items-center gap-[20px] relative shrink-0"
+          className="content-stretch flex w-full min-w-0 max-w-full overflow-x-auto items-center gap-[20px] relative shrink-0 scrollbar-thin"
           data-name="tags"
           data-node-id="I1777:45885;1777:49092"
         >

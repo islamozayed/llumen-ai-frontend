@@ -1,4 +1,4 @@
-import { ArrowRight } from '@phosphor-icons/react'
+import { ArrowUp } from '@phosphor-icons/react'
 import styles from './compact-assistant.module.css'
 
 /** Maps to Figma Lumen-UI Send (node 678:7024): Inactive | Active | Stop */
@@ -25,9 +25,9 @@ export function SendButton({ state, onClick }: SendButtonProps) {
         {isStop ? (
           <span className={styles.sendStopInner} />
         ) : isActive ? (
-          <ArrowRight className={styles.sendArrow} size={20} weight="bold" aria-hidden />
+          <ArrowUp className={styles.sendArrow} size={20} weight="bold" aria-hidden />
         ) : (
-          <ArrowRight className={styles.sendArrow} size={20} weight="regular" aria-hidden />
+          <ArrowUp className={styles.sendArrow} size={20} weight="regular" aria-hidden />
         )}
       </button>
     </div>

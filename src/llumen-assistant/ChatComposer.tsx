@@ -1,14 +1,85 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { llumenAssets } from './assets'
+import {
+  Article,
+  CaretUp,
+  ClipboardText,
+  Database,
+  File,
+  Microphone,
+  Plus,
+  SquaresFour,
+} from '@phosphor-icons/react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import styles from './compact-assistant.module.css'
 import type { SendVisualState } from './SendButton'
 import { SendButton } from './SendButton'
-import type { AssistantMode } from './ModeSelector'
-import { ModeSelector } from './ModeSelector'
 import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
 
-/** Fits Figma ChatBox max-h 180px with 20px pad ×2, 16px gap, Params + chip row */
-const MAX_COMPOSER_PX = 60
+/** Matches reference LlumenChatInput textarea max-height */
+const MAX_COMPOSER_PX = 120
+
+const ATTACH_MENU_ITEMS = {
+  files: [{ id: 'file', label: 'File', icon: File }],
+  context: [
+    { id: 'data-source', label: 'Data Source', icon: Database },
+    { id: 'story', label: 'Story', icon: Article },
+    { id: 'visual', label: 'Visual', icon: SquaresFour },
+    { id: 'briefing', label: 'Briefing', icon: ClipboardText },
+  ],
+} as const
+
+type AttachMenuPosition = {
+  left: number
+  bottom: number
+}
+
+function AttachMenuPanel({
+  menuRef,
+  position,
+  onClose,
+}: {
+  menuRef: React.RefObject<HTMLDivElement | null>
+  position: AttachMenuPosition
+  onClose: () => void
+}) {
+  return (
+    <div
+      ref={menuRef}
+      className={styles.attachMenu}
+      style={{ left: position.left, bottom: position.bottom }}
+      role="menu"
+      aria-label="Attach and context"
+    >
+      <p className={styles.attachMenuSection}>Attach files</p>
+      {ATTACH_MENU_ITEMS.files.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          role="menuitem"
+          className={styles.attachMenuItem}
+          onClick={onClose}
+        >
+          <item.icon className={styles.attachMenuIcon} size={16} weight="regular" aria-hidden />
+          <span>{item.label}</span>
+        </button>
+      ))}
+      <div className={styles.attachMenuDivider} role="separator" />
+      <p className={styles.attachMenuSection}>Add context</p>
+      {ATTACH_MENU_ITEMS.context.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          role="menuitem"
+          className={styles.attachMenuItem}
+          onClick={onClose}
+        >
+          <item.icon className={styles.attachMenuIcon} size={16} weight="regular" aria-hidden />
+          <span>{item.label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export type ChatComposerProps = {
   value: string
@@ -16,12 +87,9 @@ export type ChatComposerProps = {
   onSend: () => void
   onStop: () => void
   sendState: SendVisualState
-  mode: AssistantMode
-  onModeChange: (m: AssistantMode) => void
   showParameters?: boolean
   onAttachClick?: () => void
   disabled?: boolean
-  /** After the first message in the thread, placeholder switches to reply-focused copy. */
   hasThreadMessages?: boolean
 }
 
@@ -31,16 +99,28 @@ export function ChatComposer({
   onSend,
   onStop,
   sendState,
-  mode,
-  onModeChange,
   showParameters = true,
   onAttachClick,
   disabled = false,
   hasThreadMessages = false,
 }: ChatComposerProps) {
   const taRef = useRef<HTMLTextAreaElement>(null)
-  const [contextRowOpen, setContextRowOpen] = useState(false)
+  const attachWrapRef = useRef<HTMLDivElement>(null)
+  const attachBtnRef = useRef<HTMLButtonElement>(null)
+  const attachMenuRef = useRef<HTMLDivElement>(null)
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false)
+  const [attachMenuPos, setAttachMenuPos] = useState<AttachMenuPosition | null>(null)
   const chatScrollRef = useRevealScrollbarOnScroll()
+
+  const updateAttachMenuPos = useCallback(() => {
+    const btn = attachBtnRef.current
+    if (!btn) return
+    const rect = btn.getBoundingClientRect()
+    setAttachMenuPos({
+      left: rect.left,
+      bottom: window.innerHeight - rect.top + 8,
+    })
+  }, [])
 
   useEffect(() => {
     const el = taRef.current
@@ -48,6 +128,31 @@ export function ChatComposer({
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, MAX_COMPOSER_PX)}px`
   }, [value])
+
+  useEffect(() => {
+    if (!attachMenuOpen) {
+      setAttachMenuPos(null)
+      return
+    }
+    updateAttachMenuPos()
+    window.addEventListener('resize', updateAttachMenuPos)
+    window.addEventListener('scroll', updateAttachMenuPos, true)
+    return () => {
+      window.removeEventListener('resize', updateAttachMenuPos)
+      window.removeEventListener('scroll', updateAttachMenuPos, true)
+    }
+  }, [attachMenuOpen, updateAttachMenuPos])
+
+  useEffect(() => {
+    if (!attachMenuOpen) return
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (attachWrapRef.current?.contains(target) || attachMenuRef.current?.contains(target)) return
+      setAttachMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [attachMenuOpen])
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -57,11 +162,20 @@ export function ChatComposer({
     }
   }
 
+  const toggleAttachMenu = () => {
+    if (!showParameters) return
+    setAttachMenuOpen((open) => !open)
+    onAttachClick?.()
+  }
+
   return (
-    <div ref={chatScrollRef} className={styles.chatBox}>
+    <div className={styles.chatBox}>
       <div className={styles.textAreaWrap}>
         <textarea
-          ref={taRef}
+          ref={(el) => {
+            taRef.current = el
+            chatScrollRef(el)
+          }}
           className={styles.textArea}
           placeholder={hasThreadMessages ? 'Reply...' : 'Ask about anything'}
           rows={1}
@@ -75,23 +189,40 @@ export function ChatComposer({
       <div className={styles.paramsCol}>
         <div className={styles.rowPrimary}>
           <div className={styles.rowPrimaryLeft}>
-            <button
-              type="button"
-              className={`${styles.contextBtn}${contextRowOpen && showParameters ? ` ${styles.contextBtnActive}` : ''}`}
-              aria-label="Add context or attachment"
-              aria-expanded={showParameters ? contextRowOpen : undefined}
-              aria-controls={showParameters && contextRowOpen ? 'chat-composer-context-row' : undefined}
-              onClick={() => {
-                if (showParameters) setContextRowOpen((open) => !open)
-                onAttachClick?.()
-              }}
-            >
-              <img className={styles.iconBtnImg} src={llumenAssets.plus} alt="" width={20} height={20} />
-            </button>
-            <ModeSelector value={mode} onChange={onModeChange} />
+            {showParameters && (
+              <div className={styles.contextBtnWrap} ref={attachWrapRef}>
+                {attachMenuOpen &&
+                  attachMenuPos &&
+                  createPortal(
+                    <AttachMenuPanel
+                      menuRef={attachMenuRef}
+                      position={attachMenuPos}
+                      onClose={() => setAttachMenuOpen(false)}
+                    />,
+                    document.body,
+                  )}
+                <button
+                  ref={attachBtnRef}
+                  type="button"
+                  className={`${styles.contextBtn}${attachMenuOpen ? ` ${styles.contextBtnActive}` : ''}`}
+                  aria-label="Add context or attachment"
+                  aria-expanded={attachMenuOpen}
+                  aria-haspopup="menu"
+                  onClick={toggleAttachMenu}
+                >
+                  <Plus className={styles.contextBtnIcon} size={18} weight="regular" aria-hidden />
+                  <CaretUp
+                    className={`${styles.contextBtnCaret}${attachMenuOpen ? ` ${styles.contextBtnCaretOpen}` : ''}`}
+                    size={14}
+                    weight="bold"
+                    aria-hidden
+                  />
+                </button>
+              </div>
+            )}
           </div>
           <button type="button" className={styles.iconBtn} aria-label="Voice input">
-            <img className={styles.iconBtnImg} src={llumenAssets.microphone} alt="" width={20} height={20} />
+            <Microphone className={styles.iconBtnImg} size={20} weight="regular" aria-hidden />
           </button>
           <SendButton
             state={sendState}
@@ -101,30 +232,6 @@ export function ChatComposer({
             }}
           />
         </div>
-        {showParameters && contextRowOpen && (
-          <div id="chat-composer-context-row" className={styles.rowSecondary}>
-            <div className={styles.chip}>
-              <img className={styles.chipIcon} src={llumenAssets.paramImage} alt="" width={12} height={12} />
-              <span className={styles.chipLabel}>photo.jpeg</span>
-            </div>
-            <div className={styles.chip}>
-              <img className={styles.chipIcon} src={llumenAssets.paramFile} alt="" width={12} height={12} />
-              <span className={styles.chipLabel}>file.ext</span>
-            </div>
-            <div className={styles.chip}>
-              <img className={styles.chipIcon} src={llumenAssets.paramAt} alt="" width={12} height={12} />
-              <span className={styles.chipLabel}>Topic</span>
-            </div>
-            <div className={styles.chip}>
-              <img className={styles.chipIcon} src={llumenAssets.paramCalendar} alt="" width={12} height={12} />
-              <span className={styles.chipLabel}>Date</span>
-            </div>
-            <div className={styles.chip}>
-              <img className={styles.chipIcon} src={llumenAssets.paramChart} alt="" width={12} height={12} />
-              <span className={styles.chipLabel}>Data</span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

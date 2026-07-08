@@ -18,4 +18,9 @@ export const llumenAssets = {
   arrowsOut: `${b}/arrows-out.svg`,
   close: `${b}/close.svg`,
   launcherOrb: `${b}/launcher-orb.svg`,
+  chartHighHeatDistricts: `${b}/chart-high-heat-districts.png`,
+  chartPriceGapBenchmark: `${b}/chart-price-gap-benchmark.png`,
+  mapStoreTrafficIndex: `${b}/map-store-traffic-index.png`,
+  mapReturnsRate: `${b}/map-returns-rate.png`,
+  mapBirdseyeDetail: `${b}/map-birdseye-detail.png`,
 } as const
