@@ -11,8 +11,8 @@
 }
 
 [data-ll-scrollbar]::-webkit-scrollbar {
-  width: var(--ll-scrollbar-size);
-  height: var(--ll-scrollbar-size);
+  width: var(--lc-scrollbar-size);
+  height: var(--lc-scrollbar-size);
 }
 
 [data-ll-scrollbar]::-webkit-scrollbar-track {
@@ -20,7 +20,7 @@
 }
 
 [data-ll-scrollbar][data-ll-scrollbar-active='true'] {
-  scrollbar-color: var(--ll-scrollbar-thumb) transparent;
+  scrollbar-color: var(--lc-scrollbar-thumb) transparent;
 }
 
 [data-ll-scrollbar]::-webkit-scrollbar-button {
@@ -36,9 +36,9 @@
 }
 
 [data-ll-scrollbar][data-ll-scrollbar-active='true']::-webkit-scrollbar-thumb {
-  background: var(--ll-scrollbar-thumb);
+  background: var(--lc-scrollbar-thumb);
 }
 
 [data-ll-scrollbar][data-ll-scrollbar-active='true']::-webkit-scrollbar-thumb:hover {
-  background: var(--ll-scrollbar-thumb-hover);
+  background: var(--lc-scrollbar-thumb-hover);
 }

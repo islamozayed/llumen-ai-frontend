@@ -18,9 +18,9 @@ body,
 }
 
 body {
-  font-family: var(--ll-font-sans);
-  background: var(--ll-bg-page);
-  color: var(--ll-text-primary);
+  font-family: var(--lc-font-sans);
+  background: #05060a;
+  color: var(--lc-text-primary);
   -webkit-font-smoothing: antialiased;
 }
 
