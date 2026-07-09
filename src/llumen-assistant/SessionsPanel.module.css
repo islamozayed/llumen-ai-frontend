@@ -258,7 +258,9 @@
 }
 
 .sessionMenuItem {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   margin: 0;
   padding: var(--space-md) var(--space-md);
@@ -271,10 +273,21 @@
   font-weight: var(--lc-weight-regular);
   text-align: left;
   cursor: pointer;
-  transition: background var(--lc-duration) var(--lc-ease);
+  transition:
+    background var(--lc-duration) var(--lc-ease),
+    color var(--lc-duration) var(--lc-ease);
 }
 
-.sessionMenuItem:hover {
+.sessionMenuItemDanger {
+  color: var(--color-feedback-error);
+}
+
+.sessionMenuItemDanger:hover {
+  background: var(--color-feedback-error-muted);
+  color: #ff8585;
+}
+
+.sessionMenuItem:not(.sessionMenuItemDanger):hover {
   background: rgba(255, 255, 255, 0.08);
 }
 

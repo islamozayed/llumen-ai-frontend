@@ -236,7 +236,7 @@
   width: var(--lc-panel-chat-split-width);
   max-width: var(--lc-panel-chat-split-width);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
-  padding: var(--space-2xl) var(--space-xl) var(--space-2xl) var(--space-2xl);
+  padding: var(--space-2xl);
   box-sizing: border-box;
 }
 
@@ -291,6 +291,8 @@
 .componentDetailHeaderText {
   min-width: 0;
   flex: 1;
+  /* Title (2 lines) + gap + description (2 lines) */
+  min-height: 102px;
 }
 
 .componentDetailTitle {
@@ -300,6 +302,7 @@
   font-weight: var(--lc-weight-medium);
   line-height: var(--lc-leading-heading);
   color: var(--lc-text-primary);
+  min-height: 52px;
 }
 
 .componentDetailDescription {
@@ -308,6 +311,12 @@
   line-height: var(--lc-leading-body);
   color: var(--lc-text-tertiary);
   max-width: 72ch;
+  min-height: 42px;
+  max-height: 42px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .componentDetail {
@@ -919,7 +928,7 @@
 }
 
 .transcript {
-  width: calc(100% + var(--space-md));
+  width: calc(100% + var(--space-xl));
   max-width: none;
   flex: 0 1 auto;
   min-height: 0;
@@ -928,11 +937,18 @@
   flex-direction: column;
   gap: var(--space-lg);
   margin-bottom: var(--space-lg);
-  margin-right: calc(-1 * var(--space-md));
-  padding-right: var(--space-lg);
+  margin-right: calc(-1 * var(--space-xl));
+  padding-right: var(--space-xl);
   scrollbar-gutter: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--lc-scrollbar-thumb) transparent;
+  box-sizing: border-box;
+}
+
+.chatColumnSplit .transcript {
+  width: calc(100% + var(--space-2xl));
+  margin-right: calc(-1 * var(--space-2xl));
+  padding-right: var(--space-2xl);
 }
 
 @supports (overflow: overlay) {

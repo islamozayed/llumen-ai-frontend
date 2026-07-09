@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
-import { ArrowLeft, DotsThreeVertical, Gear, Plus } from '@phosphor-icons/react'
+import { ArrowLeft, DotsThreeVertical, Gear, Plus, Trash } from '@phosphor-icons/react'
 import styles from './SessionsPanel.module.css'
 
 export type SessionSummary = {
@@ -40,7 +40,7 @@ export type SessionsPanelProps = {
 
 const SESSION_MENU_ITEMS = [
   { id: 'rename', label: 'Rename' },
-  { id: 'delete', label: 'Delete conversation' },
+  { id: 'delete', label: 'Delete', destructive: true },
 ] as const
 
 function SessionRowItem({
@@ -101,10 +101,15 @@ function SessionRowItem({
                   key={item.id}
                   type="button"
                   role="menuitem"
-                  className={styles.sessionMenuItem}
+                  className={`${styles.sessionMenuItem}${
+                    'destructive' in item && item.destructive ? ` ${styles.sessionMenuItemDanger}` : ''
+                  }`}
                   onClick={() => setMenuOpen(false)}
                 >
-                  {item.label}
+                  {'destructive' in item && item.destructive ? (
+                    <Trash size={16} weight="regular" aria-hidden />
+                  ) : null}
+                  <span>{item.label}</span>
                 </button>
               ))}
             </div>
@@ -153,7 +158,7 @@ export function SessionsPanel({ onOpenSession, onNewSession, onBack, onSettings 
         <div className={styles.actions}>
           <button type="button" className={styles.actionBtn} onClick={onNewSession}>
             <Plus size={18} weight="regular" aria-hidden />
-            New session
+            <span>New Conversation</span>
           </button>
         </div>
 

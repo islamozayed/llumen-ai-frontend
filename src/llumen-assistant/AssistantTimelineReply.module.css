@@ -216,10 +216,10 @@
 
 .openingLine {
   margin: 0 0 var(--space-lg);
-  font-size: var(--lc-text-heading-sm);
-  font-weight: var(--lc-weight-medium);
+  font-size: var(--lc-text-body);
+  font-weight: var(--lc-weight-regular);
   line-height: var(--lc-leading-body);
-  color: rgba(241, 245, 249, 0.96);
+  color: rgba(241, 245, 249, 0.95);
 }
 
 .wordReveal {
