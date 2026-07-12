@@ -1,10 +1,6 @@
 /**
- * Llumen compact assistant demo — Figma alignment:
- * - Artboard "Lumen Chat 2": node-id 495-534 (file gGAXWwuoHrfYmZEBAt9T1g)
- * - Implemented variant Chat=2: node-id 529-16302
- *
+ * Llumen compact assistant demo — air-quality conversation flow.
  * Integration: theme tokens in src/styles/tokens.css; icons in public/llumen-assets/*.svg.
- * Sans UI font: Innovator Grotesk (see /fonts and @font-face in tokens.css).
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { MeshGradient } from '@paper-design/shaders-react'
@@ -17,14 +13,24 @@ import { AssistantLauncher } from './AssistantLauncher'
 import { AssistantPanel } from './AssistantPanel'
 import { ChatComposer } from './ChatComposer'
 import { PanelHeader } from './PanelHeader'
-import type { PanelView } from './PanelHeader'
-import type { AssistantReplyPayload } from './assistantReplyTypes'
+import type { ChatQuestionIndexItem, PanelView } from './PanelHeader'
+import type {
+  AgentResponseBlock,
+  AssistantReplyPayload,
+  CreatedComponent,
+  SubcontextState,
+} from './assistantReplyTypes'
 import { AssistantTimelineReply } from './AssistantTimelineReply'
 import { ComponentDetailPanel } from './ComponentDetailPanel'
-import { DATA_FETCH_REPLY, DATA_FETCH_STREAM, withCreatedComponents, COMPONENT_STREAM_SUFFIX } from './createdComponentsDemo'
-import { DEMO_THINKING_STEPS } from './thinkingSteps'
-import { buildStandardTimeline } from './standardTimeline'
-import type { CreatedComponent } from './assistantReplyTypes'
+import { SlidesDetailPanel } from './SlidesDetailPanel'
+import {
+  AIR_QUALITY_COMPONENTS,
+  AIR_QUALITY_REPORT,
+  detectConversationTurn,
+  findComponent,
+  findReport,
+  replyForTurn,
+} from './airQualityConversationDemo'
 import { SessionsPanel } from './SessionsPanel'
 import type { SendVisualState } from './SendButton'
 import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
@@ -33,25 +39,24 @@ type ChatMessage =
   | { id: string; role: 'user'; text: string }
   | { id: string; role: 'assistant'; text: string; reply?: AssistantReplyPayload }
 
-const MOCK_STREAM =
-  'Net store sales for January 2026 land at about $4.2M after returns, at store-channel grain. Dubai Marina stores follow the same definition—last 45 minutes of filings included. Say if you want this broken out by day or region.' +
-  COMPONENT_STREAM_SUFFIX
-
-/** Demo structured reply — non-technical surface, technical behind disclosure */
-const DEMO_REPLY: AssistantReplyPayload = {
-  confirmation: 'Absolutely',
-  thinkingSteps: DEMO_THINKING_STEPS,
-  headline: 'Pulled January 2026 store-channel net sales and lined it up with how your dashboards count revenue.',
-  headlineDetail:
-    'We used the retail semantic model, filtered to brick-and-mortar, net of returns, for the calendar month. Open the first timeline step for the same story plus raw definitions you can audit.',
-  timeline: buildStandardTimeline(
-    'January 2026 store-channel net sales and how those figures align with executive dashboard revenue definitions',
-    'retail sales models, brick-and-mortar revenue semantics, and store P&L data sources',
-  ),
-}
-
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function truncateTitle(text: string, max = 52) {
+  const cleaned = text.replace(/\s+/g, ' ').trim()
+  if (cleaned.length <= max) return cleaned
+  const slice = cleaned.slice(0, max - 1)
+  const lastSpace = slice.lastIndexOf(' ')
+  return `${(lastSpace > 24 ? slice.slice(0, lastSpace) : slice).trim()}…`
+}
+
+function titleFromReply(reply: AssistantReplyPayload) {
+  if (reply.headline?.trim()) return truncateTitle(reply.headline)
+  const firstText = reply.blocks?.find((b) => b.type === 'text')
+  if (firstText?.type === 'text' && firstText.content.trim()) return truncateTitle(firstText.content)
+  if (reply.confirmation?.trim()) return truncateTitle(reply.confirmation)
+  return 'New chat'
 }
 
 export function CompactAssistantDemo() {
@@ -59,10 +64,13 @@ export function CompactAssistantDemo() {
   const [expanded, setExpanded] = useState(false)
   const [panelView, setPanelView] = useState<PanelView>('chat')
   const [draft, setDraft] = useState('')
-  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null)
+  const [subcontext, setSubcontext] = useState<SubcontextState>({ view: 'closed' })
+  const pausedSubcontextRef = useRef<SubcontextState | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
-  const streamTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [chatTitle, setChatTitle] = useState('New chat')
+  const titleEditedRef = useRef(false)
+  const streamTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const assistantMsgId = useRef<string | null>(null)
   const assistantPanelRef = useRef<HTMLDivElement>(null)
   const chatMiddleRef = useRef<HTMLDivElement>(null)
@@ -142,7 +150,7 @@ export function CompactAssistantDemo() {
 
   const clearStream = useCallback(() => {
     if (streamTimer.current) {
-      clearInterval(streamTimer.current)
+      clearTimeout(streamTimer.current)
       streamTimer.current = null
     }
     assistantMsgId.current = null
@@ -153,13 +161,46 @@ export function CompactAssistantDemo() {
     return () => clearStream()
   }, [clearStream])
 
+  const closeSubcontext = useCallback(() => {
+    setSubcontext({ view: 'closed' })
+  }, [])
+
+  const openSessions = useCallback(() => {
+    pausedSubcontextRef.current = subcontext
+    setSubcontext({ view: 'closed' })
+    setPanelView('sessions')
+  }, [subcontext])
+
+  const backToChat = useCallback(() => {
+    setPanelView('chat')
+    const paused = pausedSubcontextRef.current
+    pausedSubcontextRef.current = null
+    if (paused && paused.view !== 'closed') {
+      setSubcontext(paused)
+    }
+  }, [])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        if (selectedComponentId) {
-          setSelectedComponentId(null)
+        if (subcontext.view !== 'closed') {
+          closeSubcontext()
+          return
+        }
+        if (expanded) {
+          const el = assistantPanelRef.current
+          if (el) {
+            const rect = el.getBoundingClientRect()
+            pendingPanelAnimRef.current = {
+              top: rect.top,
+              left: rect.left,
+              width: rect.width,
+              height: rect.height,
+            }
+          }
+          setExpanded(false)
           return
         }
         setOpen(false)
@@ -168,47 +209,78 @@ export function CompactAssistantDemo() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, selectedComponentId])
+  }, [open, subcontext.view, closeSubcontext, expanded])
 
-  const startAssistantStream = useCallback(
-    (reply: AssistantReplyPayload, streamText: string, onComplete?: () => void) => {
-      const aid = uid()
-      assistantMsgId.current = aid
-      setMessages((m) => [...m, { id: aid, role: 'assistant', text: '', reply }])
-      setStreaming(true)
-      let i = 0
-      streamTimer.current = setInterval(() => {
-        i += 1
-        const next = streamText.slice(0, i)
-        setMessages((m) => m.map((msg) => (msg.id === aid ? { ...msg, text: next } : msg)))
-        if (i >= streamText.length) {
-          if (streamTimer.current) clearInterval(streamTimer.current)
-          streamTimer.current = null
-          assistantMsgId.current = null
-          setStreaming(false)
-          onComplete?.()
-        }
-      }, 28)
-    },
-    [],
-  )
+  const startAssistantReply = useCallback((reply: AssistantReplyPayload) => {
+    const aid = uid()
+    assistantMsgId.current = aid
+    setMessages((m) => [...m, { id: aid, role: 'assistant', text: '', reply }])
+    setStreaming(true)
+
+    const thinkingMs = Math.max(1800, (reply.timeline.length || 1) * 1100)
+    streamTimer.current = setTimeout(() => {
+      streamTimer.current = null
+      assistantMsgId.current = null
+      setStreaming(false)
+    }, thinkingMs)
+  }, [])
 
   const send = useCallback(() => {
     const t = draft.trim()
     if (!t || streaming) return
     setDraft('')
-    setSelectedComponentId(null)
+    const priorAssistant = messages.filter((msg) => msg.role === 'assistant').length
+    const turn = detectConversationTurn(t, priorAssistant)
+    const reply = replyForTurn(turn)
+    if (!titleEditedRef.current && priorAssistant === 0) {
+      setChatTitle(titleFromReply(reply))
+    }
     setMessages((m) => [...m, { id: uid(), role: 'user', text: t }])
-    const lower = t.toLowerCase()
-    const reply =
-      lower.includes('data') && (lower.includes('fetch') || lower.includes('can you'))
-        ? DATA_FETCH_REPLY
-        : withCreatedComponents(DEMO_REPLY)
-    const streamText = reply === DATA_FETCH_REPLY ? DATA_FETCH_STREAM : MOCK_STREAM
-    startAssistantStream(reply, streamText, () => {
-      if (reply === DATA_FETCH_REPLY) setSelectedComponentId('high-heat-districts')
-    })
-  }, [draft, streaming, startAssistantStream])
+    startAssistantReply(reply)
+  }, [draft, streaming, messages, startAssistantReply])
+
+  const questionIndex = useMemo((): ChatQuestionIndexItem[] => {
+    const items: ChatQuestionIndexItem[] = []
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i]
+      if (msg.role !== 'user') continue
+      const response = messages.slice(i + 1).find((m) => m.role === 'assistant')
+      if (!response) continue
+      items.push({
+        id: msg.id,
+        question: msg.text,
+        responseId: response.id,
+      })
+    }
+    return items
+  }, [messages])
+
+  const toggleExpanded = useCallback(() => {
+    const el = assistantPanelRef.current
+    if (el) {
+      const rect = el.getBoundingClientRect()
+      pendingPanelAnimRef.current = {
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      }
+    }
+    setExpanded((v) => !v)
+  }, [])
+
+  const jumpToResponse = useCallback((responseId: string) => {
+    const root = chatMiddleRef.current
+    const target = root?.querySelector(`[data-message-id="${CSS.escape(responseId)}"]`)
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [])
+
+  const onChatTitleChange = useCallback((title: string) => {
+    titleEditedRef.current = true
+    setChatTitle(title)
+  }, [])
 
   const lastAssistantMessageId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -218,26 +290,41 @@ export function CompactAssistantDemo() {
   }, [messages])
 
   const selectedComponent = useMemo((): CreatedComponent | null => {
-    if (!selectedComponentId) return null
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i]
-      if (msg.role !== 'assistant' || !msg.reply?.createdComponents) continue
-      const found = msg.reply.createdComponents.find((c) => c.id === selectedComponentId)
-      if (found) return found
+    if (subcontext.view !== 'map' && subcontext.view !== 'chart') return null
+    return findComponent(subcontext.componentId) ?? null
+  }, [subcontext])
+
+  const activeReport = useMemo(() => {
+    if (subcontext.view !== 'slides') return null
+    return findReport(subcontext.reportId) ?? AIR_QUALITY_REPORT
+  }, [subcontext])
+
+  const splitOpen = subcontext.view !== 'closed'
+
+  const onComponentSelect = useCallback((component: CreatedComponent) => {
+    if (streaming) return
+    const isMap = component.preview?.kind === 'image' && component.preview.detailView === 'map'
+    setSubcontext({
+      view: isMap ? 'map' : 'chart',
+      componentId: component.id,
+    })
+  }, [streaming])
+
+  const onReportOpen = useCallback((reportId: string) => {
+    setSubcontext({ view: 'slides', reportId, activeSlide: 0 })
+  }, [])
+
+  const onOpenSubcontext = useCallback((block: AgentResponseBlock) => {
+    if (block.type === 'visual' && block.openSubcontext) {
+      setSubcontext({
+        view: block.visualType === 'map' ? 'map' : 'chart',
+        componentId: block.componentId,
+      })
+      return
     }
-    return null
-  }, [messages, selectedComponentId])
-
-  const onComponentSelect = useCallback(
-    (component: CreatedComponent) => {
-      if (streaming) return
-      setSelectedComponentId(component.id)
-    },
-    [streaming],
-  )
-
-  const closeComponentDetail = useCallback(() => {
-    setSelectedComponentId(null)
+    if (block.type === 'report' && block.openSubcontext) {
+      setSubcontext({ view: 'slides', reportId: block.reportId, activeSlide: 0 })
+    }
   }, [])
 
   const stop = useCallback(() => {
@@ -249,11 +336,14 @@ export function CompactAssistantDemo() {
   const closePanel = useCallback(() => {
     setOpen(false)
     setExpanded(false)
-    setSelectedComponentId(null)
+    setSubcontext({ view: 'closed' })
+    pausedSubcontextRef.current = null
     setPanelView('chat')
     clearStream()
     setMessages([])
     setDraft('')
+    setChatTitle('New chat')
+    titleEditedRef.current = false
   }, [clearStream])
 
   const openLauncher = useCallback(() => {
@@ -271,24 +361,30 @@ export function CompactAssistantDemo() {
         <div ref={transcriptScrollRef} className={styles.transcript}>
           {messages.map((msg) =>
             msg.role === 'user' ? (
-              <div key={msg.id} className={styles.msgUser}>
+              <div key={msg.id} data-message-id={msg.id} className={styles.msgUser}>
                 {msg.text}
               </div>
             ) : msg.reply ? (
-              <div key={msg.id} className={styles.msgAssistantTimeline}>
+              <div key={msg.id} data-message-id={msg.id} className={styles.msgAssistantTimeline}>
                 <AssistantTimelineReply
                   key={msg.id}
                   reply={msg.reply}
                   streamingText={msg.text}
                   isAnswerStreaming={streaming && assistantMsgId.current === msg.id}
                   onComponentSelect={onComponentSelect}
-                  selectedComponentId={selectedComponentId}
+                  onReportOpen={onReportOpen}
+                  onOpenSubcontext={onOpenSubcontext}
+                  selectedComponentId={
+                    subcontext.view === 'map' || subcontext.view === 'chart'
+                      ? subcontext.componentId
+                      : null
+                  }
                   instantTimeline={msg.id !== lastAssistantMessageId}
                   conversationPanelRef={chatMiddleRef}
                 />
               </div>
             ) : (
-              <div key={msg.id} className={styles.msgAssistant}>
+              <div key={msg.id} data-message-id={msg.id} className={styles.msgAssistant}>
                 {msg.text || '\u00a0'}
               </div>
             ),
@@ -331,15 +427,15 @@ export function CompactAssistantDemo() {
           onClick={closePanel}
         />
       )}
-      <div className={`${styles.fabColumn}${selectedComponent ? ` ${styles.fabColumnSplit}` : ''}`}>
+      <div className={`${styles.fabColumn}${splitOpen ? ` ${styles.fabColumnSplit}` : ''}`}>
         <div
           className={`${styles.panelWrap} ${open ? '' : styles.panelWrapHidden}`}
           aria-hidden={!open}
         >
           {open && (
-            <AssistantPanel ref={assistantPanelRef} expanded={expanded} splitView={Boolean(selectedComponent)}>
+            <AssistantPanel ref={assistantPanelRef} expanded={expanded} splitView={splitOpen}>
               <div className={styles.splitBody}>
-                <div className={`${styles.chatColumn} ${selectedComponent ? styles.chatColumnSplit : ''}`}>
+                <div className={`${styles.chatColumn} ${splitOpen ? styles.chatColumnSplit : ''}`}>
                   <div
                     className={panelView === 'sessions' ? styles.panelViewHidden : styles.panelViewStack}
                     aria-hidden={panelView === 'sessions'}
@@ -347,10 +443,16 @@ export function CompactAssistantDemo() {
                     <PanelHeader
                       onClose={closePanel}
                       panelView={panelView}
-                      onOpenSessions={() => setPanelView('sessions')}
-                      onBackToChat={() => setPanelView('chat')}
+                      onOpenSessions={openSessions}
+                      onBackToChat={backToChat}
+                      expanded={expanded}
+                      onToggleExpanded={toggleExpanded}
+                      chatTitle={chatTitle}
+                      onChatTitleChange={onChatTitleChange}
+                      questions={questionIndex}
+                      onJumpToResponse={jumpToResponse}
                     />
-                    <div className={selectedComponent ? styles.chatColumnSeparator : styles.separator} />
+                    <div className={styles.separator} />
                     {chatMiddle}
                   </div>
                   <div
@@ -358,12 +460,16 @@ export function CompactAssistantDemo() {
                     aria-hidden={panelView === 'chat'}
                   >
                     <SessionsPanel
-                      onBack={() => setPanelView('chat')}
-                      onOpenSession={() => setPanelView('chat')}
+                      onBack={backToChat}
+                      onOpenSession={backToChat}
                       onNewSession={() => {
                         clearStream()
                         setMessages([])
                         setDraft('')
+                        setSubcontext({ view: 'closed' })
+                        pausedSubcontextRef.current = null
+                        setChatTitle('New chat')
+                        titleEditedRef.current = false
                         setPanelView('chat')
                       }}
                     />
@@ -371,7 +477,23 @@ export function CompactAssistantDemo() {
                 </div>
                 {selectedComponent ? (
                   <div className={styles.detailColumn}>
-                    <ComponentDetailPanel component={selectedComponent} onClose={closeComponentDetail} />
+                    <ComponentDetailPanel component={selectedComponent} onClose={closeSubcontext} />
+                  </div>
+                ) : null}
+                {activeReport && subcontext.view === 'slides' ? (
+                  <div className={styles.detailColumn}>
+                    <SlidesDetailPanel
+                      report={activeReport}
+                      components={AIR_QUALITY_COMPONENTS}
+                      activeSlide={subcontext.activeSlide}
+                      onSlideChange={(index) =>
+                        setSubcontext({ view: 'slides', reportId: activeReport.id, activeSlide: index })
+                      }
+                      onClose={closeSubcontext}
+                      onHome={() =>
+                        setSubcontext({ view: 'slides', reportId: activeReport.id, activeSlide: 0 })
+                      }
+                    />
                   </div>
                 ) : null}
               </div>

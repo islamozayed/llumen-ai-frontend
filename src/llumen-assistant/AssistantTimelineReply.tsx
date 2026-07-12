@@ -1,15 +1,32 @@
-import { CheckCircle, Globe, ChartLine, Database, SquaresFour, Table, CaretRight } from '@phosphor-icons/react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react'
+import {
+  Article,
+  Brain,
+  Buildings,
+  CaretRight,
+  ChartLine,
+  CheckCircle,
+  Database,
+  FileText,
+  MagnifyingGlass,
+  MapTrifold,
+  PencilSimpleLine,
+  Presentation,
+  SealCheck,
+  Stack,
+  Wind,
+  X,
+} from '@phosphor-icons/react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type {
+  AgentResponseBlock,
   AssistantReplyPayload,
   CreatedComponent,
-  CreatedComponentType,
   ThinkingStep,
-  ThinkingStepKind,
-  TimelineStep,
 } from './assistantReplyTypes'
 import { thinkingStepsFromTimeline } from './thinkingSteps'
+import { InlineVisualCard } from './InlineVisualCard'
+import { ReportThumbnail } from './ReportThumbnail'
 import styles from './AssistantTimelineReply.module.css'
 
 export type AssistantTimelineReplyProps = {
@@ -20,6 +37,10 @@ export type AssistantTimelineReplyProps = {
   isAnswerStreaming?: boolean
   /** Fired when the user opens a created component in the detail sub-panel. */
   onComponentSelect?: (component: CreatedComponent) => void
+  /** Open report slides in the subcontext panel. */
+  onReportOpen?: (reportId: string) => void
+  /** Fired when a block requests opening subcontext (map/chart/slides). */
+  onOpenSubcontext?: (block: AgentResponseBlock) => void
   /** Highlights the chip for the component currently open in the detail panel. */
   selectedComponentId?: string | null
   /** When true, skip step animation (used for older turns in the transcript). */
@@ -60,25 +81,59 @@ function splitWordSpaceSegments(text: string): { text: string; isWord: boolean }
 }
 
 const WORD_REVEAL_STAGGER_MS = 48
+const WORD_REVEAL_DURATION_MS = 440
+const BLOCK_GAP_MS = 280
+const VISUAL_BLOCK_ENTER_MS = 520
 
-/** Proactive section: title animates first (delay 0 in CSS); chips stagger after */
-const PROACTIVE_ITEM_BASE_MS = 88
-const PROACTIVE_ITEM_STAGGER_MS = 76
+function countWords(text: string) {
+  return splitWordSpaceSegments(text).filter((seg) => seg.isWord).length
+}
 
 function AnimatedWordsParagraph({
   text,
   className,
   reduceMotion,
   isStreamingTail = false,
+  instant = false,
+  onComplete,
 }: {
   text: string
   className: string
   reduceMotion: boolean
   isStreamingTail?: boolean
+  /** Skip word animation and show the full paragraph immediately. */
+  instant?: boolean
+  onComplete?: () => void
 }) {
+  const doneRef = useRef(false)
+
+  useEffect(() => {
+    doneRef.current = false
+  }, [text])
+
+  useEffect(() => {
+    if (!onComplete || doneRef.current) return
+
+    if (reduceMotion || instant || !text) {
+      doneRef.current = true
+      onComplete()
+      return
+    }
+
+    const words = countWords(text)
+    const duration =
+      words <= 0 ? WORD_REVEAL_DURATION_MS : (words - 1) * WORD_REVEAL_STAGGER_MS + WORD_REVEAL_DURATION_MS
+    const timer = window.setTimeout(() => {
+      doneRef.current = true
+      onComplete()
+    }, duration)
+
+    return () => clearTimeout(timer)
+  }, [text, reduceMotion, instant, onComplete])
+
   if (!text) return null
 
-  if (reduceMotion) {
+  if (reduceMotion || instant) {
     return <p className={className}>{text}</p>
   }
 
@@ -123,22 +178,91 @@ function AnimatedWordsParagraph({
   )
 }
 
-function ThinkingStepIcon({ kind }: { kind: ThinkingStepKind }) {
-  if (kind === 'search') {
-    return (
-      <span className={`${styles.thinkingStepIcon} ${styles.thinkingStepIconSearch}`} aria-hidden>
-        <Globe weight="duotone" size={14} />
-      </span>
-    )
+function AnswerBlockShell({
+  animating,
+  reduceMotion,
+  onComplete,
+  children,
+}: {
+  animating: boolean
+  reduceMotion: boolean
+  onComplete?: () => void
+  children: ReactNode
+}) {
+  const doneRef = useRef(false)
+
+  useEffect(() => {
+    doneRef.current = false
+  }, [animating])
+
+  useEffect(() => {
+    if (!animating || !onComplete || doneRef.current) return
+    if (reduceMotion) {
+      doneRef.current = true
+      onComplete()
+      return
+    }
+    const timer = window.setTimeout(() => {
+      doneRef.current = true
+      onComplete()
+    }, VISUAL_BLOCK_ENTER_MS)
+    return () => clearTimeout(timer)
+  }, [animating, reduceMotion, onComplete])
+
+  return (
+    <div className={animating && !reduceMotion ? styles.answerBlockEnter : undefined}>
+      {children}
+    </div>
+  )
+}
+
+function ThinkingStepIcon({ step }: { step: ThinkingStep }) {
+  const title = step.title.toLowerCase()
+  const kind = step.kind
+
+  let Icon = Brain
+
+  if (/\b(draft|writing|response with)\b/.test(title)) {
+    Icon = PencilSimpleLine
+  } else if (/\b(finaliz)\b/.test(title) || (kind === 'done' && !/\b(draft|writing)\b/.test(title))) {
+    Icon = CheckCircle
+  } else if (/\b(search|searching|looking|semantic models|data sources|connected data|found)\b/.test(title)) {
+    Icon = MagnifyingGlass
+  } else if (/\b(generat(?:ing|e)?(?:\s+\w+)*\s+map|air-quality map|updating map|map context)\b/.test(title)) {
+    Icon = MapTrifold
+  } else if (/\b(query|queries|database|warehouse|validation query)\b/.test(title)) {
+    Icon = Database
+  } else if (/\b(analyz|compar|composition|attribution|pattern)\b/.test(title)) {
+    Icon = ChartLine
+  } else if (/\b(land[- ]?use|industrial|buildings?)\b/.test(title)) {
+    Icon = Buildings
+  } else if (/\b(wind|meteorolog|weather)\b/.test(title)) {
+    Icon = Wind
+  } else if (/\b(collect|gather|stack|components)\b/.test(title)) {
+    Icon = Stack
+  } else if (/\b(slide|presentation|visual summar)\b/.test(title)) {
+    Icon = Presentation
+  } else if (/\b(structur|report|executive)\b/.test(title)) {
+    Icon = Article
+  } else if (/\b(validat|check|verif)\b/.test(title)) {
+    Icon = SealCheck
+  } else if (/\b(understand|asking|intent|question|request)\b/.test(title)) {
+    Icon = Brain
+  } else if (/\b(review|read|inspect)\b/.test(title)) {
+    Icon = FileText
+  } else if (/\b(map|geographic|spatial)\b/.test(title)) {
+    Icon = MapTrifold
+  } else if (kind === 'search') {
+    Icon = MagnifyingGlass
+  } else if (kind === 'done') {
+    Icon = CheckCircle
   }
-  if (kind === 'done') {
-    return (
-      <span className={`${styles.thinkingStepIcon} ${styles.thinkingStepIconDone}`} aria-hidden>
-        <CheckCircle weight="fill" size={14} />
-      </span>
-    )
-  }
-  return <span className={styles.thinkingStepDot} aria-hidden />
+
+  return (
+    <span className={styles.thinkingStepIcon} aria-hidden>
+      <Icon size={14} weight="regular" />
+    </span>
+  )
 }
 
 function ThinkingPopover({
@@ -157,14 +281,15 @@ function ThinkingPopover({
   onClose: () => void
 }) {
   const popoverRef = useRef<HTMLDivElement>(null)
-  const [layout, setLayout] = useState({ top: 0, left: 0, width: 360 })
+  const [layout, setLayout] = useState({ top: 0, left: 0, width: 360, placeAbove: false })
 
   const updatePosition = useCallback(() => {
     const trigger = anchorRef.current
     if (!trigger) return
 
     const triggerRect = trigger.getBoundingClientRect()
-    const panelRect = panelRef?.current?.getBoundingClientRect() ?? {
+    const panel = panelRef?.current
+    const panelRect = panel?.getBoundingClientRect() ?? {
       left: 24,
       top: 24,
       width: window.innerWidth - 48,
@@ -173,16 +298,27 @@ function ThinkingPopover({
       bottom: window.innerHeight - 24,
     }
 
-    const width = Math.min(420, Math.max(300, panelRect.width - 48))
-    const left = panelRect.left + (panelRect.width - width) / 2
+    const composer = panel?.querySelector('[data-lc-composer]')
+    const composerTop = composer?.getBoundingClientRect().top ?? panelRect.bottom
+    const edgePad = 12
+    const gap = 10
+    const maxWidth = panelRect.width * 0.75
+    const width = Math.max(220, Math.min(maxWidth, panelRect.width - edgePad * 2))
+
+    let left = triggerRect.left
+    const maxLeft = panelRect.right - width - edgePad
+    left = Math.min(Math.max(left, panelRect.left + edgePad), Math.max(panelRect.left + edgePad, maxLeft))
+
     const popoverHeight = popoverRef.current?.offsetHeight ?? 0
-    const gap = 12
-    const minTop = panelRect.top + 16
+    const spaceBelow = composerTop - triggerRect.bottom - gap - edgePad
+    const placeAbove = popoverHeight > 0 && spaceBelow < popoverHeight
 
-    let top = triggerRect.top - popoverHeight - gap
-    if (top < minTop) top = triggerRect.bottom + gap
+    let top = placeAbove ? triggerRect.top - popoverHeight - gap : triggerRect.bottom + gap
+    const minTop = panelRect.top + edgePad
+    const maxTop = Math.max(minTop, (composerTop ?? panelRect.bottom) - popoverHeight - edgePad)
+    top = Math.min(Math.max(top, minTop), maxTop)
 
-    setLayout({ top, left, width })
+    setLayout({ top, left, width, placeAbove })
   }, [anchorRef, panelRef])
 
   useLayoutEffect(() => {
@@ -225,7 +361,7 @@ function ThinkingPopover({
   return createPortal(
     <div
       ref={popoverRef}
-      className={styles.thinkingPopover}
+      className={`${styles.thinkingPopover}${layout.placeAbove ? ` ${styles.thinkingPopoverAbove}` : ''}`}
       style={{
         top: layout.top,
         left: layout.left,
@@ -234,7 +370,17 @@ function ThinkingPopover({
       role="dialog"
       aria-label="Thinking"
     >
-      <p className={styles.thinkingPanelTitle}>Thinking</p>
+      <div className={styles.thinkingPanelHeader}>
+        <p className={styles.thinkingPanelTitle}>Thinking</p>
+        <button
+          type="button"
+          className={styles.thinkingPanelClose}
+          onClick={onClose}
+          aria-label="Close thinking"
+        >
+          <X size={16} weight="bold" aria-hidden />
+        </button>
+      </div>
       <ol className={styles.thinkingStepList}>
         {steps.map((step, index) => (
           <li
@@ -242,10 +388,9 @@ function ThinkingPopover({
             className={styles.thinkingStepItem}
             style={reduceMotion ? undefined : { animationDelay: `${index * 40}ms` }}
           >
-            <ThinkingStepIcon kind={step.kind} />
+            <ThinkingStepIcon step={step} />
             <div className={styles.thinkingStepText}>
               <span className={styles.thinkingStepTitle}>{step.title}</span>
-              {step.description ? <p className={styles.thinkingStepDesc}>{step.description}</p> : null}
             </div>
           </li>
         ))}
@@ -255,80 +400,35 @@ function ThinkingPopover({
   )
 }
 
-const OPENING_SUFFIX = ', let me work on this report for you.'
-
-function ComponentCardPreview({ component }: { component: CreatedComponent }) {
-  const preview = component.preview
-
-  if (preview?.kind === 'image') {
-    const cover = preview.fit === 'cover'
-    return (
-      <img
-        className={cover ? styles.componentPreviewImageCover : styles.componentPreviewImage}
-        src={preview.src}
-        alt={preview.alt ?? component.title}
-        loading="lazy"
-      />
-    )
-  }
-
-  if (preview?.kind === 'kpi') {
-    return (
-      <div className={styles.componentPreviewKpi}>
-        <span className={styles.componentPreviewKpiValue}>
-          {preview.value}
-          {preview.unit ? <span className={styles.componentPreviewKpiUnit}>{preview.unit}</span> : null}
-        </span>
-        <span className={styles.componentPreviewKpiCaption}>{component.title}</span>
-      </div>
-    )
-  }
-
-  if (preview?.kind === 'text') {
-    return <p className={styles.componentPreviewText}>{preview.content}</p>
-  }
-
-  return (
-    <div className={styles.componentPreviewFallback} aria-hidden>
-      <CreatedComponentIcon type={component.type} className={styles.componentPreviewFallbackIcon} />
-    </div>
-  )
-}
-
-function CreatedComponentIcon({ type, className }: { type: CreatedComponentType; className?: string }) {
-  const iconProps = { className, size: 14 as const, weight: 'regular' as const, 'aria-hidden': true as const }
-  switch (type) {
-    case 'kpi':
-      return <ChartLine {...iconProps} />
-    case 'data-sample':
-      return <Database {...iconProps} />
-    case 'visual':
-      return <SquaresFour {...iconProps} />
-    case 'briefing':
-      return <Table {...iconProps} />
-    case 'domain':
-      return <Globe {...iconProps} />
-    default:
-      return <Table {...iconProps} />
-  }
-}
+const OPENING_SUFFIX = ', let me work on this for you.'
 
 export function AssistantTimelineReply({
   reply,
   streamingText,
   isAnswerStreaming = false,
   onComponentSelect,
+  onReportOpen,
+  onOpenSubcontext,
   selectedComponentId = null,
   instantTimeline = false,
   conversationPanelRef,
   className,
 }: AssistantTimelineReplyProps) {
-  const { confirmation, timeline, createdComponents = [] } = reply
+  const { confirmation, timeline, createdComponents = [], blocks = [], reports = [] } = reply
   const thinkingSteps = useMemo(
     () => reply.thinkingSteps ?? thinkingStepsFromTimeline(timeline),
     [reply.thinkingSteps, timeline],
   )
   const reduceMotion = usePrefersReducedMotion()
+  const componentById = useMemo(() => {
+    const map = new Map<string, CreatedComponent>()
+    for (const c of createdComponents) map.set(c.id, c)
+    return map
+  }, [createdComponents])
+  const reportById = useMemo(() => {
+    const map = new Map(reports.map((r) => [r.id, r]))
+    return map
+  }, [reports])
 
   const [revealedCount, setRevealedCount] = useState(0)
   const [runningIndex, setRunningIndex] = useState<number | null>(null)
@@ -336,10 +436,13 @@ export function AssistantTimelineReply({
   const [thoughtExpanded, setThoughtExpanded] = useState(false)
   const [thoughtSeconds, setThoughtSeconds] = useState<number | null>(null)
   const [revealedThinkingCount, setRevealedThinkingCount] = useState(0)
+  const [revealedBlockCount, setRevealedBlockCount] = useState(0)
   const thoughtTriggerRef = useRef<HTMLButtonElement>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const blockGapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const thoughtStartRef = useRef(Date.now())
+  const openedSubcontextKeys = useRef(new Set<string>())
 
   useEffect(() => {
     if (instantTimeline || reduceMotion) {
@@ -438,14 +541,65 @@ export function AssistantTimelineReply({
     }
   }, [timeline, reduceMotion, instantTimeline])
 
+  const useBlocks = blocks.length > 0
+
+  useEffect(() => {
+    if (blockGapTimerRef.current != null) {
+      clearTimeout(blockGapTimerRef.current)
+      blockGapTimerRef.current = null
+    }
+
+    if (!sequenceComplete) {
+      setRevealedBlockCount(0)
+      return
+    }
+    if (!useBlocks) {
+      setRevealedBlockCount(0)
+      return
+    }
+    if (instantTimeline || reduceMotion) {
+      setRevealedBlockCount(blocks.length)
+      return
+    }
+
+    setRevealedBlockCount(1)
+  }, [sequenceComplete, useBlocks, blocks.length, instantTimeline, reduceMotion])
+
+  const onActiveBlockComplete = useCallback(() => {
+    if (instantTimeline || reduceMotion) return
+    if (blockGapTimerRef.current != null) clearTimeout(blockGapTimerRef.current)
+    blockGapTimerRef.current = window.setTimeout(() => {
+      blockGapTimerRef.current = null
+      setRevealedBlockCount((count) => Math.min(count + 1, blocks.length + 1))
+    }, BLOCK_GAP_MS)
+  }, [blocks.length, instantTimeline, reduceMotion])
+
+  useEffect(() => {
+    if (!useBlocks || !onOpenSubcontext || instantTimeline) return
+    const visible = blocks.slice(0, revealedBlockCount)
+    for (const block of visible) {
+      const key =
+        block.type === 'visual'
+          ? `visual:${block.componentId}:${block.openSubcontext ? '1' : '0'}`
+          : block.type === 'report'
+            ? `report:${block.reportId}`
+            : null
+      if (!key) continue
+      const shouldOpen =
+        (block.type === 'visual' && block.openSubcontext) ||
+        (block.type === 'report' && block.openSubcontext)
+      if (!shouldOpen || openedSubcontextKeys.current.has(key)) continue
+      openedSubcontextKeys.current.add(key)
+      onOpenSubcontext(block)
+    }
+  }, [useBlocks, blocks, revealedBlockCount, onOpenSubcontext, instantTimeline])
+
   const openingLine =
     confirmation && confirmation.trim().length > 0
       ? `${confirmation.trim()}${OPENING_SUFFIX}`
       : null
 
-  const responseComplete =
-    sequenceComplete && Boolean(streamingText && streamingText.length > 0) && !isAnswerStreaming
-  const showThoughtRow = responseComplete && thoughtSeconds != null
+  const showThoughtRow = sequenceComplete && thoughtSeconds != null
   const thoughtLabel =
     thoughtSeconds != null
       ? `Thought for ${thoughtSeconds} second${thoughtSeconds === 1 ? '' : 's'}`
@@ -455,12 +609,40 @@ export function AssistantTimelineReply({
     isThinking ? revealedThinkingCount : thinkingSteps.length,
   )
 
-  const showComponents =
-    sequenceComplete &&
-    Boolean(streamingText && streamingText.length > 0) &&
-    !isAnswerStreaming &&
-    createdComponents.length > 0 &&
-    Boolean(onComponentSelect)
+  const thoughtBlock = showThoughtRow ? (
+    <div className={styles.thinkingWrap}>
+      <button
+        ref={thoughtTriggerRef}
+        type="button"
+        className={styles.thinkingRow}
+        onClick={() => setThoughtExpanded((open) => !open)}
+        aria-expanded={thoughtExpanded}
+        aria-haspopup="dialog"
+      >
+        <span className={isThinking ? styles.thinkingLabelActive : styles.thinkingLabel}>
+          {thoughtLabel}
+        </span>
+        <CaretRight
+          className={`${styles.thinkingCaret}${thoughtExpanded ? ` ${styles.thinkingCaretOpen}` : ''}`}
+          size={14}
+          weight="bold"
+          aria-hidden
+        />
+      </button>
+      <ThinkingPopover
+        open={thoughtExpanded}
+        anchorRef={thoughtTriggerRef}
+        panelRef={conversationPanelRef}
+        steps={visibleThinkingSteps}
+        reduceMotion={reduceMotion}
+        onClose={() => setThoughtExpanded(false)}
+      />
+    </div>
+  ) : null
+
+  const visibleBlocks = useBlocks
+    ? blocks.slice(0, Math.min(revealedBlockCount, blocks.length))
+    : []
 
   return (
     <div className={[styles.root, className].filter(Boolean).join(' ')}>
@@ -482,7 +664,71 @@ export function AssistantTimelineReply({
         </div>
       ) : null}
 
-      {sequenceComplete ? (
+      {thoughtBlock}
+
+      {useBlocks && sequenceComplete ? (
+        <div className={styles.finalReply} aria-live="polite">
+          {visibleBlocks.map((block, index) => {
+            const isAnimating =
+              !instantTimeline &&
+              !reduceMotion &&
+              revealedBlockCount <= blocks.length &&
+              index === revealedBlockCount - 1
+            const isSettled = !isAnimating
+
+            if (block.type === 'text') {
+              return (
+                <AnimatedWordsParagraph
+                  key={`text-${index}`}
+                  text={block.content}
+                  className={styles.finalReplyText}
+                  reduceMotion={reduceMotion}
+                  instant={isSettled}
+                  onComplete={isAnimating ? onActiveBlockComplete : undefined}
+                />
+              )
+            }
+
+            if (block.type === 'visual') {
+              const component = componentById.get(block.componentId)
+              if (!component) return null
+              return (
+                <AnswerBlockShell
+                  key={`visual-${block.componentId}-${index}`}
+                  animating={isAnimating}
+                  reduceMotion={reduceMotion}
+                  onComplete={isAnimating ? onActiveBlockComplete : undefined}
+                >
+                  <InlineVisualCard
+                    component={component}
+                    caption={block.caption}
+                    active={selectedComponentId === component.id}
+                    onExpand={onComponentSelect ? () => onComponentSelect(component) : undefined}
+                  />
+                </AnswerBlockShell>
+              )
+            }
+
+            const report = reportById.get(block.reportId)
+            if (!report) return null
+            return (
+              <AnswerBlockShell
+                key={`report-${block.reportId}`}
+                animating={isAnimating}
+                reduceMotion={reduceMotion}
+                onComplete={isAnimating ? onActiveBlockComplete : undefined}
+              >
+                <ReportThumbnail report={report} onOpen={() => onReportOpen?.(block.reportId)} />
+              </AnswerBlockShell>
+            )
+          })}
+          {revealedBlockCount < blocks.length ? (
+            <p className={styles.finalReplyPending}>Continuing analysis…</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!useBlocks && sequenceComplete ? (
         <div className={styles.finalReply} aria-live="polite">
           {streamingText && streamingText.length > 0 ? (
             <AnimatedWordsParagraph
@@ -494,75 +740,6 @@ export function AssistantTimelineReply({
           ) : (
             <p className={styles.finalReplyPending}>Preparing your summary…</p>
           )}
-        </div>
-      ) : null}
-
-      {showComponents ? (
-        <div className={styles.createdComponentsWrap} aria-label="Created components">
-          <p className={styles.createdComponentsLabel}>Created components</p>
-          <ul className={styles.createdComponentsGrid}>
-            {createdComponents.map((component, index) => {
-              const isActive = selectedComponentId === component.id
-              const previewFillsCard =
-                component.preview?.kind === 'image' && component.preview.fit === 'cover'
-              return (
-                <li
-                  key={component.id}
-                  className={styles.createdComponentsItem}
-                  style={{
-                    animationDelay: `${PROACTIVE_ITEM_BASE_MS + index * PROACTIVE_ITEM_STAGGER_MS}ms`,
-                  }}
-                >
-                  <button
-                    type="button"
-                    className={`${styles.componentCard}${isActive ? ` ${styles.componentCardActive}` : ''}`}
-                    onClick={() => onComponentSelect?.(component)}
-                    aria-pressed={isActive}
-                  >
-                    <div
-                      className={`${styles.componentCardPreview}${previewFillsCard ? ` ${styles.componentCardPreviewFill}` : ''}`}
-                    >
-                      <ComponentCardPreview component={component} />
-                    </div>
-                    <div className={styles.componentCardContent}>
-                      <p className={styles.componentCardTitle}>{component.title}</p>
-                    </div>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      ) : null}
-
-      {showThoughtRow ? (
-        <div className={styles.thinkingWrap}>
-          <button
-            ref={thoughtTriggerRef}
-            type="button"
-            className={styles.thinkingRow}
-            onClick={() => setThoughtExpanded((open) => !open)}
-            aria-expanded={thoughtExpanded}
-            aria-haspopup="dialog"
-          >
-            <span className={isThinking ? styles.thinkingLabelActive : styles.thinkingLabel}>
-              {thoughtLabel}
-            </span>
-            <CaretRight
-              className={`${styles.thinkingCaret}${thoughtExpanded ? ` ${styles.thinkingCaretOpen}` : ''}`}
-              size={14}
-              weight="bold"
-              aria-hidden
-            />
-          </button>
-          <ThinkingPopover
-            open={thoughtExpanded}
-            anchorRef={thoughtTriggerRef}
-            panelRef={conversationPanelRef}
-            steps={visibleThinkingSteps}
-            reduceMotion={reduceMotion}
-            onClose={() => setThoughtExpanded(false)}
-          />
         </div>
       ) : null}
     </div>

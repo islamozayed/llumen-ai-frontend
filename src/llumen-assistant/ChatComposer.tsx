@@ -169,7 +169,7 @@ export function ChatComposer({
   }
 
   return (
-    <div className={styles.chatBox}>
+    <div className={styles.chatBox} data-lc-composer="">
       <div className={styles.textAreaWrap}>
         <textarea
           ref={(el) => {

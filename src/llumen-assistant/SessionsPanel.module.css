@@ -36,15 +36,16 @@
   height: var(--lc-header-icon-btn-size);
   padding: 0;
   border: none;
-  background: rgba(255, 255, 255, 0.06);
+  background: transparent;
   cursor: pointer;
-  border-radius: 50%;
+  border-radius: 8px;
   color: var(--lc-text-primary);
-  transition: background var(--lc-duration) var(--lc-ease);
+  transition: opacity var(--lc-duration) var(--lc-ease);
 }
 
 .headerBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: transparent;
+  opacity: 0.72;
 }
 
 .headerBtn:focus-visible {

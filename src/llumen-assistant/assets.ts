@@ -23,4 +23,5 @@ export const llumenAssets = {
   mapStoreTrafficIndex: `${b}/map-store-traffic-index.png`,
   mapReturnsRate: `${b}/map-returns-rate.png`,
   mapBirdseyeDetail: `${b}/map-birdseye-detail.png`,
+  mapAbuDhabiAqi: `${b}/map-abu-dhabi-aqi.png`,
 } as const

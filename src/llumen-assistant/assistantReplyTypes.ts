@@ -5,8 +5,7 @@
  *   raw schema paths, subagent IDs, and implementation jargon.
  * - Technical blocks: short imperative labels ("Query run", "Tables used"); code/monospace OK;
  *   keep collapsed until the user expands.
- * - Streaming: the final user-facing answer streams into the summary block after the timeline
- *   finishes (`streamingText` prop in UI), not into step bodies.
+ * - Streaming: interleaved `blocks` reveal after the timeline finishes.
  */
 
 export type TechnicalFormat = 'sql' | 'json' | 'markdown' | 'plain'
@@ -38,10 +37,29 @@ export type TimelineStep = {
 
 export type CreatedComponentType = 'kpi' | 'data-sample' | 'visual' | 'briefing' | 'domain'
 
+export type WidgetVariant =
+  | 'aqi'
+  | 'pollutants'
+  | 'population'
+  | 'land-use'
+  | 'wind'
+  | 'humidity'
+  | 'odor'
+  | 'chart'
+  | 'map'
+
 export type CreatedComponentPreview =
-  | { kind: 'kpi'; value: string; unit?: string }
+  | { kind: 'kpi'; value: string; unit?: string; status?: string; statusTone?: 'critical' | 'normal' | 'warning' }
   | { kind: 'text'; content: string }
-  | { kind: 'image'; src: string; alt?: string; fit?: 'contain' | 'cover'; detailSrc?: string; detailView?: 'map' }
+  | {
+      kind: 'image'
+      src: string
+      alt?: string
+      fit?: 'contain' | 'cover'
+      detailSrc?: string
+      detailView?: 'map'
+    }
+  | { kind: 'widget'; variant: WidgetVariant }
 
 export type CreatedComponent = {
   id: string
@@ -51,8 +69,14 @@ export type CreatedComponent = {
   /** Title shown in the detail sub-panel. */
   title: string
   description: string
+  /** Short figure-style caption under the chart (falls back to description). */
+  caption?: string
+  /** Longer narrative analysis shown below the caption. */
+  analysis?: string
   /** Muted semantic identifier shown under the card title (e.g. "market_stability.cluster_average_score"). */
   semanticId?: string
+  /** Inline layout: full-width (~380) or square tile (202). */
+  inlineSize?: 'full' | 'square'
   preview?: CreatedComponentPreview
 }
 
@@ -64,6 +88,58 @@ export type ThinkingStep = {
   title: string
   description?: string
 }
+
+export type VisualType = 'map' | 'chart' | 'kpi'
+
+export type AgentResponseBlock =
+  | {
+      type: 'text'
+      content: string
+    }
+  | {
+      type: 'visual'
+      componentId: string
+      visualType: VisualType
+      title: string
+      caption: string
+      displayMode: 'inline' | 'subcontext'
+      openSubcontext?: boolean
+    }
+  | {
+      type: 'report'
+      reportId: string
+      title: string
+      subtitle: string
+      thumbnailUrl?: string
+      slideCount: number
+      badge: 'AI Generated'
+      openSubcontext: true
+      subcontextView: 'slides'
+    }
+
+export type ReportSlide = {
+  id: string
+  title: string
+  body: string[]
+  visualComponentId?: string
+  finding?: string
+  confidenceLabel?: string
+}
+
+export type ReportPayload = {
+  id: string
+  title: string
+  subtitle: string
+  slideCount: number
+  badge: 'AI Generated'
+  slides: ReportSlide[]
+  meta?: string[]
+}
+
+export type SubcontextState =
+  | { view: 'closed' }
+  | { view: 'map' | 'chart'; componentId: string }
+  | { view: 'slides'; reportId: string; activeSlide: number }
 
 export type AssistantReplyPayload = {
   /**
@@ -77,8 +153,12 @@ export type AssistantReplyPayload = {
   /** Internal reasoning steps shown in the collapsible thought panel. */
   thinkingSteps?: ThinkingStep[]
   timeline: TimelineStep[]
-  /** Artifacts the assistant created — shown as chips after the reply finishes. */
+  /** Interleaved answer blocks revealed after thinking. */
+  blocks?: AgentResponseBlock[]
+  /** Catalog of visual components referenced by blocks. */
   createdComponents?: CreatedComponent[]
+  /** Report payloads referenced by report blocks. */
+  reports?: ReportPayload[]
 }
 
 /** Back-compat with older demo/API payloads */

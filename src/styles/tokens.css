@@ -77,6 +77,8 @@
   --lc-text-micro: 11px;
   --lc-text-unit: 10px;
 
+  --lc-font-caption: var(--lc-weight-regular) var(--lc-text-caption) / var(--lc-leading-small) var(--lc-font-sans);
+
   --lc-weight-regular: 400;
   --lc-weight-medium: 500;
   --lc-weight-semibold: 600;
@@ -136,7 +138,7 @@
   --lc-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* Assistant layout (app-specific) */
-  --lc-radius-panel-shell: 40px;
+  --lc-radius-panel-shell: var(--radius-3xl);
   --lc-bg-launcher: rgba(37, 40, 45, 0.4);
   --lc-blur-launcher: 15px;
   --lc-gradient-chat-separator: linear-gradient(
@@ -146,8 +148,8 @@
     transparent 100%
   );
 
-  --lc-panel-chat-width: min(680px, 34vw);
-  --lc-panel-width: var(--lc-panel-chat-width);
+  --lc-panel-width: 34vw;
+  --lc-panel-min-width: 600px;
   --lc-panel-split-width: min(1440px, calc(100dvw - 2 * var(--space-3xl)));
   --lc-panel-chat-split-width: min(560px, 34vw);
   --lc-panel-stack-bottom: calc(var(--space-3xl) + 50px + var(--space-lg));
