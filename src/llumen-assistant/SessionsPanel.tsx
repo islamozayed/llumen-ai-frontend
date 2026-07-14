@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
-import { ArrowLeft, DotsThreeVertical, Gear, Plus, Trash } from '@phosphor-icons/react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  DotsThreeVertical,
+  GearSix,
+  MagnifyingGlass,
+  Trash,
+  User,
+  X,
+} from '@phosphor-icons/react'
 import styles from './SessionsPanel.module.css'
 
 export type SessionSummary = {
@@ -20,27 +26,74 @@ const MOCK_SESSIONS: SessionSummary[] = [
   {
     id: '2',
     title: 'Weekly ops recap',
-    updatedLabel: 'Yesterday',
+    updatedLabel: 'Today · 11:02 AM',
     preview: 'Summary of throughput, exceptions, and SLA notes for stakeholders.',
   },
   {
     id: '3',
-    title: 'Onboarding — design system',
-    updatedLabel: 'Mar 28',
+    title: 'Air quality corridor review',
+    updatedLabel: 'Yesterday',
+    preview: 'NO₂ and PM₂.₅ elevation around Mussafah–ICAD corridor.',
+  },
+  {
+    id: '4',
+    title:
+      'Aligning color palettes with IBM Carbon design system for industrial ops dashboards',
+    updatedLabel: 'Yesterday',
     preview: 'Token naming, component inventory, and Figma library links.',
+  },
+  {
+    id: '5',
+    title: 'Port dwell-time anomalies',
+    updatedLabel: 'Mon',
+    preview: 'Three berths exceeding expected turnaround windows.',
+  },
+  {
+    id: '6',
+    title: 'Fleet utilization snapshot',
+    updatedLabel: 'Sun',
+    preview: 'Idle rate down 4% week over week across northern routes.',
+  },
+  {
+    id: '7',
+    title: 'Incident response playbook',
+    updatedLabel: 'Mar 30',
+    preview: 'Escalation paths for hazardous material alerts.',
+  },
+  {
+    id: '8',
+    title: 'Q1 KPI briefing draft',
+    updatedLabel: 'Mar 28',
+    preview: 'Leadership slides covering throughput and exception rates.',
+  },
+  {
+    id: '9',
+    title: 'Sensor coverage gaps',
+    updatedLabel: 'Mar 26',
+    preview: 'Missing stations along the southern industrial belt.',
+  },
+  {
+    id: '10',
+    title: 'Stakeholder FAQ — ops',
+    updatedLabel: 'Mar 22',
+    preview: 'Common questions on SLA breaches and remediations.',
   },
 ]
 
 export type SessionsPanelProps = {
   onOpenSession: (id: string) => void
-  onNewSession: () => void
-  onBack: () => void
-  onSettings?: () => void
+  /** Stretch to fill parent height (fullscreen + no subcontext). */
+  fillHeight?: boolean
 }
 
 const SESSION_MENU_ITEMS = [
   { id: 'rename', label: 'Rename' },
   { id: 'delete', label: 'Delete', destructive: true },
+] as const
+
+const SETTINGS_MENU_ITEMS = [
+  { id: 'personal-context', label: 'Personal context', Icon: User },
+  { id: 'account-settings', label: 'Account settings', Icon: GearSix },
 ] as const
 
 function SessionRowItem({
@@ -51,7 +104,12 @@ function SessionRowItem({
   onOpen: (id: string) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [titleScrolling, setTitleScrolling] = useState(false)
+  const [titleShiftPx, setTitleShiftPx] = useState(0)
+  const [titleScrollMs, setTitleScrollMs] = useState(0)
   const menuRef = useRef<HTMLDivElement>(null)
+  const titleWrapRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
     if (!menuOpen) return
@@ -70,13 +128,55 @@ function SessionRowItem({
     }
   }, [menuOpen])
 
+  const startTitleScroll = useCallback(() => {
+    const wrap = titleWrapRef.current
+    const title = titleRef.current
+    if (!wrap || !title) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const overflow = Math.ceil(title.scrollWidth - wrap.clientWidth)
+    if (overflow <= 1) return
+    // ~36px/s, clamped so short overflows still feel intentional
+    setTitleScrollMs(Math.max(900, Math.min(7000, overflow * 28)))
+    setTitleShiftPx(overflow)
+    setTitleScrolling(true)
+  }, [])
+
+  const stopTitleScroll = useCallback(() => {
+    setTitleScrolling(false)
+    setTitleShiftPx(0)
+    setTitleScrollMs(380)
+  }, [])
+
   return (
     <li>
       <div className={styles.sessionRow}>
-        <button type="button" className={styles.sessionOpenBtn} onClick={() => onOpen(session.id)}>
+        <button
+          type="button"
+          className={styles.sessionOpenBtn}
+          onClick={() => onOpen(session.id)}
+          onMouseEnter={startTitleScroll}
+          onMouseLeave={stopTitleScroll}
+          onFocus={startTitleScroll}
+          onBlur={stopTitleScroll}
+        >
           <div className={styles.sessionBody}>
-            <p className={styles.sessionTitle}>{session.title}</p>
-            <p className={styles.sessionPreview}>{session.preview}</p>
+            <div
+              ref={titleWrapRef}
+              className={`${styles.sessionTitleWrap}${
+                titleScrolling ? ` ${styles.sessionTitleWrapScrolling}` : ''
+              }`}
+            >
+              <p
+                ref={titleRef}
+                className={styles.sessionTitle}
+                style={{
+                  transform: titleShiftPx > 0 ? `translateX(-${titleShiftPx}px)` : 'translateX(0)',
+                  transitionDuration: `${titleScrollMs}ms`,
+                }}
+              >
+                {session.title}
+              </p>
+            </div>
             <p className={styles.sessionMeta}>{session.updatedLabel}</p>
           </div>
         </button>
@@ -120,8 +220,14 @@ function SessionRowItem({
   )
 }
 
-export function SessionsPanel({ onOpenSession, onNewSession, onBack, onSettings }: SessionsPanelProps) {
-  const scrollRef = useRevealScrollbarOnScroll()
+/** Compact conversations menu for the header dropdown (replaces the full-viewport panel). */
+export function SessionsPanel({ onOpenSession, fillHeight = false }: SessionsPanelProps) {
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const settingsWrapRef = useRef<HTMLDivElement>(null)
+
   const open = useCallback(
     (id: string) => {
       onOpenSession(id)
@@ -129,51 +235,125 @@ export function SessionsPanel({ onOpenSession, onNewSession, onBack, onSettings 
     [onOpenSession],
   )
 
+  const filteredSessions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return MOCK_SESSIONS
+    return MOCK_SESSIONS.filter(
+      (s) => s.title.toLowerCase().includes(q) || s.preview.toLowerCase().includes(q),
+    )
+  }, [searchQuery])
+
+  useEffect(() => {
+    if (!searchOpen) return
+    searchInputRef.current?.focus()
+  }, [searchOpen])
+
+  useEffect(() => {
+    if (!settingsOpen) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (settingsWrapRef.current?.contains(event.target as Node)) return
+      setSettingsOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSettingsOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [settingsOpen])
+
+  const closeSearch = () => {
+    setSearchOpen(false)
+    setSearchQuery('')
+  }
+
   return (
-    <div className={styles.root}>
-      <div className={styles.header}>
-        <div className={styles.headerTitle}>
-          <button type="button" className={styles.headerBtn} onClick={onBack} aria-label="Back to chat">
-            <ArrowLeft size={20} weight="regular" aria-hidden />
-          </button>
-          <h2 className={styles.heading}>Conversations</h2>
+    <div className={`${styles.dropdownRoot}${fillHeight ? ` ${styles.dropdownRootFill}` : ''}`}>
+      <div className={styles.panelHeader}>
+        <div className={styles.panelHeaderRow}>
+          <p className={styles.panelTitle}>Conversations</p>
+          <div className={styles.panelHeaderActions}>
+            <button
+              type="button"
+              className={`${styles.panelIconBtn}${searchOpen ? ` ${styles.panelIconBtnActive}` : ''}`}
+              onClick={() => {
+                setSettingsOpen(false)
+                setSearchOpen((open) => {
+                  if (open) setSearchQuery('')
+                  return !open
+                })
+              }}
+              aria-label={searchOpen ? 'Close search' : 'Search conversations'}
+              aria-pressed={searchOpen}
+            >
+              {searchOpen ? (
+                <X size={16} weight="bold" aria-hidden />
+              ) : (
+                <MagnifyingGlass size={16} weight="regular" aria-hidden />
+              )}
+            </button>
+            <div className={styles.settingsWrap} ref={settingsWrapRef}>
+              <button
+                type="button"
+                className={`${styles.settingsBtn}${settingsOpen ? ` ${styles.settingsBtnActive}` : ''}`}
+                onClick={() => {
+                  setSearchOpen(false)
+                  setSearchQuery('')
+                  setSettingsOpen((open) => !open)
+                }}
+                aria-label="Settings"
+                aria-haspopup="menu"
+                aria-expanded={settingsOpen}
+              >
+                <GearSix size={16} weight="regular" aria-hidden />
+              </button>
+              {settingsOpen ? (
+                <div className={styles.settingsMenu} role="menu" aria-label="Settings">
+                  {SETTINGS_MENU_ITEMS.map(({ id, label, Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="menuitem"
+                      className={styles.settingsMenuItem}
+                      onClick={() => setSettingsOpen(false)}
+                    >
+                      <Icon size={16} weight="regular" aria-hidden />
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
-        <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.headerBtn}
-            onClick={onSettings}
-            aria-label="Conversation settings"
-          >
-            <Gear size={20} weight="regular" aria-hidden />
-          </button>
-        </div>
+        {searchOpen ? (
+          <input
+            ref={searchInputRef}
+            type="search"
+            className={styles.searchInput}
+            placeholder="Search conversations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search conversations"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                e.stopPropagation()
+                closeSearch()
+              }
+            }}
+          />
+        ) : null}
       </div>
-      <div className={styles.headerSeparator} />
-      <div ref={scrollRef} className={styles.scroll}>
-        <p className={styles.subtitle}>
-          Open a recent conversation or start something new.
-        </p>
 
-        <div className={styles.actions}>
-          <button type="button" className={styles.actionBtn} onClick={onNewSession}>
-            <Plus size={18} weight="regular" aria-hidden />
-            <span>New Conversation</span>
-          </button>
-        </div>
-
-        <h3 className={styles.sectionLabel}>Recent</h3>
-
-        {MOCK_SESSIONS.length === 0 ? (
-          <p className={styles.empty}>No sessions yet. Start a new one above.</p>
-        ) : (
-          <ul className={styles.list}>
-            {MOCK_SESSIONS.map((s) => (
-              <SessionRowItem key={s.id} session={s} onOpen={open} />
-            ))}
-          </ul>
-        )}
-      </div>
+      <ul className={`${styles.list}${fillHeight ? ` ${styles.listFill}` : ''}`}>
+        {filteredSessions.map((s) => (
+          <SessionRowItem key={s.id} session={s} onOpen={open} />
+        ))}
+      </ul>
     </div>
   )
 }

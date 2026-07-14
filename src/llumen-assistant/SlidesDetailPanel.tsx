@@ -3,12 +3,14 @@ import {
   ArrowLeft,
   ArrowRight,
   CaretDown,
+  ChatTeardropText,
   Eye,
   HouseSimple,
   MagnifyingGlassMinus,
   MagnifyingGlassPlus,
   NavigationArrow,
   PencilSimple,
+  SidebarSimple,
 } from '@phosphor-icons/react'
 import type { CreatedComponent, ReportPayload } from './assistantReplyTypes'
 import { KpiWidget } from './KpiWidgets'
@@ -20,6 +22,7 @@ export type SlidesDetailPanelProps = {
   activeSlide: number
   onSlideChange: (index: number) => void
   onClose: () => void
+  onShowInConversation?: () => void
   onHome?: () => void
 }
 
@@ -29,6 +32,7 @@ export function SlidesDetailPanel({
   activeSlide,
   onSlideChange,
   onClose,
+  onShowInConversation,
   onHome,
 }: SlidesDetailPanelProps) {
   const [mapZoom, setMapZoom] = useState(1)
@@ -49,14 +53,25 @@ export function SlidesDetailPanel({
   return (
     <aside className={styles.root} aria-label={`${report.title} slides`}>
       <div className={styles.topBar}>
-        <button type="button" className={styles.backBtn} onClick={onClose}>
-          <ArrowLeft size={16} weight="bold" aria-hidden />
-          Back
+        <button type="button" className={styles.iconBtn} onClick={onClose} aria-label="Collapse preview">
+          <SidebarSimple size={20} weight="regular" aria-hidden />
         </button>
         <h2 className={styles.slideTitle}>{slide?.title ?? report.title}</h2>
-        <span className={styles.slideCount}>
-          {activeSlide + 1} / {report.slides.length}
-        </span>
+        <div className={styles.topBarActions}>
+          {onShowInConversation ? (
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={onShowInConversation}
+              aria-label="Show in conversation"
+            >
+              <ChatTeardropText size={20} weight="regular" aria-hidden />
+            </button>
+          ) : null}
+          <span className={styles.slideCount}>
+            {activeSlide + 1} / {report.slides.length}
+          </span>
+        </div>
       </div>
 
       <div className={styles.stage}>

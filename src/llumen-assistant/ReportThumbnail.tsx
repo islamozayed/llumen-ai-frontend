@@ -8,7 +8,7 @@ export type ReportThumbnailProps = {
 
 export function ReportThumbnail({ report, onOpen }: ReportThumbnailProps) {
   return (
-    <div className={styles.root}>
+    <div className={styles.root} data-report-id={report.id}>
       <div className={styles.badge}>{report.badge}</div>
       <h3 className={styles.title}>{report.title}</h3>
       <p className={styles.subtitle}>{report.subtitle}</p>

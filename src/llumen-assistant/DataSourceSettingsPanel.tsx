@@ -1,112 +1,152 @@
-import { useEffect, useState } from 'react'
-import type { CreatedComponent } from './assistantReplyTypes'
-import {
-  getDataSourceConfig,
-  type DataSourceSectionId,
-  type DataSourceStaticField,
-  type DataSourceStaticSection,
-} from './dataSourceSettingsDemo'
+import { useState, type ReactNode } from 'react'
+import { Diamond, GridFour } from '@phosphor-icons/react'
 import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
-import styles from './VisualizationSettingsPanel.module.css'
+import styles from './DataSourceSettingsPanel.module.css'
 
-function StaticValueField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className={styles.field}>
-      <span className={styles.fieldLabel}>{label}</span>
-      <span className={styles.fieldValue}>{value}</span>
-    </div>
-  )
+type RequestTab = 'Parameters' | 'Authentication' | 'Headers' | 'Body' | 'Scripts'
+
+type QueryParam = {
+  key: string
+  value: string
 }
 
-function StaticDescriptionField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className={styles.field}>
-      <span className={styles.fieldLabel}>{label}</span>
-      <p className={styles.fieldDescription}>{value}</p>
-    </div>
-  )
-}
+const REQUEST_TABS: RequestTab[] = ['Parameters', 'Authentication', 'Headers', 'Body', 'Scripts']
 
-function StaticToggleField({ label, enabled }: { label: string; enabled: boolean }) {
-  return (
-    <div className={styles.fieldRow}>
-      <span className={styles.fieldLabel}>{label}</span>
-      <span className={`${styles.toggleBadge}${enabled ? ` ${styles.toggleBadgeOn}` : ''}`}>
-        {enabled ? 'On' : 'Off'}
-      </span>
-    </div>
-  )
-}
+const DEMO_METHOD = 'GET'
+const DEMO_URL =
+  'https://weather.secureclient.com/api/v1/current?location=New York&units=metric'
+const DEMO_PARAMS: QueryParam[] = [
+  { key: 'location', value: 'New York' },
+  { key: 'units', value: 'metric' },
+]
 
-function renderField(field: DataSourceStaticField) {
-  if (field.kind === 'value') {
-    return <StaticValueField key={field.label} label={field.label} value={field.value} />
-  }
-  if (field.kind === 'description') {
-    return <StaticDescriptionField key={field.label} label={field.label} value={field.value} />
-  }
-  return <StaticToggleField key={field.label} label={field.label} enabled={field.enabled} />
-}
-
-function SettingsSection({ section }: { section: DataSourceStaticSection }) {
+function SourceCard({
+  label,
+  icon,
+  iconTone,
+  title,
+  subtitle,
+}: {
+  label: string
+  icon: ReactNode
+  iconTone: 'api' | 'request'
+  title: string
+  subtitle?: string
+}) {
   return (
-    <section className={styles.settingsSection}>
-      <div className={styles.settingsSectionHeader}>
-        <h4 className={styles.settingsSectionTitle}>{section.title}</h4>
+    <section className={styles.block}>
+      <h4 className={styles.blockLabel}>{label}</h4>
+      <div className={styles.sourceCard}>
+        <div className={styles.sourceCardMain}>
+          <span
+            className={`${styles.sourceCardIcon} ${
+              iconTone === 'api' ? styles.sourceCardIconApi : styles.sourceCardIconRequest
+            }`}
+          >
+            {icon}
+          </span>
+          <div className={styles.sourceCardText}>
+            <span className={styles.sourceCardTitle}>{title}</span>
+            {subtitle ? <span className={styles.sourceCardSubtitle}>{subtitle}</span> : null}
+          </div>
+        </div>
       </div>
-      <div className={styles.settingsSectionBody}>{section.fields.map(renderField)}</div>
     </section>
   )
 }
 
-export function DataSourceSettingsPanel({ component }: { component: CreatedComponent }) {
-  const config = getDataSourceConfig(component)
-  const [activeSection, setActiveSection] = useState<DataSourceSectionId>('basic')
-  const sectionScrollRef = useRevealScrollbarOnScroll()
+function QueryParamRow({ row }: { row: QueryParam }) {
+  return (
+    <div className={styles.paramRow}>
+      <span className={styles.paramCell}>{row.key}</span>
+      <span className={styles.paramCell}>{row.value}</span>
+    </div>
+  )
+}
 
-  useEffect(() => {
-    setActiveSection('basic')
-  }, [component.id])
-
-  if (!config) return null
-
-  const activeSections = config.sections[activeSection] ?? []
+export function DataSourceSettingsPanel() {
+  const [requestTab, setRequestTab] = useState<RequestTab>('Parameters')
+  const scrollRef = useRevealScrollbarOnScroll()
 
   return (
     <div className={styles.root}>
-      <div className={styles.visualTypeCard}>
-        <div className={styles.visualTypeMain}>
-          <span>{config.sourceName}</span>
-        </div>
-        <span className={styles.sourceTypeMeta}>{config.sourceType}</span>
-      </div>
+      <div ref={scrollRef} className={styles.scroll}>
+        <div className={styles.step}>
+          <SourceCard
+            label="Selected Data Source Type"
+            iconTone="api"
+            icon={<Diamond size={20} weight="fill" aria-hidden />}
+            title="API"
+          />
 
-      <div className={styles.settingsShell}>
-        <p className={styles.settingsHeading}>Data Source Settings</p>
+          <SourceCard
+            label="API Request"
+            iconTone="request"
+            icon={<GridFour size={20} weight="fill" aria-hidden />}
+            title="Get Current Weather"
+            subtitle="Collection: Weather Services"
+          />
 
-        <div className={styles.settingsLayout}>
-          <nav className={styles.sectionNav} aria-label="Data source sections">
-            {config.nav.map((item) => {
-              const active = activeSection === item.id
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`${styles.sectionNavBtn}${active ? ` ${styles.sectionNavBtnActive}` : ''}`}
-                  onClick={() => setActiveSection(item.id)}
-                  aria-current={active ? 'page' : undefined}
-                >
-                  {item.label}
-                </button>
-              )
-            })}
-          </nav>
-
-          <div ref={sectionScrollRef} className={styles.sectionContent}>
-            {activeSections.map((section) => (
-              <SettingsSection key={section.title} section={section} />
-            ))}
+          <div className={styles.urlBar}>
+            <span className={styles.method} aria-label="HTTP method">
+              {DEMO_METHOD}
+            </span>
+            <span className={styles.urlValue} title={DEMO_URL}>
+              {DEMO_URL}
+            </span>
           </div>
+
+          <section className={styles.request}>
+            <h3 className={styles.requestTitle}>Request</h3>
+            <div className={styles.requestTabs} role="tablist" aria-label="Request configuration">
+              {REQUEST_TABS.map((tab) => {
+                const active = requestTab === tab
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    className={`${styles.requestTab}${active ? ` ${styles.requestTabActive}` : ''}`}
+                    onClick={() => setRequestTab(tab)}
+                  >
+                    {tab}
+                  </button>
+                )
+              })}
+            </div>
+
+            {requestTab === 'Parameters' ? (
+              <div className={styles.requestPanel}>
+                <section className={styles.block}>
+                  <h4 className={styles.blockLabel}>Query Params</h4>
+                  <div className={styles.paramTable}>
+                    <div className={styles.paramTableHead}>
+                      <span>Key</span>
+                      <span>Value</span>
+                    </div>
+                    {DEMO_PARAMS.map((row) => (
+                      <QueryParamRow key={row.key} row={row} />
+                    ))}
+                  </div>
+                </section>
+
+                <section className={styles.block}>
+                  <h4 className={styles.blockLabel}>Path Variables</h4>
+                  <div className={styles.paramTable}>
+                    <div className={`${styles.paramRow} ${styles.paramRowPair}`}>
+                      <span className={`${styles.paramCell} ${styles.paramCellMuted}`}>Key</span>
+                      <span className={`${styles.paramCell} ${styles.paramCellMuted}`}>Value</span>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            ) : (
+              <div className={`${styles.requestPanel} ${styles.requestPanelPlaceholder}`}>
+                <p>{requestTab} configuration is not available in this preview.</p>
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>

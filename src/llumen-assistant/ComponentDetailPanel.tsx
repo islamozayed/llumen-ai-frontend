@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { ArrowsInSimple, Info } from '@phosphor-icons/react'
+import { ChatTeardropText, Info, SidebarSimple } from '@phosphor-icons/react'
 import type { CreatedComponent } from './assistantReplyTypes'
+import { queryResultsForComponent } from './componentQueryResults'
 import { DataSourceSettingsPanel } from './DataSourceSettingsPanel'
-import { getDataSourceConfig } from './dataSourceSettingsDemo'
 import { InteractiveMap, MapControls, type InteractiveMapHandle } from './InteractiveMap'
 import { KpiWidget } from './KpiWidgets'
 import styles from './compact-assistant.module.css'
@@ -10,6 +10,7 @@ import styles from './compact-assistant.module.css'
 export type ComponentDetailPanelProps = {
   component: CreatedComponent
   onClose: () => void
+  onShowInConversation?: () => void
 }
 
 type DetailTab = 'component' | 'query-results' | 'data-source'
@@ -17,7 +18,7 @@ type DetailTab = 'component' | 'query-results' | 'data-source'
 const DETAIL_TABS: { id: DetailTab; label: string }[] = [
   { id: 'component', label: 'Component' },
   { id: 'query-results', label: 'Query Results' },
-  { id: 'data-source', label: 'Data Source' },
+  { id: 'data-source', label: 'Source' },
 ]
 
 function isMapDetailComponent(component: CreatedComponent) {
@@ -26,58 +27,60 @@ function isMapDetailComponent(component: CreatedComponent) {
 
 function ComponentPreview({ component }: { component: CreatedComponent }) {
   const { preview, title } = component
+  const isSquare = component.inlineSize === 'square'
 
   if (isMapDetailComponent(component)) {
     return <InteractiveMap className={styles.componentDetailInteractiveMap} />
   }
 
+  const frameClass = `${styles.componentDetailPreviewFrame}${
+    isSquare ? ` ${styles.componentDetailPreviewFrameSquare}` : ''
+  }`
+
   if (preview?.kind === 'widget') {
-    return <KpiWidget component={component} />
+    return (
+      <div className={frameClass}>
+        <KpiWidget component={component} compact={isSquare} />
+      </div>
+    )
   }
 
   if (preview?.kind === 'image') {
     return (
-      <img
-        className={
-          preview.fit === 'cover'
-            ? styles.componentDetailPreviewImageCover
-            : styles.componentDetailPreviewImage
-        }
-        src={preview.src}
-        alt={preview.alt ?? title}
-      />
+      <div className={frameClass}>
+        <img
+          className={
+            preview.fit === 'cover'
+              ? styles.componentDetailPreviewImageCover
+              : styles.componentDetailPreviewImage
+          }
+          src={preview.src}
+          alt={preview.alt ?? title}
+        />
+      </div>
     )
   }
 
   if (preview?.kind === 'kpi') {
     return (
-      <p className={styles.componentDetailKpi}>
-        {preview.value}
-        {preview.unit ? <span className={styles.componentDetailKpiUnit}>{preview.unit}</span> : null}
-      </p>
+      <div className={frameClass}>
+        <p className={styles.componentDetailKpi}>
+          {preview.value}
+          {preview.unit ? <span className={styles.componentDetailKpiUnit}>{preview.unit}</span> : null}
+        </p>
+      </div>
     )
   }
 
   if (preview?.kind === 'text') {
-    return <p className={styles.componentDetailText}>{preview.content}</p>
+    return (
+      <div className={frameClass}>
+        <p className={styles.componentDetailText}>{preview.content}</p>
+      </div>
+    )
   }
 
   return <p className={styles.componentDetailTextMuted}>Preview not available for this component.</p>
-}
-
-function DetailMetaTable({ rows }: { rows: { label: string; value: string }[] }) {
-  return (
-    <table className={styles.componentDetailTable}>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.label}>
-            <th scope="row">{row.label}</th>
-            <td>{row.value}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
 }
 
 function TabPanelContent({ tab, component }: { tab: DetailTab; component: CreatedComponent }) {
@@ -86,34 +89,32 @@ function TabPanelContent({ tab, component }: { tab: DetailTab; component: Create
   }
 
   if (tab === 'query-results') {
+    const table = queryResultsForComponent(component)
     return (
-      <pre className={`${styles.componentDetailCode} ${styles.componentDetailCodeFull}`}>{`SELECT
-  station_id,
-  aqi,
-  no2_ugm3,
-  pm25_ugm3
-FROM env.semantic.air_quality_stations
-WHERE observation_date = CURRENT_DATE
-  AND aqi >= 100
-ORDER BY aqi DESC
-LIMIT 12;`}</pre>
+      <div className={styles.componentDetailDataTableWrap}>
+        <table className={styles.componentDetailDataTable}>
+          <thead>
+            <tr>
+              {table.columns.map((col) => (
+                <th key={col}>{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {table.rows.map((row, rowIndex) => (
+              <tr key={`${component.id}-row-${rowIndex}`}>
+                {row.map((cell, cellIndex) => (
+                  <td key={`${component.id}-${rowIndex}-${cellIndex}`}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     )
   }
 
-  if (getDataSourceConfig(component)) {
-    return <DataSourceSettingsPanel component={component} />
-  }
-
-  return (
-    <DetailMetaTable
-      rows={[
-        { label: 'Semantic model', value: 'air_quality_monitoring' },
-        { label: 'Primary table', value: 'air_quality_stations' },
-        { label: 'Connection', value: 'EAD Environmental Warehouse' },
-        { label: 'Last synced', value: 'Today · live' },
-      ]}
-    />
-  )
+  return <DataSourceSettingsPanel />
 }
 
 function MapDescriptionPopover({
@@ -123,6 +124,7 @@ function MapDescriptionPopover({
   analysis,
   onClose,
   anchorRef,
+  popoverId = 'map-description-popover',
 }: {
   open: boolean
   title: string
@@ -130,6 +132,7 @@ function MapDescriptionPopover({
   analysis?: string
   onClose: () => void
   anchorRef: RefObject<HTMLButtonElement | null>
+  popoverId?: string
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -156,28 +159,28 @@ function MapDescriptionPopover({
   return (
     <div
       ref={panelRef}
-      id="map-description-popover"
+      id={popoverId}
       className={styles.mapDescriptionPopover}
       role="dialog"
-      aria-label={`${title} description`}
+      aria-label={`${title} analysis`}
     >
       {caption ? <p className={styles.mapDescriptionCaption}>{caption}</p> : null}
       {analysis ? <p className={styles.mapDescriptionAnalysis}>{analysis}</p> : null}
       {!caption && !analysis ? (
-        <p className={styles.mapDescriptionAnalysis}>No description available for this map.</p>
+        <p className={styles.mapDescriptionAnalysis}>No analysis available for this component.</p>
       ) : null}
     </div>
   )
 }
 
-export function ComponentDetailPanel({ component, onClose }: ComponentDetailPanelProps) {
+export function ComponentDetailPanel({ component, onClose, onShowInConversation }: ComponentDetailPanelProps) {
   const { title, description, caption, analysis } = component
   const [activeTab, setActiveTab] = useState<DetailTab>('component')
   const [descOpen, setDescOpen] = useState(false)
   const descBtnRef = useRef<HTMLButtonElement>(null)
   const mapRef = useRef<InteractiveMapHandle>(null)
   const headerRef = useRef<HTMLDivElement>(null)
-  const [controlsTop, setControlsTop] = useState(160)
+  const [controlsTop, setControlsTop] = useState(180)
   const chartCaption = caption ?? description
   const chartAnalysis = analysis
   const isMap = isMapDetailComponent(component)
@@ -197,10 +200,10 @@ export function ComponentDetailPanel({ component, onClose }: ComponentDetailPane
       if (tabs) {
         const headerTop = el.getBoundingClientRect().top
         const tabsBottom = tabs.getBoundingClientRect().bottom
-        setControlsTop(Math.max(12, Math.round(tabsBottom - headerTop + 12)))
+        setControlsTop(Math.max(12, Math.round(tabsBottom - headerTop + 32)))
         return
       }
-      setControlsTop(Math.round(el.getBoundingClientRect().height - 48))
+      setControlsTop(Math.round(el.getBoundingClientRect().height - 28))
     }
 
     measure()
@@ -235,7 +238,7 @@ export function ComponentDetailPanel({ component, onClose }: ComponentDetailPane
                   onClick={() => setDescOpen((v) => !v)}
                 >
                   <Info size={18} weight="regular" aria-hidden />
-                  View description
+                  View Insight
                 </button>
                 <MapDescriptionPopover
                   open={descOpen}
@@ -247,14 +250,26 @@ export function ComponentDetailPanel({ component, onClose }: ComponentDetailPane
                 />
               </div>
             </div>
-            <button
-              type="button"
-              className={styles.componentDetailClose}
-              onClick={onClose}
-              aria-label="Collapse preview"
-            >
-              <ArrowsInSimple size={20} weight="regular" aria-hidden />
-            </button>
+            <div className={styles.componentDetailHeaderActions}>
+              {onShowInConversation ? (
+                <button
+                  type="button"
+                  className={styles.showInConversationBtn}
+                  onClick={onShowInConversation}
+                >
+                  <span>Show Conversation</span>
+                  <ChatTeardropText size={20} weight="regular" aria-hidden />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.componentDetailClose}
+                onClick={onClose}
+                aria-label="Collapse preview"
+              >
+                <SidebarSimple size={20} weight="regular" aria-hidden />
+              </button>
+            </div>
           </div>
 
           <div className={styles.mapBleedTabs} role="tablist" aria-label="Component detail views">
@@ -307,17 +322,49 @@ export function ComponentDetailPanel({ component, onClose }: ComponentDetailPane
       <div className={styles.componentDetailHeader}>
         <div className={styles.componentDetailHeaderText}>
           <h2 className={styles.componentDetailTitle}>{title}</h2>
-          {chartCaption ? <p className={styles.componentDetailCaption}>{chartCaption}</p> : null}
-          {chartAnalysis ? <p className={styles.componentDetailAnalysis}>{chartAnalysis}</p> : null}
+          <div className={styles.mapBleedDescWrap}>
+            <button
+              ref={descBtnRef}
+              type="button"
+              className={styles.mapBleedDescBtn}
+              aria-expanded={descOpen}
+              aria-controls="component-analysis-popover"
+              onClick={() => setDescOpen((v) => !v)}
+            >
+              <Info size={18} weight="regular" aria-hidden />
+              View Analysis
+            </button>
+            <MapDescriptionPopover
+              open={descOpen}
+              title={title}
+              caption={chartCaption}
+              analysis={chartAnalysis}
+              onClose={() => setDescOpen(false)}
+              anchorRef={descBtnRef}
+              popoverId="component-analysis-popover"
+            />
+          </div>
         </div>
-        <button
-          type="button"
-          className={styles.componentDetailClose}
-          onClick={onClose}
-          aria-label="Collapse preview"
-        >
-          <ArrowsInSimple size={20} weight="regular" aria-hidden />
-        </button>
+        <div className={styles.componentDetailHeaderActions}>
+          {onShowInConversation ? (
+            <button
+              type="button"
+              className={styles.showInConversationBtn}
+              onClick={onShowInConversation}
+            >
+              <span>Show Conversation</span>
+              <ChatTeardropText size={20} weight="regular" aria-hidden />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={styles.componentDetailClose}
+            onClick={onClose}
+            aria-label="Collapse preview"
+          >
+            <SidebarSimple size={20} weight="regular" aria-hidden />
+          </button>
+        </div>
       </div>
 
       <div className={styles.componentDetailTabs} role="tablist" aria-label="Component detail views">
@@ -352,7 +399,7 @@ export function ComponentDetailPanel({ component, onClose }: ComponentDetailPane
       >
         <div
           className={`${styles.componentDetailStage}${
-            activeTab === 'query-results' || (activeTab === 'data-source' && getDataSourceConfig(component))
+            activeTab === 'query-results' || activeTab === 'data-source'
               ? ` ${styles.componentDetailStageWide}`
               : ''
           }`}

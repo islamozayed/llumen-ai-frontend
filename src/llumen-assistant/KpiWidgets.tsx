@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import type { CreatedComponent, WidgetVariant } from './assistantReplyTypes'
 import styles from './KpiWidgets.module.css'
 
@@ -117,13 +118,85 @@ function LandUseWidget() {
 }
 
 function WindWidget() {
+  const gradId = useId().replace(/:/g, '')
+  const directions = [-45, -20, 10, -60, 90, 180, 45, -30, 15, -50] as const
+  const chartPoints = [
+    { x: 0, y: 18 },
+    { x: 14, y: 14 },
+    { x: 28, y: 22 },
+    { x: 42, y: 16 },
+    { x: 56, y: 24 },
+    { x: 70, y: 19 },
+    { x: 84, y: 27 },
+    { x: 100, y: 17 },
+  ] as const
+  const toY = (speed: number) => 100 - (speed / 30) * 100
+  const lineD = chartPoints
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${toY(p.y)}`)
+    .join(' ')
+  const areaD = `${lineD} L 100 100 L 0 100 Z`
+
   return (
-    <div className={styles.widgetInner}>
-      <p className={styles.widgetTitle}>Wind</p>
-      <div className={styles.windDial} aria-hidden>
-        <div className={styles.windNeedle} />
-        <p className={styles.windValue}>NW</p>
-        <p className={styles.windSub}>12 km/h</p>
+    <div className={`${styles.widgetInner} ${styles.windInner}`}>
+      <p className={styles.widgetTitleMuted}>Wind Speed/Direction</p>
+      <div className={styles.windHeaderRow}>
+        <p className={styles.widgetValueSm}>
+          17<span className={styles.windUnit}>km/h</span>
+        </p>
+        <span className={styles.windDir}>WNW</span>
+      </div>
+      <div className={styles.windArrowRow} aria-hidden>
+        {directions.map((deg, i) => (
+          <span key={i} className={styles.windArrow} style={{ transform: `rotate(${deg}deg)` }}>
+            <svg viewBox="0 0 12 12" width="12" height="12" fill="none" aria-hidden>
+              <path
+                d="M6 1.5 L6 9.5 M6 1.5 L3.2 4.3 M6 1.5 L8.8 4.3"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+        ))}
+      </div>
+      <div className={styles.windChart}>
+        <svg className={styles.windChartSvg} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--lc-chart-teal)" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="var(--lc-chart-teal)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+            <line
+              key={i}
+              className={styles.windGridLine}
+              x1="0"
+              x2="100"
+              y1={(i / 6) * 100}
+              y2={(i / 6) * 100}
+            />
+          ))}
+          <path d={areaD} fill={`url(#${gradId})`} />
+          <path
+            d={lineD}
+            fill="none"
+            stroke="var(--lc-chart-teal)"
+            strokeWidth="1.5"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <div className={styles.windYAxis} aria-hidden>
+          {[30, 25, 20, 15, 10, 5, 0].map((v) => (
+            <span key={v}>{v}</span>
+          ))}
+        </div>
+        <div className={styles.windXAxis} aria-hidden>
+          {['SUN', 'MON', 'TUE', 'WED'].map((d) => (
+            <span key={d}>{d}</span>
+          ))}
+        </div>
       </div>
     </div>
   )

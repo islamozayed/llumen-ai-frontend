@@ -1,4 +1,6 @@
-import { ArrowsOut } from '@phosphor-icons/react'
+import { useId, useState, type MouseEvent } from 'react'
+import { createPortal } from 'react-dom'
+import { ArrowSquareOut } from '@phosphor-icons/react'
 import type { CreatedComponent } from './assistantReplyTypes'
 import { KpiWidget } from './KpiWidgets'
 import styles from './InlineVisualCard.module.css'
@@ -10,46 +12,66 @@ export type InlineVisualCardProps = {
   onExpand?: () => void
 }
 
+const TOOLTIP_OFFSET = 14
+const EXAMPLE_TOOLTIP = 'example interaction tooltip'
+
 function isMapThumbnail(component: CreatedComponent) {
   return component.preview?.kind === 'image' && component.preview.detailView === 'map'
 }
 
-export function InlineVisualCard({ component, caption, active = false, onExpand }: InlineVisualCardProps) {
+export function InlineVisualCard({ component, active = false, onExpand }: InlineVisualCardProps) {
   const isSquare = component.inlineSize === 'square'
   const isMap = isMapThumbnail(component)
   const preview = component.preview
-  const showCaption = caption ?? component.caption
+  const showTooltip = !isMap
+  const tooltipId = useId()
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
+
+  const onCardMouseMove = (event: MouseEvent<HTMLDivElement>) => {
+    if (!showTooltip) return
+    const pad = 12
+    const approxWidth = 280
+    const approxHeight = 48
+    const x = Math.min(event.clientX + TOOLTIP_OFFSET, window.innerWidth - approxWidth - pad)
+    const y = Math.min(event.clientY + TOOLTIP_OFFSET, window.innerHeight - approxHeight - pad)
+    setTooltipPos({
+      x: Math.max(pad, x),
+      y: Math.max(pad, y),
+    })
+  }
+
+  const onCardMouseLeave = () => setTooltipPos(null)
 
   return (
-    <div className={styles.wrap}>
+    <div
+      className={styles.wrap}
+      data-component-id={component.id}
+      onMouseMove={onCardMouseMove}
+      onMouseEnter={onCardMouseMove}
+      onMouseLeave={onCardMouseLeave}
+    >
       <div
         className={[
           styles.card,
-          isMap ? styles.cardMap : isSquare ? styles.cardSquare : styles.cardFull,
-          !isMap && active ? styles.cardActive : '',
+          isSquare ? styles.cardSquare : styles.cardFull,
+          active ? styles.cardActive : '',
         ]
           .filter(Boolean)
           .join(' ')}
       >
         <div className={styles.cardTop}>
-          {isMap && preview?.kind === 'image' ? (
-            <button
-              type="button"
-              className={styles.mapThumbBtn}
-              onClick={onExpand}
-              aria-label={`Open ${component.title} map`}
-            >
-              <div className={styles.mapThumbImage}>
-                <img src={preview.src} alt={preview.alt ?? component.title} />
-              </div>
-              <p className={styles.mapThumbTitle}>{component.title}</p>
-            </button>
-          ) : preview?.kind === 'widget' ? (
+          {preview?.kind === 'widget' ? (
             <KpiWidget component={component} compact={isSquare} />
           ) : preview?.kind === 'image' ? (
-            <div className={styles.imageStage}>
+            <div className={isMap ? styles.mapImageStage : styles.imageStage}>
               <img
-                className={preview.fit === 'cover' ? styles.imageCover : styles.imageContain}
+                className={
+                  isMap
+                    ? styles.mapImageCover
+                    : preview.fit === 'cover'
+                      ? styles.imageCover
+                      : styles.imageContain
+                }
                 src={preview.src}
                 alt={preview.alt ?? component.title}
               />
@@ -60,19 +82,46 @@ export function InlineVisualCard({ component, caption, active = false, onExpand 
               <p className={styles.imageTitle}>{component.title}</p>
             </div>
           )}
-          {onExpand && !isMap ? (
+          {onExpand ? (
             <button
               type="button"
               className={styles.expandBtn}
               onClick={onExpand}
-              aria-label={`Expand ${component.title}`}
+              aria-label={`Open ${component.title}`}
+              aria-describedby={showTooltip && tooltipPos ? tooltipId : undefined}
             >
-              <ArrowsOut size={16} weight="regular" aria-hidden />
+              <ArrowSquareOut size={20} weight="regular" aria-hidden />
+            </button>
+          ) : null}
+          {onExpand ? (
+            <button
+              type="button"
+              className={styles.hitArea}
+              onClick={onExpand}
+              aria-label={`Open ${component.title}`}
+              aria-describedby={showTooltip && tooltipPos ? tooltipId : undefined}
+            >
+              <span className={styles.srOnly}>Open {component.title}</span>
             </button>
           ) : null}
         </div>
       </div>
-      {showCaption ? <p className={styles.caption}>{showCaption}</p> : null}
+      {showTooltip && tooltipPos
+        ? createPortal(
+            <div
+              id={tooltipId}
+              className={styles.tooltip}
+              role="tooltip"
+              style={{
+                left: tooltipPos.x,
+                top: tooltipPos.y,
+              }}
+            >
+              <p className={styles.tooltipText}>{EXAMPLE_TOOLTIP}</p>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }

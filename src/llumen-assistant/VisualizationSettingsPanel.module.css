@@ -204,7 +204,7 @@
 .fieldValue,
 .fieldValueInline {
   font-size: var(--lc-text-caption);
-  line-height: var(--lc-leading-small);
+  line-height: var(--lc-leading-caption);
   color: var(--lc-text-primary);
 }
 
@@ -215,7 +215,7 @@
 .fieldDescription {
   margin: 0;
   font-size: var(--lc-text-caption);
-  line-height: var(--lc-leading-body);
+  line-height: var(--lc-leading-caption);
   color: var(--lc-text-primary);
 }
 

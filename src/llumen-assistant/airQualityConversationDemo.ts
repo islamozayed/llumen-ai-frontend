@@ -202,9 +202,9 @@ export const AIR_QUALITY_COMPONENTS: CreatedComponent[] = [
     id: 'wind-direction',
     label: 'Wind Direction',
     type: 'kpi',
-    title: 'Wind Direction',
+    title: 'Wind Speed/Direction',
     semanticId: 'aq.wind',
-    inlineSize: 'square',
+    inlineSize: 'full',
     caption:
       'The current wind pattern aligns the elevated stations with the industrial corridor, increasing the likelihood of an industrial contribution.',
     description: 'Wind aligned with industrial corridor.',
@@ -296,6 +296,10 @@ export const TURN1_REPLY: AssistantReplyPayload = {
   createdComponents: componentCatalog,
   blocks: [
     {
+      type: 'heading',
+      content: 'Geographic concentration',
+    },
+    {
       type: 'text',
       content:
         'Air-quality deterioration is concentrated around a limited number of monitoring locations rather than appearing consistently across the entire region.',
@@ -316,6 +320,10 @@ export const TURN1_REPLY: AssistantReplyPayload = {
         'The map indicates that the strongest deterioration is occurring around industrial and high-traffic zones. Nearby residential areas are not currently reporting the same pollutant intensity, but shifting wind conditions may increase their exposure if the elevation persists.',
     },
     {
+      type: 'heading',
+      content: 'Current conditions',
+    },
+    {
       type: 'text',
       content:
         'The overall Air Quality Index has reached 121, placing current conditions in the Unhealthy for Sensitive Groups category.',
@@ -330,6 +338,10 @@ export const TURN1_REPLY: AssistantReplyPayload = {
       displayMode: 'inline',
     },
     {
+      type: 'heading',
+      content: 'Pollutant drivers',
+    },
+    {
       type: 'text',
       content:
         'The pollutant profile shows that the increase is primarily being driven by NO₂ at 430 µg/m³ and PM₂.₅ at 70 µg/m³. Both are currently classified as critical, while the remaining monitored pollutants remain normal.',
@@ -341,6 +353,10 @@ export const TURN1_REPLY: AssistantReplyPayload = {
       title: 'Pollutant Readings',
       caption: 'The deterioration is concentrated in NO₂ and PM₂.₅ rather than across the full pollutant profile.',
       displayMode: 'inline',
+    },
+    {
+      type: 'heading',
+      content: 'Population exposure',
     },
     {
       type: 'text',
@@ -365,9 +381,17 @@ export const TURN2_REPLY: AssistantReplyPayload = {
   createdComponents: componentCatalog,
   blocks: [
     {
+      type: 'heading',
+      content: 'Source assessment',
+    },
+    {
       type: 'text',
       content:
         'The available evidence currently points more strongly toward an industrial or mixed industrial-traffic source, although the data is not yet sufficient for definitive attribution.',
+    },
+    {
+      type: 'heading',
+      content: 'Geographic pattern',
     },
     {
       type: 'text',
@@ -393,6 +417,10 @@ export const TURN2_REPLY: AssistantReplyPayload = {
       displayMode: 'inline',
     },
     {
+      type: 'heading',
+      content: 'Supporting indicators',
+    },
+    {
       type: 'text',
       content:
         'NO₂ is commonly associated with combustion activity, including road traffic and industrial operations. PM₂.₅ can also originate from both sources, as well as construction activity or pollution transported from another location.',
@@ -405,10 +433,14 @@ export const TURN2_REPLY: AssistantReplyPayload = {
       type: 'visual',
       componentId: 'wind-direction',
       visualType: 'kpi',
-      title: 'Wind Direction',
+      title: 'Wind Speed/Direction',
       caption:
         'The current wind pattern aligns the elevated stations with the industrial corridor, increasing the likelihood of an industrial contribution.',
       displayMode: 'inline',
+    },
+    {
+      type: 'heading',
+      content: 'Interpretation',
     },
     {
       type: 'text',
@@ -425,6 +457,10 @@ export const TURN3_REPLY: AssistantReplyPayload = {
   createdComponents: componentCatalog,
   reports: [AIR_QUALITY_REPORT],
   blocks: [
+    {
+      type: 'heading',
+      content: 'Leadership report',
+    },
     {
       type: 'text',
       content:

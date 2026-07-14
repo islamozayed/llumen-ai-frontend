@@ -12,15 +12,17 @@
 }
 
 .rootFull {
-  width: min(100%, 380px);
+  width: 100%;
   min-height: 170px;
   height: auto;
   padding: 16px;
 }
 
 .rootCompact {
-  width: 202px;
-  height: 202px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: 1 / 1;
   padding: 16px;
 }
 
@@ -256,8 +258,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: radial-gradient(circle at 50% 45%, rgba(115, 173, 245, 0.18), transparent 60%);
+  border: 1px solid var(--lc-border-subtle);
+  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--lc-text-brand) 18%, transparent), transparent 60%);
 }
 
 .windNeedle {
@@ -266,22 +268,127 @@
   width: 3px;
   height: 34%;
   border-radius: 999px;
-  background: #fff;
+  background: var(--lc-text-primary);
   transform: rotate(-35deg);
   transform-origin: bottom center;
-  box-shadow: 0 0 12px rgba(115, 173, 245, 0.55);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--lc-text-brand) 55%, transparent);
 }
 
 .windValue {
   margin: 0;
-  font-size: 28px;
-  font-weight: 500;
+  font-size: var(--lc-text-heading-lg);
+  font-weight: var(--lc-weight-bold);
+  line-height: var(--lc-leading-heading-lg);
 }
 
 .windSub {
   margin: 2px 0 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  font-size: var(--lc-text-small);
+  color: var(--lc-text-tertiary);
+}
+
+.widgetTitleMuted {
+  margin: 0;
+  font-size: var(--lc-text-caption);
+  font-weight: var(--lc-weight-regular);
+  line-height: var(--lc-leading-caption);
+  color: var(--lc-text-tertiary);
+}
+
+.windInner {
+  gap: var(--space-md);
+  min-height: 200px;
+}
+
+.windHeaderRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-lg);
+}
+
+.windUnit {
+  margin-left: 2px;
+  font-family: var(--lc-font-sans);
+  font-size: var(--lc-text-heading-sm);
+  font-weight: var(--lc-weight-regular);
+  color: var(--lc-text-primary);
+}
+
+.windDir {
+  font-size: var(--lc-text-heading-sm);
+  font-weight: var(--lc-weight-regular);
+  line-height: var(--lc-leading-heading);
+  color: var(--lc-text-tertiary);
+}
+
+.windArrowRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  width: 100%;
+  max-width: 280px;
+  color: var(--lc-text-tertiary);
+  opacity: 0.72;
+}
+
+.windArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.windChart {
+  position: relative;
+  flex: 1;
+  min-height: 120px;
+  margin-top: var(--space-sm);
+  padding-right: 28px;
+  padding-bottom: 22px;
+  box-sizing: border-box;
+}
+
+.windChartSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 112px;
+  overflow: visible;
+}
+
+.windGridLine {
+  stroke: var(--lc-border-subtle);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.windYAxis {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: var(--lc-text-unit);
+  line-height: 1;
+  color: var(--lc-text-tertiary);
+  pointer-events: none;
+}
+
+.windXAxis {
+  position: absolute;
+  left: 0;
+  right: 28px;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--lc-text-unit);
+  line-height: 1;
+  color: var(--lc-text-tertiary);
+  pointer-events: none;
 }
 
 .sparkline {

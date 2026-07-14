@@ -288,6 +288,7 @@ function ThinkingPopover({
     if (!trigger) return
 
     const triggerRect = trigger.getBoundingClientRect()
+    const replyRoot = trigger.closest('[data-lc-reply-root]') as HTMLElement | null
     const panel = panelRef?.current
     const panelRect = panel?.getBoundingClientRect() ?? {
       left: 24,
@@ -297,25 +298,26 @@ function ThinkingPopover({
       right: window.innerWidth - 24,
       bottom: window.innerHeight - 24,
     }
+    const alignRect = (replyRoot ?? panel)?.getBoundingClientRect() ?? panelRect
 
     const composer = panel?.querySelector('[data-lc-composer]')
     const composerTop = composer?.getBoundingClientRect().top ?? panelRect.bottom
     const edgePad = 12
-    const gap = 10
-    const maxWidth = panelRect.width * 0.75
-    const width = Math.max(220, Math.min(maxWidth, panelRect.width - edgePad * 2))
+    const gap = 4
 
-    let left = triggerRect.left
-    const maxLeft = panelRect.right - width - edgePad
-    left = Math.min(Math.max(left, panelRect.left + edgePad), Math.max(panelRect.left + edgePad, maxLeft))
+    // Flush to the message/reply left edge; 75% of the chat window width.
+    const left = alignRect.left
+    const width = Math.max(220, Math.min(panelRect.width * 0.75, panelRect.right - left - edgePad))
 
     const popoverHeight = popoverRef.current?.offsetHeight ?? 0
     const spaceBelow = composerTop - triggerRect.bottom - gap - edgePad
-    const placeAbove = popoverHeight > 0 && spaceBelow < popoverHeight
+    const spaceAbove = triggerRect.top - panelRect.top - gap - edgePad
+    const placeAbove =
+      popoverHeight > 0 && spaceBelow < popoverHeight && spaceAbove > spaceBelow
 
     let top = placeAbove ? triggerRect.top - popoverHeight - gap : triggerRect.bottom + gap
     const minTop = panelRect.top + edgePad
-    const maxTop = Math.max(minTop, (composerTop ?? panelRect.bottom) - popoverHeight - edgePad)
+    const maxTop = Math.max(minTop, composerTop - popoverHeight - edgePad)
     top = Math.min(Math.max(top, minTop), maxTop)
 
     setLayout({ top, left, width, placeAbove })
@@ -336,13 +338,17 @@ function ThinkingPopover({
       onClose()
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      onClose()
     }
     document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
+    // Capture so Escape closes thinking without dismissing the chat panel.
+    document.addEventListener('keydown', onKeyDown, true)
     return () => {
       document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('keydown', onKeyDown, true)
     }
   }, [open, anchorRef, onClose])
 
@@ -369,13 +375,18 @@ function ThinkingPopover({
       }}
       role="dialog"
       aria-label="Thinking"
+      data-lc-thinking-popover
     >
       <div className={styles.thinkingPanelHeader}>
         <p className={styles.thinkingPanelTitle}>Thinking</p>
         <button
           type="button"
           className={styles.thinkingPanelClose}
-          onClick={onClose}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onClose()
+          }}
           aria-label="Close thinking"
         >
           <X size={16} weight="bold" aria-hidden />
@@ -645,7 +656,10 @@ export function AssistantTimelineReply({
     : []
 
   return (
-    <div className={[styles.root, className].filter(Boolean).join(' ')}>
+    <div
+      className={[styles.root, className].filter(Boolean).join(' ')}
+      data-lc-reply-root
+    >
       {openingLine ? (
         <AnimatedWordsParagraph
           text={openingLine}
@@ -675,17 +689,39 @@ export function AssistantTimelineReply({
               revealedBlockCount <= blocks.length &&
               index === revealedBlockCount - 1
             const isSettled = !isAnimating
+            const prev = index > 0 ? visibleBlocks[index - 1] : null
+            const isMedia = block.type === 'visual' || block.type === 'report'
+            const prevIsCopy = prev?.type === 'text'
+            // Top separator when a visual/report follows body text (no separator after component)
+            const needsTopSeparator = isMedia && prevIsCopy
+            const separatorClass = needsTopSeparator
+              ? `${styles.answerBlockSeparator} ${styles.answerBlockSeparatorTop}`
+              : undefined
+
+            if (block.type === 'heading') {
+              return (
+                <AnswerBlockShell
+                  key={`heading-${index}`}
+                  animating={isAnimating}
+                  reduceMotion={reduceMotion}
+                  onComplete={isAnimating ? onActiveBlockComplete : undefined}
+                >
+                  <h3 className={styles.finalReplyHeading}>{block.content}</h3>
+                </AnswerBlockShell>
+              )
+            }
 
             if (block.type === 'text') {
               return (
-                <AnimatedWordsParagraph
-                  key={`text-${index}`}
-                  text={block.content}
-                  className={styles.finalReplyText}
-                  reduceMotion={reduceMotion}
-                  instant={isSettled}
-                  onComplete={isAnimating ? onActiveBlockComplete : undefined}
-                />
+                <div key={`text-${index}`}>
+                  <AnimatedWordsParagraph
+                    text={block.content}
+                    className={styles.finalReplyText}
+                    reduceMotion={reduceMotion}
+                    instant={isSettled}
+                    onComplete={isAnimating ? onActiveBlockComplete : undefined}
+                  />
+                </div>
               )
             }
 
@@ -699,12 +735,14 @@ export function AssistantTimelineReply({
                   reduceMotion={reduceMotion}
                   onComplete={isAnimating ? onActiveBlockComplete : undefined}
                 >
-                  <InlineVisualCard
-                    component={component}
-                    caption={block.caption}
-                    active={selectedComponentId === component.id}
-                    onExpand={onComponentSelect ? () => onComponentSelect(component) : undefined}
-                  />
+                  <div className={`${styles.visualBlock}${separatorClass ? ` ${separatorClass}` : ''}`}>
+                    <InlineVisualCard
+                      component={component}
+                      caption={block.caption}
+                      active={selectedComponentId === component.id}
+                      onExpand={onComponentSelect ? () => onComponentSelect(component) : undefined}
+                    />
+                  </div>
                 </AnswerBlockShell>
               )
             }
@@ -718,13 +756,12 @@ export function AssistantTimelineReply({
                 reduceMotion={reduceMotion}
                 onComplete={isAnimating ? onActiveBlockComplete : undefined}
               >
-                <ReportThumbnail report={report} onOpen={() => onReportOpen?.(block.reportId)} />
+                <div className={`${styles.visualBlock}${separatorClass ? ` ${separatorClass}` : ''}`}>
+                  <ReportThumbnail report={report} onOpen={() => onReportOpen?.(block.reportId)} />
+                </div>
               </AnswerBlockShell>
             )
           })}
-          {revealedBlockCount < blocks.length ? (
-            <p className={styles.finalReplyPending}>Continuing analysis…</p>
-          ) : null}
         </div>
       ) : null}
 

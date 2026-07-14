@@ -2,70 +2,79 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowsInSimple,
   ArrowsOutSimple,
-  CaretDown,
   List,
   MagnifyingGlass,
-  ArrowLeft,
+  Plus,
   X,
 } from '@phosphor-icons/react'
+import { SessionsPanel } from './SessionsPanel'
 import styles from './compact-assistant.module.css'
-
-export type PanelView = 'chat' | 'sessions'
 
 export type ChatQuestionIndexItem = {
   id: string
   question: string
-  /** Scroll target — usually the assistant reply that follows this question. */
+  /** Scroll target — the user message that was submitted. */
   responseId: string
 }
 
 export type PanelHeaderProps = {
   onClose: () => void
-  panelView: PanelView
-  onOpenSessions: () => void
-  onBackToChat: () => void
   expanded?: boolean
   onToggleExpanded?: () => void
   chatTitle?: string
   onChatTitleChange?: (title: string) => void
-  questions?: ChatQuestionIndexItem[]
-  onJumpToResponse?: (responseId: string) => void
+  onOpenSession?: (id: string) => void
+  onNewSession?: () => void
+  /** Hide in-conversation search and title edit until at least one assistant reply exists. */
+  hasAssistantReply?: boolean
+  /** Subcontext/detail panel is open (split view). */
+  splitOpen?: boolean
 }
 
 export function PanelHeader({
   onClose,
-  panelView,
-  onOpenSessions,
-  onBackToChat,
   expanded = false,
   onToggleExpanded,
   chatTitle = 'New chat',
   onChatTitleChange,
-  questions = [],
-  onJumpToResponse,
+  onOpenSession,
+  onNewSession,
+  hasAssistantReply = false,
+  splitOpen = false,
 }: PanelHeaderProps) {
-  const sessionsOpen = panelView === 'sessions'
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(chatTitle)
   const [titleHovered, setTitleHovered] = useState(false)
-  const [indexOpen, setIndexOpen] = useState(false)
+  const [sessionsOpen, setSessionsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
-  const indexWrapRef = useRef<HTMLDivElement>(null)
+  const sessionsWrapRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (sessionsOpen) {
-      setSearchOpen(false)
-      setIndexOpen(false)
-      setEditingTitle(false)
-    }
-  }, [sessionsOpen])
+  const sessionsFillHeight = expanded && !splitOpen
 
   useEffect(() => {
     if (!editingTitle) setTitleDraft(chatTitle)
   }, [chatTitle, editingTitle])
+
+  useEffect(() => {
+    if (!hasAssistantReply) {
+      setSearchOpen(false)
+      setSearchQuery('')
+      setEditingTitle(false)
+    }
+  }, [hasAssistantReply])
+
+  // Fullscreen + no subcontext: open conversation history by default.
+  useEffect(() => {
+    if (sessionsFillHeight) setSessionsOpen(true)
+  }, [sessionsFillHeight])
+
+  // Fullscreen + subcontext: dismiss conversation history.
+  useEffect(() => {
+    if (expanded && splitOpen) setSessionsOpen(false)
+  }, [expanded, splitOpen])
 
   useEffect(() => {
     if (!searchOpen) return
@@ -86,22 +95,28 @@ export function PanelHeader({
   }, [editingTitle])
 
   useEffect(() => {
-    if (!indexOpen) return
+    if (!sessionsOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSessionsOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+
+    // Fill-height mode acts like a docked panel — don't dismiss on outside click.
+    if (sessionsFillHeight) {
+      return () => window.removeEventListener('keydown', onKey)
+    }
+
     const onPointer = (e: MouseEvent) => {
       const target = e.target as Node
-      if (indexWrapRef.current?.contains(target)) return
-      setIndexOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIndexOpen(false)
+      if (sessionsWrapRef.current?.contains(target)) return
+      setSessionsOpen(false)
     }
     window.addEventListener('mousedown', onPointer)
-    window.addEventListener('keydown', onKey)
     return () => {
       window.removeEventListener('mousedown', onPointer)
       window.removeEventListener('keydown', onKey)
     }
-  }, [indexOpen])
+  }, [sessionsOpen, sessionsFillHeight])
 
   const closeSearch = () => {
     setSearchOpen(false)
@@ -115,7 +130,7 @@ export function PanelHeader({
     setEditingTitle(false)
   }
 
-  if (searchOpen && !sessionsOpen) {
+  if (searchOpen && hasAssistantReply) {
     return (
       <div className={styles.headerRow}>
         <div className={styles.headerSearchBar}>
@@ -129,7 +144,7 @@ export function PanelHeader({
             aria-label="Find in conversation"
           />
           <button type="button" className={styles.headerSearchClose} onClick={closeSearch} aria-label="Close search">
-            <X className={styles.headerPhosphor} size={18} weight="regular" aria-hidden />
+            <X className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
           </button>
         </div>
       </div>
@@ -139,111 +154,111 @@ export function PanelHeader({
   return (
     <div className={styles.headerRow}>
       <div className={styles.headerActions}>
-        <button
-          type="button"
-          className={styles.headerBtn}
-          onClick={sessionsOpen ? onBackToChat : onOpenSessions}
-          aria-label={sessionsOpen ? 'Back to chat' : 'Open menu'}
+        <div
+          className={`${styles.headerSessionsWrap}${sessionsFillHeight ? ` ${styles.headerSessionsWrapFill}` : ''}`}
+          ref={sessionsWrapRef}
         >
-          {sessionsOpen ? (
-            <ArrowLeft className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
-          ) : (
+          <button
+            type="button"
+            className={`${styles.headerBtn}${sessionsOpen ? ` ${styles.headerBtnActive}` : ''}`}
+            onClick={() => setSessionsOpen((v) => !v)}
+            aria-label="Conversations"
+            aria-expanded={sessionsOpen}
+            aria-haspopup="menu"
+          >
             <List className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
-          )}
-        </button>
-        {!sessionsOpen && (
+          </button>
+          {sessionsOpen ? (
+            <div
+              className={`${styles.headerSessionsMenu}${sessionsFillHeight ? ` ${styles.headerSessionsMenuFill}` : ''}`}
+              role="menu"
+              aria-label="Conversations"
+              data-lc-sessions-menu
+            >
+              <SessionsPanel
+                fillHeight={sessionsFillHeight}
+                onOpenSession={(id) => {
+                  onOpenSession?.(id)
+                  setSessionsOpen(false)
+                }}
+              />
+            </div>
+          ) : null}
+        </div>
+        {onNewSession ? (
+          <button
+            type="button"
+            className={styles.headerBtn}
+            onClick={onNewSession}
+            aria-label="New conversation"
+            title="New conversation"
+          >
+            <Plus className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
+          </button>
+        ) : null}
+      </div>
+
+      <div
+        className={styles.headerTitleCluster}
+        onMouseEnter={() => {
+          if (hasAssistantReply) setTitleHovered(true)
+        }}
+        onMouseLeave={() => {
+          if (!editingTitle) setTitleHovered(false)
+        }}
+      >
+        {editingTitle && hasAssistantReply ? (
+          <input
+            ref={titleInputRef}
+            className={styles.headerTitleInput}
+            value={titleDraft}
+            onChange={(e) => setTitleDraft(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commitTitle()
+              }
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                setTitleDraft(chatTitle)
+                setEditingTitle(false)
+              }
+            }}
+            aria-label="Chat title"
+          />
+        ) : hasAssistantReply ? (
+          <button
+            type="button"
+            className={`${styles.headerTitleBtn}${titleHovered ? ` ${styles.headerTitleBtnHover}` : ''}`}
+            onClick={() => {
+              setTitleDraft(chatTitle)
+              setEditingTitle(true)
+            }}
+            title="Edit chat title"
+          >
+            <span className={styles.headerTitleText}>{chatTitle}</span>
+          </button>
+        ) : (
+          <span className={styles.headerTitleStatic}>
+            <span className={styles.headerTitleText}>{chatTitle}</span>
+          </span>
+        )}
+
+        {hasAssistantReply ? (
           <button
             type="button"
             className={styles.headerSearchBtn}
             onClick={() => setSearchOpen(true)}
-            aria-label="Search conversations"
+            aria-label="Find in conversation"
           >
             <MagnifyingGlass className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
           </button>
-        )}
+        ) : null}
       </div>
 
-      {!sessionsOpen ? (
-        <div
-          className={styles.headerTitleCluster}
-          onMouseEnter={() => setTitleHovered(true)}
-          onMouseLeave={() => {
-            if (!editingTitle && !indexOpen) setTitleHovered(false)
-          }}
-        >
-          {editingTitle ? (
-            <input
-              ref={titleInputRef}
-              className={styles.headerTitleInput}
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onBlur={commitTitle}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  commitTitle()
-                }
-                if (e.key === 'Escape') {
-                  e.preventDefault()
-                  setTitleDraft(chatTitle)
-                  setEditingTitle(false)
-                }
-              }}
-              aria-label="Chat title"
-            />
-          ) : (
-            <button
-              type="button"
-              className={`${styles.headerTitleBtn}${titleHovered ? ` ${styles.headerTitleBtnHover}` : ''}`}
-              onClick={() => {
-                setTitleDraft(chatTitle)
-                setEditingTitle(true)
-              }}
-              title="Edit chat title"
-            >
-              <span className={styles.headerTitleText}>{chatTitle}</span>
-            </button>
-          )}
-
-          <div className={styles.headerIndexWrap} ref={indexWrapRef}>
-            <button
-              type="button"
-              className={`${styles.headerBtn}${indexOpen ? ` ${styles.headerBtnActive}` : ''}`}
-              aria-label="Conversation questions"
-              aria-expanded={indexOpen}
-              aria-haspopup="menu"
-              disabled={questions.length === 0}
-              onClick={() => setIndexOpen((v) => !v)}
-            >
-              <CaretDown className={styles.headerPhosphor} size={16} weight="bold" aria-hidden />
-            </button>
-            {indexOpen ? (
-              <div className={styles.headerIndexMenu} role="menu" aria-label="Questions in this chat">
-                {questions.map((item, index) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="menuitem"
-                    className={styles.headerIndexItem}
-                    onClick={() => {
-                      onJumpToResponse?.(item.responseId)
-                      setIndexOpen(false)
-                    }}
-                  >
-                    <span className={styles.headerIndexItemNum}>{index + 1}</span>
-                    <span className={styles.headerIndexItemText}>{item.question}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : (
-        <div className={styles.headerTitleSpacer} aria-hidden />
-      )}
-
       <div className={styles.headerActions}>
-        {!sessionsOpen && onToggleExpanded ? (
+        {onToggleExpanded ? (
           <button
             type="button"
             className={styles.headerBtn}

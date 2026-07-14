@@ -75,7 +75,7 @@ export type CreatedComponent = {
   analysis?: string
   /** Muted semantic identifier shown under the card title (e.g. "market_stability.cluster_average_score"). */
   semanticId?: string
-  /** Inline layout: full-width (~380) or square tile (202). */
+  /** Inline layout: full-width (up to 760) or square tile (1:1, up to 760). */
   inlineSize?: 'full' | 'square'
   preview?: CreatedComponentPreview
 }
@@ -92,6 +92,10 @@ export type ThinkingStep = {
 export type VisualType = 'map' | 'chart' | 'kpi'
 
 export type AgentResponseBlock =
+  | {
+      type: 'heading'
+      content: string
+    }
   | {
       type: 'text'
       content: string
