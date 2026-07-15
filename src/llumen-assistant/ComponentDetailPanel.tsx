@@ -228,39 +228,41 @@ export function ComponentDetailPanel({ component, onClose, onShowInConversation 
           <div className={`${styles.mapBleedHeaderInner}${descOpen ? ` ${styles.mapBleedHeaderInnerRaised}` : ''}`}>
             <div className={styles.mapBleedHeaderText}>
               <h2 className={styles.mapBleedTitle}>{title}</h2>
-              <div className={styles.mapBleedDescWrap}>
-                <button
-                  ref={descBtnRef}
-                  type="button"
-                  className={styles.mapBleedDescBtn}
-                  aria-expanded={descOpen}
-                  aria-controls="map-description-popover"
-                  onClick={() => setDescOpen((v) => !v)}
-                >
-                  <Info size={18} weight="regular" aria-hidden />
-                  View Insight
-                </button>
-                <MapDescriptionPopover
-                  open={descOpen}
-                  title={title}
-                  caption={chartCaption}
-                  analysis={chartAnalysis}
-                  onClose={() => setDescOpen(false)}
-                  anchorRef={descBtnRef}
-                />
+              <div className={styles.headerInsightRow}>
+                <div className={styles.mapBleedDescWrap}>
+                  <button
+                    ref={descBtnRef}
+                    type="button"
+                    className={styles.mapBleedDescBtn}
+                    aria-expanded={descOpen}
+                    aria-controls="map-description-popover"
+                    onClick={() => setDescOpen((v) => !v)}
+                  >
+                    <Info size={18} weight="regular" aria-hidden />
+                    View Insight
+                  </button>
+                  <MapDescriptionPopover
+                    open={descOpen}
+                    title={title}
+                    caption={chartCaption}
+                    analysis={chartAnalysis}
+                    onClose={() => setDescOpen(false)}
+                    anchorRef={descBtnRef}
+                  />
+                </div>
+                {onShowInConversation ? (
+                  <button
+                    type="button"
+                    className={styles.showInConversationBtn}
+                    onClick={onShowInConversation}
+                  >
+                    <ChatTeardropText size={20} weight="regular" aria-hidden />
+                    <span>Show in Conversation</span>
+                  </button>
+                ) : null}
               </div>
             </div>
             <div className={styles.componentDetailHeaderActions}>
-              {onShowInConversation ? (
-                <button
-                  type="button"
-                  className={styles.showInConversationBtn}
-                  onClick={onShowInConversation}
-                >
-                  <span>Show Conversation</span>
-                  <ChatTeardropText size={20} weight="regular" aria-hidden />
-                </button>
-              ) : null}
               <button
                 type="button"
                 className={styles.componentDetailClose}
@@ -322,40 +324,42 @@ export function ComponentDetailPanel({ component, onClose, onShowInConversation 
       <div className={styles.componentDetailHeader}>
         <div className={styles.componentDetailHeaderText}>
           <h2 className={styles.componentDetailTitle}>{title}</h2>
-          <div className={styles.mapBleedDescWrap}>
-            <button
-              ref={descBtnRef}
-              type="button"
-              className={styles.mapBleedDescBtn}
-              aria-expanded={descOpen}
-              aria-controls="component-analysis-popover"
-              onClick={() => setDescOpen((v) => !v)}
-            >
-              <Info size={18} weight="regular" aria-hidden />
-              View Analysis
-            </button>
-            <MapDescriptionPopover
-              open={descOpen}
-              title={title}
-              caption={chartCaption}
-              analysis={chartAnalysis}
-              onClose={() => setDescOpen(false)}
-              anchorRef={descBtnRef}
-              popoverId="component-analysis-popover"
-            />
+          <div className={styles.headerInsightRow}>
+            <div className={styles.mapBleedDescWrap}>
+              <button
+                ref={descBtnRef}
+                type="button"
+                className={styles.mapBleedDescBtn}
+                aria-expanded={descOpen}
+                aria-controls="component-analysis-popover"
+                onClick={() => setDescOpen((v) => !v)}
+              >
+                <Info size={18} weight="regular" aria-hidden />
+                View Analysis
+              </button>
+              <MapDescriptionPopover
+                open={descOpen}
+                title={title}
+                caption={chartCaption}
+                analysis={chartAnalysis}
+                onClose={() => setDescOpen(false)}
+                anchorRef={descBtnRef}
+                popoverId="component-analysis-popover"
+              />
+            </div>
+            {onShowInConversation ? (
+              <button
+                type="button"
+                className={styles.showInConversationBtn}
+                onClick={onShowInConversation}
+              >
+                <ChatTeardropText size={20} weight="regular" aria-hidden />
+                <span>Show in Conversation</span>
+              </button>
+            ) : null}
           </div>
         </div>
         <div className={styles.componentDetailHeaderActions}>
-          {onShowInConversation ? (
-            <button
-              type="button"
-              className={styles.showInConversationBtn}
-              onClick={onShowInConversation}
-            >
-              <span>Show Conversation</span>
-              <ChatTeardropText size={20} weight="regular" aria-hidden />
-            </button>
-          ) : null}
           <button
             type="button"
             className={styles.componentDetailClose}

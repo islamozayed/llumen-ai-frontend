@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   DotsThreeVertical,
   GearSix,
-  MagnifyingGlass,
   Trash,
   User,
-  X,
 } from '@phosphor-icons/react'
 import styles from './SessionsPanel.module.css'
 
@@ -82,8 +80,6 @@ const MOCK_SESSIONS: SessionSummary[] = [
 
 export type SessionsPanelProps = {
   onOpenSession: (id: string) => void
-  /** Stretch to fill parent height (fullscreen + no subcontext). */
-  fillHeight?: boolean
 }
 
 const SESSION_MENU_ITEMS = [
@@ -221,8 +217,7 @@ function SessionRowItem({
 }
 
 /** Compact conversations menu for the header dropdown (replaces the full-viewport panel). */
-export function SessionsPanel({ onOpenSession, fillHeight = false }: SessionsPanelProps) {
-  const [searchOpen, setSearchOpen] = useState(false)
+export function SessionsPanel({ onOpenSession }: SessionsPanelProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -243,10 +238,9 @@ export function SessionsPanel({ onOpenSession, fillHeight = false }: SessionsPan
     )
   }, [searchQuery])
 
-  useEffect(() => {
-    if (!searchOpen) return
+  useLayoutEffect(() => {
     searchInputRef.current?.focus()
-  }, [searchOpen])
+  }, [])
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -265,45 +259,17 @@ export function SessionsPanel({ onOpenSession, fillHeight = false }: SessionsPan
     }
   }, [settingsOpen])
 
-  const closeSearch = () => {
-    setSearchOpen(false)
-    setSearchQuery('')
-  }
-
   return (
-    <div className={`${styles.dropdownRoot}${fillHeight ? ` ${styles.dropdownRootFill}` : ''}`}>
+    <div className={styles.dropdownRoot}>
       <div className={styles.panelHeader}>
         <div className={styles.panelHeaderRow}>
           <p className={styles.panelTitle}>Conversations</p>
           <div className={styles.panelHeaderActions}>
-            <button
-              type="button"
-              className={`${styles.panelIconBtn}${searchOpen ? ` ${styles.panelIconBtnActive}` : ''}`}
-              onClick={() => {
-                setSettingsOpen(false)
-                setSearchOpen((open) => {
-                  if (open) setSearchQuery('')
-                  return !open
-                })
-              }}
-              aria-label={searchOpen ? 'Close search' : 'Search conversations'}
-              aria-pressed={searchOpen}
-            >
-              {searchOpen ? (
-                <X size={16} weight="bold" aria-hidden />
-              ) : (
-                <MagnifyingGlass size={16} weight="regular" aria-hidden />
-              )}
-            </button>
             <div className={styles.settingsWrap} ref={settingsWrapRef}>
               <button
                 type="button"
                 className={`${styles.settingsBtn}${settingsOpen ? ` ${styles.settingsBtnActive}` : ''}`}
-                onClick={() => {
-                  setSearchOpen(false)
-                  setSearchQuery('')
-                  setSettingsOpen((open) => !open)
-                }}
+                onClick={() => setSettingsOpen((open) => !open)}
                 aria-label="Settings"
                 aria-haspopup="menu"
                 aria-expanded={settingsOpen}
@@ -329,27 +295,25 @@ export function SessionsPanel({ onOpenSession, fillHeight = false }: SessionsPan
             </div>
           </div>
         </div>
-        {searchOpen ? (
-          <input
-            ref={searchInputRef}
-            type="search"
-            className={styles.searchInput}
-            placeholder="Search conversations..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Search conversations"
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.preventDefault()
-                e.stopPropagation()
-                closeSearch()
-              }
-            }}
-          />
-        ) : null}
+        <input
+          ref={searchInputRef}
+          type="search"
+          className={styles.searchInput}
+          placeholder="Search conversations..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          aria-label="Search conversations"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && searchQuery) {
+              e.preventDefault()
+              e.stopPropagation()
+              setSearchQuery('')
+            }
+          }}
+        />
       </div>
 
-      <ul className={`${styles.list}${fillHeight ? ` ${styles.listFill}` : ''}`}>
+      <ul className={styles.list}>
         {filteredSessions.map((s) => (
           <SessionRowItem key={s.id} session={s} onOpen={open} />
         ))}

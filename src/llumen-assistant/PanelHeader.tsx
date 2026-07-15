@@ -52,8 +52,6 @@ export function PanelHeader({
   const titleInputRef = useRef<HTMLInputElement>(null)
   const sessionsWrapRef = useRef<HTMLDivElement>(null)
 
-  const sessionsFillHeight = expanded && !splitOpen
-
   useEffect(() => {
     if (!editingTitle) setTitleDraft(chatTitle)
   }, [chatTitle, editingTitle])
@@ -66,12 +64,7 @@ export function PanelHeader({
     }
   }, [hasAssistantReply])
 
-  // Fullscreen + no subcontext: open conversation history by default.
-  useEffect(() => {
-    if (sessionsFillHeight) setSessionsOpen(true)
-  }, [sessionsFillHeight])
-
-  // Fullscreen + subcontext: dismiss conversation history.
+  // Fullscreen + subcontext: dismiss conversation history if it was open.
   useEffect(() => {
     if (expanded && splitOpen) setSessionsOpen(false)
   }, [expanded, splitOpen])
@@ -99,24 +92,18 @@ export function PanelHeader({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSessionsOpen(false)
     }
-    window.addEventListener('keydown', onKey)
-
-    // Fill-height mode acts like a docked panel — don't dismiss on outside click.
-    if (sessionsFillHeight) {
-      return () => window.removeEventListener('keydown', onKey)
-    }
-
     const onPointer = (e: MouseEvent) => {
       const target = e.target as Node
       if (sessionsWrapRef.current?.contains(target)) return
       setSessionsOpen(false)
     }
+    window.addEventListener('keydown', onKey)
     window.addEventListener('mousedown', onPointer)
     return () => {
       window.removeEventListener('mousedown', onPointer)
       window.removeEventListener('keydown', onKey)
     }
-  }, [sessionsOpen, sessionsFillHeight])
+  }, [sessionsOpen])
 
   const closeSearch = () => {
     setSearchOpen(false)
@@ -154,10 +141,7 @@ export function PanelHeader({
   return (
     <div className={styles.headerRow}>
       <div className={styles.headerActions}>
-        <div
-          className={`${styles.headerSessionsWrap}${sessionsFillHeight ? ` ${styles.headerSessionsWrapFill}` : ''}`}
-          ref={sessionsWrapRef}
-        >
+        <div className={styles.headerSessionsWrap} ref={sessionsWrapRef}>
           <button
             type="button"
             className={`${styles.headerBtn}${sessionsOpen ? ` ${styles.headerBtnActive}` : ''}`}
@@ -170,13 +154,12 @@ export function PanelHeader({
           </button>
           {sessionsOpen ? (
             <div
-              className={`${styles.headerSessionsMenu}${sessionsFillHeight ? ` ${styles.headerSessionsMenuFill}` : ''}`}
+              className={styles.headerSessionsMenu}
               role="menu"
               aria-label="Conversations"
               data-lc-sessions-menu
             >
               <SessionsPanel
-                fillHeight={sessionsFillHeight}
                 onOpenSession={(id) => {
                   onOpenSession?.(id)
                   setSessionsOpen(false)

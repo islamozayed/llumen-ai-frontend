@@ -209,6 +209,8 @@
   );
   --lc-panel-stack-bottom: calc(var(--space-3xl) + 50px + var(--space-lg));
   --lc-panel-compact-height: min(90dvh, calc(100dvh - var(--lc-panel-stack-bottom)));
+  /* Chat shell height — compact by default; fullscreen overrides to 100dvh */
+  --lc-chat-window-height: var(--lc-panel-compact-height);
 
   /* Shared cap for composer + inline visuals (fill chat column up to this) */
   --lc-chat-content-max: 900px;

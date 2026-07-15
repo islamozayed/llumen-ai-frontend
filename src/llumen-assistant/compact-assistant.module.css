@@ -141,6 +141,7 @@
   border-radius: 0;
   box-sizing: border-box;
   margin: 0;
+  --lc-chat-window-height: 100dvh;
 }
 
 .panelExpanded .panelBackdrop {
@@ -387,11 +388,13 @@
 }
 
 .mapBleedHeaderText {
+  position: relative;
   min-width: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  container-type: inline-size;
 }
 
 .mapBleedTitle {
@@ -407,6 +410,14 @@
   align-items: flex-start;
 }
 
+.headerInsightRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3xl);
+  min-width: 0;
+}
+
 .mapBleedDescBtn {
   display: inline-flex;
   align-items: center;
@@ -415,7 +426,7 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: #6de9e1;
+  color: var(--lc-text-primary);
   font-family: var(--lc-font-sans);
   font-size: 16px;
   font-weight: var(--lc-weight-medium);
@@ -424,11 +435,11 @@
 }
 
 .mapBleedDescBtn:hover {
-  color: #8ff3ec;
+  opacity: 0.72;
 }
 
 .mapBleedDescBtn:focus-visible {
-  outline: 2px solid rgba(109, 233, 225, 0.7);
+  outline: 2px solid rgba(255, 255, 255, 0.55);
   outline-offset: 3px;
   border-radius: 4px;
 }
@@ -438,8 +449,10 @@
   top: calc(100% + 10px);
   left: 0;
   z-index: 20;
-  width: min(520px, calc(100% + 120px));
-  max-width: min(520px, 70vw);
+  /* 50% of the detail header text column (not the narrow button wrap) */
+  width: 50cqw;
+  min-width: 280px;
+  max-width: 560px;
   padding: var(--space-xl) var(--space-2xl);
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -532,11 +545,13 @@
 }
 
 .componentDetailHeaderText {
+  position: relative;
   min-width: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  container-type: inline-size;
 }
 
 .componentDetailTitle {
@@ -607,13 +622,13 @@
 .showInConversationBtn {
   width: auto;
   height: auto;
-  min-height: var(--lc-header-icon-btn-size);
-  padding: 0 var(--space-sm) 0 var(--space-md);
-  gap: var(--space-sm);
-  font-family: inherit;
-  font-size: var(--lc-text-body);
+  min-height: 20px;
+  padding: 0;
+  gap: 4px;
+  font-family: var(--lc-font-sans);
+  font-size: 16px;
   font-weight: var(--lc-weight-medium);
-  line-height: var(--lc-leading-heading);
+  line-height: 20px;
   white-space: nowrap;
 }
 
@@ -633,7 +648,7 @@
 
 .showInConversationBtn:focus-visible,
 .componentDetailClose:focus-visible {
-  outline: 2px solid rgba(132, 177, 245, 0.65);
+  outline: 2px solid rgba(255, 255, 255, 0.55);
   outline-offset: 2px;
 }
 
@@ -1101,7 +1116,8 @@
   z-index: 40;
   /* +20% vs prior 360px menu width */
   width: min(432px, 78vw);
-  max-height: calc(var(--lc-panel-compact-height) * 0.75);
+  /* Hug content; expand up to 75% of the chat window height */
+  max-height: calc(var(--lc-chat-window-height) * 0.75);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1112,21 +1128,6 @@
   backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   overflow: hidden;
-}
-
-/* Fullscreen + subcontext collapsed: conversations panel fills remaining column height */
-.headerSessionsWrapFill {
-  position: static;
-}
-
-.headerSessionsMenuFill {
-  position: absolute;
-  top: calc(var(--lc-header-icon-btn-size) + var(--space-md) + 8px);
-  left: 0;
-  bottom: 0;
-  width: min(432px, 36vw);
-  max-height: none;
-  height: auto;
 }
 
 .headerTitleStatic {

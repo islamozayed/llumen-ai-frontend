@@ -61,11 +61,11 @@ export function SlidesDetailPanel({
           {onShowInConversation ? (
             <button
               type="button"
-              className={styles.iconBtn}
+              className={styles.showInConversationBtn}
               onClick={onShowInConversation}
-              aria-label="Show in conversation"
             >
               <ChatTeardropText size={20} weight="regular" aria-hidden />
+              <span>Show in Conversation</span>
             </button>
           ) : null}
           <span className={styles.slideCount}>

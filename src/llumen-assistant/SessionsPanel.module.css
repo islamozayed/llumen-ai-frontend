@@ -8,17 +8,12 @@
   overflow: hidden;
 }
 
-.dropdownRootFill {
-  height: 100%;
-  min-height: 0;
-}
-
 .panelHeader {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
   flex-shrink: 0;
-  padding: var(--space-lg) var(--space-lg) var(--space-md);
+  padding: var(--space-lg);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(12, 18, 28, 0.92);
 }
@@ -179,20 +174,14 @@
   margin: 0;
   padding: var(--space-sm) var(--space-sm) var(--space-md);
   width: 100%;
-  /* Hug content; cap so the full menu stays within 75% of the chat panel height */
-  max-height: calc(var(--lc-panel-compact-height) * 0.75 - 4.5rem);
+  /* Hug content; cap so the full menu stays within 75% of the chat window height */
+  max-height: calc(var(--lc-chat-window-height) * 0.75 - 4.5rem);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--lc-scrollbar-thumb) transparent;
   box-sizing: border-box;
-}
-
-.listFill {
-  flex: 1;
-  min-height: 0;
-  max-height: none;
 }
 
 .list::-webkit-scrollbar {
