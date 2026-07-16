@@ -71,9 +71,8 @@
 }
 
 .thinkingPopover {
-  --thinking-surface: rgba(36, 38, 46, 0.62);
+  --thinking-surface: var(--lc-surface-3);
   --thinking-border: rgba(255, 255, 255, 0.14);
-  --thinking-blur: blur(28px) saturate(1.35);
   --thinking-highlight: rgba(255, 255, 255, 0.08);
 
   position: fixed;
@@ -86,8 +85,8 @@
   border-radius: 18px;
   border: 1px solid var(--thinking-border);
   background: var(--thinking-surface);
-  backdrop-filter: var(--thinking-blur);
-  -webkit-backdrop-filter: var(--thinking-blur);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
   box-shadow:
     inset 0 1px 0 var(--thinking-highlight),
     0 24px 56px rgba(0, 0, 0, 0.42);
@@ -134,7 +133,9 @@
   flex-shrink: 0;
   padding: var(--space-lg) var(--space-xl);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(36, 38, 46, 0.92);
+  background: var(--lc-surface-3);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
 }
 
 .thinkingPanelTitle {

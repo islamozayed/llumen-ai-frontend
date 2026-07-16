@@ -16,7 +16,7 @@ export type ComponentDetailPanelProps = {
 type DetailTab = 'component' | 'query-results' | 'data-source'
 
 const DETAIL_TABS: { id: DetailTab; label: string }[] = [
-  { id: 'component', label: 'Component' },
+  { id: 'component', label: 'Asset' },
   { id: 'query-results', label: 'Query Results' },
   { id: 'data-source', label: 'Source' },
 ]

@@ -148,7 +148,8 @@
   --lc-leading-small: var(--lc-font-small-line-height);
 
   /* Dark semantic colors — from html[data-theme="dark"] in llumen-design-system.css */
-  --lc-surface-base: rgba(6, 14, 23, 0.5);
+  --lc-surface-base: rgba(6, 14, 23, 1);
+  --lc-surface-0: var(--lc-surface-base);
   --lc-surface-1: rgba(13, 27, 42, 0.5);
   --lc-surface-2: rgba(26, 42, 61, 0.5);
   --lc-surface-3: rgba(46, 63, 85, 0.5);

@@ -14,7 +14,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
+  padding: var(--space-xl) 0 var(--space-3xl);
   scrollbar-width: thin;
   scrollbar-color: var(--lc-scrollbar-thumb) transparent;
 }

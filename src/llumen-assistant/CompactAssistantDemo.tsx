@@ -40,6 +40,8 @@ type ChatMessage =
   | { id: string; role: 'user'; text: string }
   | { id: string; role: 'assistant'; text: string; reply?: AssistantReplyPayload }
 
+const SUBCONTEXT_EXIT_MS = 280
+
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
@@ -141,14 +143,17 @@ export function CompactAssistantDemo() {
   const [expanded, setExpanded] = useState(false)
   const [draft, setDraft] = useState('')
   const [subcontext, setSubcontext] = useState<SubcontextState>({ view: 'closed' })
+  const [subcontextClosing, setSubcontextClosing] = useState(false)
   const [sessionsOpen, setSessionsOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
+  const [replyRendering, setReplyRendering] = useState(false)
   const [chatTitle, setChatTitle] = useState('New chat')
   const titleEditedRef = useRef(false)
   const streamTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const assistantMsgId = useRef<string | null>(null)
   const assistantPanelRef = useRef<HTMLDivElement>(null)
+  const subcontextCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fabColumnRef = useRef<HTMLDivElement>(null)
   const chatMiddleRef = useRef<HTMLDivElement>(null)
   const pendingPanelAnimRef = useRef<{ width: number; height: number; top: number; left: number } | null>(
@@ -280,18 +285,49 @@ export function CompactAssistantDemo() {
     }
     assistantMsgId.current = null
     setStreaming(false)
+    setReplyRendering(false)
   }, [])
 
   useEffect(() => {
     return () => clearStream()
   }, [clearStream])
 
+  const openSubcontext = useCallback((next: SubcontextState) => {
+    if (subcontextCloseTimerRef.current != null) {
+      clearTimeout(subcontextCloseTimerRef.current)
+      subcontextCloseTimerRef.current = null
+    }
+    setSubcontextClosing(false)
+    setSubcontext(next)
+  }, [])
+
   const closeSubcontext = useCallback(() => {
+    if (subcontext.view === 'closed' || subcontextCloseTimerRef.current != null) return
+    setSubcontextClosing(true)
+    subcontextCloseTimerRef.current = setTimeout(() => {
+      subcontextCloseTimerRef.current = null
+      setSubcontext({ view: 'closed' })
+      setSubcontextClosing(false)
+    }, SUBCONTEXT_EXIT_MS)
+  }, [subcontext.view])
+
+  const closeSubcontextImmediately = useCallback(() => {
+    if (subcontextCloseTimerRef.current != null) {
+      clearTimeout(subcontextCloseTimerRef.current)
+      subcontextCloseTimerRef.current = null
+    }
+    setSubcontextClosing(false)
     setSubcontext({ view: 'closed' })
   }, [])
 
   useEffect(() => {
-    if (subcontext.view === 'slides') setSessionsOpen(false)
+    return () => {
+      if (subcontextCloseTimerRef.current != null) clearTimeout(subcontextCloseTimerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (subcontext.view !== 'closed') setSessionsOpen(false)
   }, [subcontext.view])
 
   useEffect(() => {
@@ -330,6 +366,7 @@ export function CompactAssistantDemo() {
     assistantMsgId.current = aid
     setMessages((m) => [...m, { id: aid, role: 'assistant', text: '', reply }])
     setStreaming(true)
+    setReplyRendering(true)
 
     const thinkingMs = Math.max(1800, (reply.timeline.length || 1) * 1100)
     streamTimer.current = setTimeout(() => {
@@ -436,20 +473,20 @@ export function CompactAssistantDemo() {
   const onComponentSelect = useCallback((component: CreatedComponent) => {
     if (streaming) return
     const isMap = component.preview?.kind === 'image' && component.preview.detailView === 'map'
-    setSubcontext({
+    openSubcontext({
       view: isMap ? 'map' : 'chart',
       componentId: component.id,
     })
-  }, [streaming])
+  }, [streaming, openSubcontext])
 
   const onReportOpen = useCallback((reportId: string) => {
     setSessionsOpen(false)
-    setSubcontext({ view: 'slides', reportId, activeSlide: 0 })
-  }, [])
+    openSubcontext({ view: 'slides', reportId, activeSlide: 0 })
+  }, [openSubcontext])
 
   const onOpenSubcontext = useCallback((block: AgentResponseBlock) => {
     if (block.type === 'visual' && block.openSubcontext) {
-      setSubcontext({
+      openSubcontext({
         view: block.visualType === 'map' ? 'map' : 'chart',
         componentId: block.componentId,
       })
@@ -457,13 +494,17 @@ export function CompactAssistantDemo() {
     }
     if (block.type === 'report' && block.openSubcontext) {
       setSessionsOpen(false)
-      setSubcontext({ view: 'slides', reportId: block.reportId, activeSlide: 0 })
+      openSubcontext({ view: 'slides', reportId: block.reportId, activeSlide: 0 })
     }
-  }, [])
+  }, [openSubcontext])
 
   const stop = useCallback(() => {
     clearStream()
   }, [clearStream])
+
+  const onReplyComplete = useCallback(() => {
+    setReplyRendering(false)
+  }, [])
 
   const sendVisual: SendVisualState = streaming ? 'stop' : draft.trim() ? 'active' : 'inactive'
 
@@ -471,23 +512,23 @@ export function CompactAssistantDemo() {
     clearStream()
     setMessages([])
     setDraft('')
-    setSubcontext({ view: 'closed' })
+    closeSubcontextImmediately()
     setSessionsOpen(false)
     setChatTitle('New chat')
     titleEditedRef.current = false
-  }, [clearStream])
+  }, [clearStream, closeSubcontextImmediately])
 
   const closePanel = useCallback(() => {
     setOpen(false)
     setExpanded(false)
-    setSubcontext({ view: 'closed' })
+    closeSubcontextImmediately()
     setSessionsOpen(false)
     clearStream()
     setMessages([])
     setDraft('')
     setChatTitle('New chat')
     titleEditedRef.current = false
-  }, [clearStream])
+  }, [clearStream, closeSubcontextImmediately])
 
   useEffect(() => {
     if (!open) return
@@ -561,6 +602,7 @@ export function CompactAssistantDemo() {
                     onComponentSelect={onComponentSelect}
                     onReportOpen={onReportOpen}
                     onOpenSubcontext={onOpenSubcontext}
+                    onReplyComplete={onReplyComplete}
                     selectedComponentId={
                       subcontext.view === 'map' || subcontext.view === 'chart'
                         ? subcontext.componentId
@@ -622,6 +664,7 @@ export function CompactAssistantDemo() {
               expanded={expanded}
               splitView={splitOpen}
               allowOverflow={sessionsOpen}
+              thinking={replyRendering}
             >
               <div className={styles.splitBody}>
                 <div className={`${styles.chatColumn} ${splitOpen ? styles.chatColumnSplit : ''}`}>
@@ -644,7 +687,11 @@ export function CompactAssistantDemo() {
                   </div>
                 </div>
                 {selectedComponent ? (
-                  <div className={styles.detailColumn}>
+                  <div
+                    className={`${styles.detailColumn} ${
+                      subcontextClosing ? styles.detailColumnExit : styles.detailColumnEnter
+                    }`}
+                  >
                     <ComponentDetailPanel
                       component={selectedComponent}
                       onClose={closeSubcontext}
@@ -655,7 +702,11 @@ export function CompactAssistantDemo() {
                   </div>
                 ) : null}
                 {activeReport && subcontext.view === 'slides' ? (
-                  <div className={styles.detailColumn}>
+                  <div
+                    className={`${styles.detailColumn} ${
+                      subcontextClosing ? styles.detailColumnExit : styles.detailColumnEnter
+                    }`}
+                  >
                     <SlidesDetailPanel
                       report={activeReport}
                       components={AIR_QUALITY_COMPONENTS}

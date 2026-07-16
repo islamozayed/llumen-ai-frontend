@@ -2,6 +2,7 @@ import { useId, useState, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowSquareOut } from '@phosphor-icons/react'
 import type { CreatedComponent } from './assistantReplyTypes'
+import { InteractiveMap } from './InteractiveMap'
 import { KpiWidget } from './KpiWidgets'
 import styles from './InlineVisualCard.module.css'
 
@@ -23,6 +24,10 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
   const isSquare = component.inlineSize === 'square'
   const isMap = isMapThumbnail(component)
   const preview = component.preview
+  const isFixedWidthWidget =
+    preview?.kind === 'widget' &&
+    ['aqi', 'pollutants', 'population', 'land-use'].includes(preview.variant)
+  const isWindChart = preview?.kind === 'widget' && preview.variant === 'wind'
   const showTooltip = !isMap
   const tooltipId = useId()
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
@@ -44,7 +49,13 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
 
   return (
     <div
-      className={styles.wrap}
+      className={[
+        styles.wrap,
+        isFixedWidthWidget ? styles.wrapFixedWidget : '',
+        isWindChart ? styles.wrapWindChart : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       data-component-id={component.id}
       onMouseMove={onCardMouseMove}
       onMouseEnter={onCardMouseMove}
@@ -54,7 +65,8 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
         className={[
           styles.card,
           isSquare ? styles.cardSquare : styles.cardFull,
-          active ? styles.cardActive : '',
+          isWindChart ? styles.cardWindChart : '',
+          active && !isMap ? styles.cardActive : '',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -64,17 +76,15 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
             <KpiWidget component={component} compact={isSquare} />
           ) : preview?.kind === 'image' ? (
             <div className={isMap ? styles.mapImageStage : styles.imageStage}>
-              <img
-                className={
-                  isMap
-                    ? styles.mapImageCover
-                    : preview.fit === 'cover'
-                      ? styles.imageCover
-                      : styles.imageContain
-                }
-                src={preview.src}
-                alt={preview.alt ?? component.title}
-              />
+              {isMap ? (
+                <InteractiveMap className={styles.mapInteractive} showControls={false} />
+              ) : (
+                <img
+                  className={preview.fit === 'cover' ? styles.imageCover : styles.imageContain}
+                  src={preview.src}
+                  alt={preview.alt ?? component.title}
+                />
+              )}
               <p className={styles.imageTitle}>{component.title}</p>
             </div>
           ) : (
@@ -93,7 +103,7 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
               <ArrowSquareOut size={20} weight="regular" aria-hidden />
             </button>
           ) : null}
-          {onExpand ? (
+          {onExpand && !isMap ? (
             <button
               type="button"
               className={styles.hitArea}

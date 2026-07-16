@@ -7,11 +7,15 @@ export type AssistantPanelProps = {
   expanded: boolean
   splitView?: boolean
   allowOverflow?: boolean
+  thinking?: boolean
   children: ReactNode
 }
 
 export const AssistantPanel = forwardRef<HTMLDivElement, AssistantPanelProps>(
-  function AssistantPanel({ expanded, splitView = false, allowOverflow = false, children }, ref) {
+  function AssistantPanel(
+    { expanded, splitView = false, allowOverflow = false, thinking = false, children },
+    ref,
+  ) {
     return (
       <div
         ref={ref}
@@ -24,13 +28,15 @@ export const AssistantPanel = forwardRef<HTMLDivElement, AssistantPanelProps>(
       >
         <div className={styles.panelBackdrop} aria-hidden>
           <MeshGradient
-            speed={0.2}
+            speed={thinking ? 0.8 : 0}
             scale={1}
             distortion={0.09}
             swirl={0}
             frame={MESH_FRAME_PANEL}
             colors={[...MESH_COLORS_LUMEN_DARK]}
-            className={styles.panelBackdropShader}
+            className={`${styles.panelBackdropShader}${
+              thinking ? ` ${styles.panelBackdropShaderActive}` : ''
+            }`}
           />
         </div>
         <div className={styles.panelInner}>{children}</div>

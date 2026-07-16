@@ -119,7 +119,7 @@
   min-height: 0;
   padding: var(--space-xl);
   border-radius: var(--lc-radius-panel-shell);
-  border: 1px solid rgba(47, 54, 101, 1);
+  border: 1px solid color-mix(in srgb, var(--lc-surface-3) 40%, transparent);
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -146,6 +146,7 @@
   max-width: none;
   max-height: none;
   border-radius: 0;
+  border: none;
   box-sizing: border-box;
   margin: 0;
   --lc-chat-window-height: 100dvh;
@@ -161,8 +162,7 @@
   border-radius: calc(var(--lc-radius-panel-shell) - 1px);
   overflow: hidden;
   z-index: 0;
-  /* Fallback if WebGL is unavailable */
-  background: #070f2c;
+  background: var(--lc-surface-base);
 }
 
 .panelBackdropShader {
@@ -171,6 +171,19 @@
   width: 100%;
   height: 100%;
   display: block;
+  opacity: 0;
+  transition: opacity 1200ms var(--lc-ease);
+  will-change: opacity;
+}
+
+.panelBackdropShaderActive {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panelBackdropShader {
+    transition: none;
+  }
 }
 
 .panelInner {
@@ -304,6 +317,37 @@
   overscroll-behavior: contain;
 }
 
+.detailColumnEnter {
+  animation: detailColumnSlideIn 360ms var(--lc-ease) both;
+}
+
+.detailColumnExit {
+  pointer-events: none;
+  animation: detailColumnSlideOut 280ms var(--lc-ease) both;
+}
+
+@keyframes detailColumnSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes detailColumnSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+
 /* Fullscreen + split: subcontext grows to fill remaining viewport width */
 .panelExpanded.requestBoxSplit .detailColumn {
   flex: 1 1 auto;
@@ -317,7 +361,7 @@
   min-height: 100%;
   border-radius: 0;
   border: none;
-  background: rgba(8, 11, 23, 0.72);
+  background: var(--lc-surface-0);
   padding: var(--space-3xl) var(--space-4xl);
 }
 
@@ -501,7 +545,7 @@
   padding: var(--space-xs);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgb(13, 27, 42);
   pointer-events: auto;
 }
 
@@ -520,9 +564,7 @@
   flex-direction: column;
   padding: calc(var(--space-3xl) + 148px) var(--space-4xl) var(--space-3xl);
   overflow: auto;
-  background: rgba(8, 11, 23, 0.72);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: rgb(from var(--lc-surface-1) r g b / 1);
 }
 
 .componentDetailMapShell .componentDetailHeader {
@@ -616,9 +658,7 @@
   min-height: 0;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(8, 11, 23, 0.55);
-  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
-  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  background: var(--lc-surface-0);
   padding: var(--space-3xl) var(--space-4xl);
   box-sizing: border-box;
 }
@@ -1148,7 +1188,7 @@
   min-height: 0;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(12, 18, 28, 0.72);
+  background: var(--lc-surface-2);
   -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
   backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
@@ -1608,7 +1648,7 @@
 }
 
 .msgUserJumpBtn {
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   width: 24px;
@@ -1760,9 +1800,7 @@
   padding: var(--space-xl);
   border-radius: var(--radius-3xl);
   border: 1px solid var(--lc-border-default);
-  background: var(--lc-bg-control);
-  -webkit-backdrop-filter: blur(15px);
-  backdrop-filter: blur(15px);
+  background: rgb(26, 42, 61);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1884,7 +1922,7 @@
   padding: var(--space-lg);
   border-radius: 12px;
   border: 1px solid var(--lc-border-dropdown);
-  background: var(--lc-bg-dropdown);
+  background: var(--lc-surface-3);
   -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
   backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
   box-shadow:

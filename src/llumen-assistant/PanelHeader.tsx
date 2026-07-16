@@ -90,6 +90,7 @@ export function PanelHeader({
       if (e.key === 'Escape') onSessionsOpenChange?.(false)
     }
     const onPointer = (e: MouseEvent) => {
+      if (sessionsFullscreen) return
       const target = e.target as Node
       if (sessionsWrapRef.current?.contains(target)) return
       onSessionsOpenChange?.(false)
@@ -100,7 +101,7 @@ export function PanelHeader({
       window.removeEventListener('mousedown', onPointer)
       window.removeEventListener('keydown', onKey)
     }
-  }, [sessionsOpen, onSessionsOpenChange])
+  }, [sessionsOpen, sessionsFullscreen, onSessionsOpenChange])
 
   const closeSearch = () => {
     setSearchOpen(false)

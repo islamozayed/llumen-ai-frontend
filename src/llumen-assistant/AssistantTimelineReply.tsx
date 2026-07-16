@@ -42,6 +42,8 @@ export type AssistantTimelineReplyProps = {
   onReportOpen?: (reportId: string) => void
   /** Fired when a block requests opening subcontext (map/chart/slides). */
   onOpenSubcontext?: (block: AgentResponseBlock) => void
+  /** Fired after the thinking sequence and all reply blocks finish rendering. */
+  onReplyComplete?: () => void
   /** Highlights the chip for the component currently open in the detail panel. */
   selectedComponentId?: string | null
   /** When true, skip step animation (used for older turns in the transcript). */
@@ -422,6 +424,7 @@ export function AssistantTimelineReply({
   onComponentSelect,
   onReportOpen,
   onOpenSubcontext,
+  onReplyComplete,
   selectedComponentId = null,
   instantTimeline = false,
   conversationPanelRef,
@@ -456,6 +459,7 @@ export function AssistantTimelineReply({
   const blockGapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const thoughtStartRef = useRef(Date.now())
   const openedSubcontextKeys = useRef(new Set<string>())
+  const replyCompleteNotifiedRef = useRef(false)
 
   useEffect(() => {
     if (instantTimeline || reduceMotion) {
@@ -586,6 +590,29 @@ export function AssistantTimelineReply({
       setRevealedBlockCount((count) => Math.min(count + 1, blocks.length + 1))
     }, BLOCK_GAP_MS)
   }, [blocks.length, instantTimeline, reduceMotion])
+
+  useEffect(() => {
+    if (instantTimeline || replyCompleteNotifiedRef.current || !sequenceComplete) return
+
+    const replyComplete = useBlocks
+      ? reduceMotion
+        ? revealedBlockCount >= blocks.length
+        : revealedBlockCount > blocks.length
+      : !isAnswerStreaming
+
+    if (!replyComplete) return
+    replyCompleteNotifiedRef.current = true
+    onReplyComplete?.()
+  }, [
+    blocks.length,
+    instantTimeline,
+    isAnswerStreaming,
+    onReplyComplete,
+    reduceMotion,
+    revealedBlockCount,
+    sequenceComplete,
+    useBlocks,
+  ])
 
   useEffect(() => {
     if (!useBlocks || !onOpenSubcontext || instantTimeline) return
