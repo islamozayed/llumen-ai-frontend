@@ -2,9 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowsInSimple,
   ArrowsOutSimple,
-  List,
   MagnifyingGlass,
   Plus,
+  SidebarSimple,
   X,
 } from '@phosphor-icons/react'
 import { SessionsPanel } from './SessionsPanel'
@@ -27,8 +27,9 @@ export type PanelHeaderProps = {
   onNewSession?: () => void
   /** Hide in-conversation search and title edit until at least one assistant reply exists. */
   hasAssistantReply?: boolean
-  /** Subcontext/detail panel is open (split view). */
-  splitOpen?: boolean
+  sessionsOpen?: boolean
+  sessionsFullscreen?: boolean
+  onSessionsOpenChange?: (open: boolean) => void
 }
 
 export function PanelHeader({
@@ -40,14 +41,15 @@ export function PanelHeader({
   onOpenSession,
   onNewSession,
   hasAssistantReply = false,
-  splitOpen = false,
+  sessionsOpen = false,
+  sessionsFullscreen = false,
+  onSessionsOpenChange,
 }: PanelHeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(chatTitle)
   const [titleHovered, setTitleHovered] = useState(false)
-  const [sessionsOpen, setSessionsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const sessionsWrapRef = useRef<HTMLDivElement>(null)
@@ -63,11 +65,6 @@ export function PanelHeader({
       setEditingTitle(false)
     }
   }, [hasAssistantReply])
-
-  // Fullscreen + subcontext: dismiss conversation history if it was open.
-  useEffect(() => {
-    if (expanded && splitOpen) setSessionsOpen(false)
-  }, [expanded, splitOpen])
 
   useEffect(() => {
     if (!searchOpen) return
@@ -90,12 +87,12 @@ export function PanelHeader({
   useEffect(() => {
     if (!sessionsOpen) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSessionsOpen(false)
+      if (e.key === 'Escape') onSessionsOpenChange?.(false)
     }
     const onPointer = (e: MouseEvent) => {
       const target = e.target as Node
       if (sessionsWrapRef.current?.contains(target)) return
-      setSessionsOpen(false)
+      onSessionsOpenChange?.(false)
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('mousedown', onPointer)
@@ -103,7 +100,7 @@ export function PanelHeader({
       window.removeEventListener('mousedown', onPointer)
       window.removeEventListener('keydown', onKey)
     }
-  }, [sessionsOpen])
+  }, [sessionsOpen, onSessionsOpenChange])
 
   const closeSearch = () => {
     setSearchOpen(false)
@@ -145,24 +142,27 @@ export function PanelHeader({
           <button
             type="button"
             className={`${styles.headerBtn}${sessionsOpen ? ` ${styles.headerBtnActive}` : ''}`}
-            onClick={() => setSessionsOpen((v) => !v)}
+            onClick={() => onSessionsOpenChange?.(!sessionsOpen)}
             aria-label="Conversations"
             aria-expanded={sessionsOpen}
             aria-haspopup="menu"
           >
-            <List className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
+            <SidebarSimple className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
           </button>
           {sessionsOpen ? (
             <div
-              className={styles.headerSessionsMenu}
+              className={`${styles.headerSessionsMenu}${
+                sessionsFullscreen ? ` ${styles.headerSessionsMenuFullscreen}` : ''
+              }`}
               role="menu"
               aria-label="Conversations"
               data-lc-sessions-menu
             >
               <SessionsPanel
+                variant={sessionsFullscreen ? 'fullscreen' : 'dropdown'}
                 onOpenSession={(id) => {
                   onOpenSession?.(id)
-                  setSessionsOpen(false)
+                  onSessionsOpenChange?.(false)
                 }}
               />
             </div>

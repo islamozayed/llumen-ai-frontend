@@ -227,16 +227,16 @@ export default function LandingHomeDefault() {
                     <button type="button" className={styles.menuBtn} aria-label="More options">
                       <DotsThreeVertical size={18} weight="bold" />
                     </button>
-                  </div>
+              </div>
                   <div className={styles.briefingMeta}>
                     <p className={styles.briefingDomain}>{card.domain}</p>
                     <p className={styles.briefingTitle}>{card.title}</p>
                     <p className={styles.briefingTime}>{card.time}</p>
-                  </div>
+            </div>
                 </div>
               </article>
             ))}
-          </div>
+              </div>
         </section>
 
         <section className={styles.featured} aria-labelledby="featured-live">

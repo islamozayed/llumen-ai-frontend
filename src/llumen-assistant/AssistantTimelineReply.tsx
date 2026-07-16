@@ -27,6 +27,7 @@ import type {
 import { thinkingStepsFromTimeline } from './thinkingSteps'
 import { InlineVisualCard } from './InlineVisualCard'
 import { ReportThumbnail } from './ReportThumbnail'
+import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
 import styles from './AssistantTimelineReply.module.css'
 
 export type AssistantTimelineReplyProps = {
@@ -281,6 +282,7 @@ function ThinkingPopover({
   onClose: () => void
 }) {
   const popoverRef = useRef<HTMLDivElement>(null)
+  const thinkingScrollRef = useRevealScrollbarOnScroll()
   const [layout, setLayout] = useState({ top: 0, left: 0, width: 360, placeAbove: false })
 
   const updatePosition = useCallback(() => {
@@ -392,7 +394,7 @@ function ThinkingPopover({
           <X size={16} weight="bold" aria-hidden />
         </button>
       </div>
-      <ol className={styles.thinkingStepList}>
+      <ol ref={thinkingScrollRef} className={styles.thinkingStepList}>
         {steps.map((step, index) => (
           <li
             key={step.id}

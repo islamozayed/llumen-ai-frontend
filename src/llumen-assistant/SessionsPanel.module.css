@@ -8,12 +8,28 @@
   overflow: hidden;
 }
 
+.fullscreenRoot {
+  height: 100%;
+  min-height: 0;
+}
+
+.fullscreenRoot .panelHeader {
+  padding: var(--space-xl);
+}
+
+.fullscreenRoot .list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  padding: var(--space-xl);
+}
+
 .panelHeader {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
   flex-shrink: 0;
-  padding: var(--space-lg);
+  padding: var(--space-xl);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(12, 18, 28, 0.92);
 }
@@ -376,8 +392,7 @@
   margin: 0;
   width: max-content;
   max-width: none;
-  font-size: var(--lc-text-body);
-  font-weight: var(--lc-weight-medium);
+  font: var(--lc-font-body);
   color: var(--lc-text-primary);
   white-space: nowrap;
   will-change: transform;

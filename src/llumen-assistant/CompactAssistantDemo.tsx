@@ -141,6 +141,7 @@ export function CompactAssistantDemo() {
   const [expanded, setExpanded] = useState(false)
   const [draft, setDraft] = useState('')
   const [subcontext, setSubcontext] = useState<SubcontextState>({ view: 'closed' })
+  const [sessionsOpen, setSessionsOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
   const [chatTitle, setChatTitle] = useState('New chat')
@@ -153,6 +154,9 @@ export function CompactAssistantDemo() {
   const pendingPanelAnimRef = useRef<{ width: number; height: number; top: number; left: number } | null>(
     null,
   )
+  const revealSessionsAfterExpandRef = useRef(false)
+  const subcontextViewRef = useRef(subcontext.view)
+  subcontextViewRef.current = subcontext.view
   const transcriptRevealRef = useRevealScrollbarOnScroll()
   const transcriptContentKey = `${messages.length}:${streaming ? '1' : '0'}`
   const { ref: transcriptStickRef, releaseStick } = useStickToBottomScroll(transcriptContentKey)
@@ -229,6 +233,10 @@ export function CompactAssistantDemo() {
         ease: 'power3.inOut',
         onComplete: () => {
           gsap.set(el, { clearProps: 'top,left,width,height,margin,right,bottom,position' })
+          if (revealSessionsAfterExpandRef.current && subcontextViewRef.current === 'closed') {
+            setSessionsOpen(true)
+          }
+          revealSessionsAfterExpandRef.current = false
         },
       })
       return () => {
@@ -281,6 +289,10 @@ export function CompactAssistantDemo() {
   const closeSubcontext = useCallback(() => {
     setSubcontext({ view: 'closed' })
   }, [])
+
+  useEffect(() => {
+    if (subcontext.view === 'slides') setSessionsOpen(false)
+  }, [subcontext.view])
 
   useEffect(() => {
     if (!open) return
@@ -356,6 +368,7 @@ export function CompactAssistantDemo() {
   }, [messages])
 
   const toggleExpanded = useCallback(() => {
+    const nextExpanded = !expanded
     const el = assistantPanelRef.current
     if (el) {
       const rect = el.getBoundingClientRect()
@@ -366,8 +379,10 @@ export function CompactAssistantDemo() {
         height: rect.height,
       }
     }
-    setExpanded((v) => !v)
-  }, [])
+    revealSessionsAfterExpandRef.current = nextExpanded && subcontext.view === 'closed'
+    setSessionsOpen(false)
+    setExpanded(nextExpanded)
+  }, [expanded, subcontext.view])
 
   const jumpToQuestion = useCallback((questionId: string) => {
     releaseStick()
@@ -428,6 +443,7 @@ export function CompactAssistantDemo() {
   }, [streaming])
 
   const onReportOpen = useCallback((reportId: string) => {
+    setSessionsOpen(false)
     setSubcontext({ view: 'slides', reportId, activeSlide: 0 })
   }, [])
 
@@ -440,6 +456,7 @@ export function CompactAssistantDemo() {
       return
     }
     if (block.type === 'report' && block.openSubcontext) {
+      setSessionsOpen(false)
       setSubcontext({ view: 'slides', reportId: block.reportId, activeSlide: 0 })
     }
   }, [])
@@ -455,6 +472,7 @@ export function CompactAssistantDemo() {
     setMessages([])
     setDraft('')
     setSubcontext({ view: 'closed' })
+    setSessionsOpen(false)
     setChatTitle('New chat')
     titleEditedRef.current = false
   }, [clearStream])
@@ -463,6 +481,7 @@ export function CompactAssistantDemo() {
     setOpen(false)
     setExpanded(false)
     setSubcontext({ view: 'closed' })
+    setSessionsOpen(false)
     clearStream()
     setMessages([])
     setDraft('')
@@ -598,7 +617,12 @@ export function CompactAssistantDemo() {
           aria-hidden={!open}
         >
           {open && (
-            <AssistantPanel ref={assistantPanelRef} expanded={expanded} splitView={splitOpen}>
+            <AssistantPanel
+              ref={assistantPanelRef}
+              expanded={expanded}
+              splitView={splitOpen}
+              allowOverflow={sessionsOpen}
+            >
               <div className={styles.splitBody}>
                 <div className={`${styles.chatColumn} ${splitOpen ? styles.chatColumnSplit : ''}`}>
                   <div className={styles.panelViewStack}>
@@ -611,7 +635,9 @@ export function CompactAssistantDemo() {
                       onOpenSession={resetConversation}
                       onNewSession={resetConversation}
                       hasAssistantReply={hasAssistantReply}
-                      splitOpen={splitOpen}
+                      sessionsOpen={sessionsOpen}
+                      sessionsFullscreen={expanded}
+                      onSessionsOpenChange={setSessionsOpen}
                     />
                     <div className={styles.separator} />
                     {chatMiddle}

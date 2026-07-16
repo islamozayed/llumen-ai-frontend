@@ -79,6 +79,7 @@
 
 .fabColumnSplit {
   width: var(--lc-panel-split-width);
+  min-width: 0;
   max-width: calc(100dvw - 2 * var(--space-3xl));
 }
 
@@ -127,6 +128,12 @@
   overscroll-behavior: contain;
   box-shadow: var(--lc-shadow-4);
   box-sizing: border-box;
+}
+
+.requestBoxAllowOverflow,
+.requestBoxAllowOverflow .panelInner,
+.requestBoxAllowOverflow .splitBody {
+  overflow: visible;
 }
 
 .panelExpanded {
@@ -185,15 +192,15 @@
   width: 100%;
   height: 1px;
   background: var(--lc-border-subtle);
-  margin-top: var(--space-2xl);
-  margin-bottom: var(--space-lg);
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-md);
   flex-shrink: 0;
 }
 
 /* Split: bleed through chat column padding to rail edges */
 .chatColumnSplit .separator {
-  width: calc(100% + var(--space-2xl) + var(--space-xl));
-  margin-left: calc(-1 * var(--space-2xl));
+  width: calc(100% + 2 * var(--space-xl));
+  margin-left: calc(-1 * var(--space-xl));
   margin-right: calc(-1 * var(--space-xl));
 }
 
@@ -268,11 +275,12 @@
 }
 
 .chatColumnSplit {
-  flex: 0 0 var(--lc-panel-chat-split-width);
+  flex: 0 1 var(--lc-panel-chat-split-width);
   width: var(--lc-panel-chat-split-width);
   max-width: var(--lc-panel-chat-split-width);
+  min-width: 0;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
-  padding: var(--space-2xl);
+  padding: var(--space-xl);
   box-sizing: border-box;
 }
 
@@ -284,9 +292,9 @@
 }
 
 .detailColumn {
-  flex: 0 0 var(--lc-panel-detail-width);
-  width: var(--lc-panel-detail-width);
-  max-width: var(--lc-panel-detail-width);
+  flex: 1 1 0;
+  width: auto;
+  max-width: none;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -352,7 +360,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
+  width: 100%;
+  min-width: 0;
   padding: var(--space-3xl) var(--space-4xl) 72px;
+  box-sizing: border-box;
   pointer-events: none;
 }
 
@@ -380,6 +391,8 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-xl);
+  width: 100%;
+  min-width: 0;
   pointer-events: auto;
 }
 
@@ -399,8 +412,10 @@
 
 .mapBleedTitle {
   margin: 0;
+  min-width: 0;
   font: var(--lc-font-heading);
   color: var(--lc-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .mapBleedDescWrap {
@@ -450,9 +465,9 @@
   left: 0;
   z-index: 20;
   /* 50% of the detail header text column (not the narrow button wrap) */
-  width: 50cqw;
-  min-width: 280px;
-  max-width: 560px;
+  width: clamp(240px, 50cqw, 560px);
+  min-width: 0;
+  max-width: min(560px, 100cqw);
   padding: var(--space-xl) var(--space-2xl);
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -478,9 +493,10 @@
   position: relative;
   z-index: 1;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--space-xs);
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   padding: var(--space-xs);
   border-radius: 12px;
@@ -539,6 +555,8 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-xl);
+  width: 100%;
+  min-width: 0;
   /* Match mapBleedHeader gap so tabs share the same Y across previews */
   margin-bottom: var(--space-xl);
   flex-shrink: 0;
@@ -556,8 +574,10 @@
 
 .componentDetailTitle {
   margin: 0;
+  min-width: 0;
   font: var(--lc-font-heading);
   color: var(--lc-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .componentDetailCaption {
@@ -591,6 +611,8 @@
   flex-direction: column;
   flex: 1;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 0;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -629,7 +651,9 @@
   font-size: 16px;
   font-weight: var(--lc-weight-medium);
   line-height: 20px;
-  white-space: nowrap;
+  min-width: 0;
+  white-space: normal;
+  text-align: left;
 }
 
 .componentDetailClose:hover,
@@ -654,9 +678,10 @@
 
 .componentDetailTabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--space-xs);
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   margin-bottom: var(--space-2xl);
   padding: var(--space-xs);
@@ -667,10 +692,10 @@
 }
 
 .componentDetailTab {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   margin: 0;
-  padding: var(--space-md) var(--space-md);
+  padding: var(--space-md);
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -988,6 +1013,7 @@
 }
 
 .headerRow {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1105,17 +1131,16 @@
 }
 
 .headerSessionsWrap {
-  position: relative;
+  position: static;
   flex-shrink: 0;
 }
 
 .headerSessionsMenu {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + var(--space-xl) + 1px);
   left: 0;
   z-index: 40;
-  /* +20% vs prior 360px menu width */
-  width: min(432px, 78vw);
+  width: min(324px, 78vw);
   /* Hug content; expand up to 75% of the chat window height */
   max-height: calc(var(--lc-chat-window-height) * 0.75);
   display: flex;
@@ -1128,6 +1153,15 @@
   backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   overflow: hidden;
+}
+
+.headerSessionsMenuFullscreen {
+  position: fixed;
+  top: calc(var(--space-xl) + var(--lc-header-icon-btn-size) + var(--space-xl) + 1px);
+  bottom: var(--space-xl);
+  left: var(--space-xl);
+  height: auto;
+  max-height: none;
 }
 
 .headerTitleStatic {
@@ -1847,7 +1881,7 @@
   position: fixed;
   z-index: 10050;
   min-width: 168px;
-  padding: var(--space-md) var(--space-md);
+  padding: var(--space-lg);
   border-radius: 12px;
   border: 1px solid var(--lc-border-dropdown);
   background: var(--lc-bg-dropdown);
@@ -1912,7 +1946,7 @@
   position: relative;
   z-index: 1;
   height: 1px;
-  margin: var(--space-sm) var(--space-xs);
+  margin: var(--space-lg) var(--space-xs);
   background: var(--lc-border-control);
 }
 

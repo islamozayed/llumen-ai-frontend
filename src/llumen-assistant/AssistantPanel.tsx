@@ -6,15 +6,18 @@ import { MESH_COLORS_LUMEN_DARK, MESH_FRAME_PANEL } from './paperMeshConstants'
 export type AssistantPanelProps = {
   expanded: boolean
   splitView?: boolean
+  allowOverflow?: boolean
   children: ReactNode
 }
 
 export const AssistantPanel = forwardRef<HTMLDivElement, AssistantPanelProps>(
-  function AssistantPanel({ expanded, splitView = false, children }, ref) {
+  function AssistantPanel({ expanded, splitView = false, allowOverflow = false, children }, ref) {
     return (
       <div
         ref={ref}
-        className={`${styles.requestBox} ${expanded ? styles.panelExpanded : ''} ${splitView ? styles.requestBoxSplit : ''}`}
+        className={`${styles.requestBox} ${expanded ? styles.panelExpanded : ''} ${
+          splitView ? styles.requestBoxSplit : ''
+        } ${allowOverflow ? styles.requestBoxAllowOverflow : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label="Llumen assistant"

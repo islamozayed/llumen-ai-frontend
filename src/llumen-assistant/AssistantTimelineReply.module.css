@@ -132,7 +132,7 @@
   justify-content: space-between;
   gap: var(--space-md);
   flex-shrink: 0;
-  padding: var(--space-xl) var(--space-xl) var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(36, 38, 46, 0.92);
 }
@@ -190,7 +190,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-md);
-  padding: 0 0 var(--space-lg);
+  padding: 0 0 var(--space-2xl);
   animation: thinkingStepIn 0.36s var(--lc-ease) both;
 }
 
@@ -266,9 +266,7 @@
 
 .openingLine {
   margin: 0 0 var(--space-lg);
-  font-size: var(--lc-text-body);
-  font-weight: var(--lc-weight-regular);
-  line-height: var(--lc-leading-body);
+  font: var(--lc-font-body-lg);
   color: rgba(241, 245, 249, 0.95);
 }
 
@@ -567,7 +565,6 @@
 .finalReply {
   margin-top: var(--space-xs);
   padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
   animation: finalIn 0.45s var(--lc-ease) both;
   overflow: visible;
 }
@@ -630,9 +627,8 @@
 }
 
 .finalReplyText {
-  margin: 0 0 var(--space-lg);
-  font-size: var(--lc-text-body);
-  line-height: var(--lc-leading-body);
+  margin: 0 0 28px;
+  font: var(--lc-font-body-lg);
   color: rgba(241, 245, 249, 0.95);
   white-space: pre-wrap;
   word-break: break-word;
@@ -640,7 +636,7 @@
 
 .finalReplyHeading {
   margin: var(--space-2xl) 0 var(--space-md);
-  font: var(--lc-font-heading-sm);
+  font: var(--lc-font-heading-md);
   color: rgba(241, 245, 249, 0.98);
   letter-spacing: -0.01em;
 }

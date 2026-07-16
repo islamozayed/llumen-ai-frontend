@@ -80,6 +80,7 @@ const MOCK_SESSIONS: SessionSummary[] = [
 
 export type SessionsPanelProps = {
   onOpenSession: (id: string) => void
+  variant?: 'dropdown' | 'fullscreen'
 }
 
 const SESSION_MENU_ITEMS = [
@@ -216,8 +217,8 @@ function SessionRowItem({
   )
 }
 
-/** Compact conversations menu for the header dropdown (replaces the full-viewport panel). */
-export function SessionsPanel({ onOpenSession }: SessionsPanelProps) {
+/** Conversation history shown as a compact or full-height popup. */
+export function SessionsPanel({ onOpenSession, variant = 'dropdown' }: SessionsPanelProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -260,7 +261,9 @@ export function SessionsPanel({ onOpenSession }: SessionsPanelProps) {
   }, [settingsOpen])
 
   return (
-    <div className={styles.dropdownRoot}>
+    <div
+      className={`${styles.dropdownRoot}${variant === 'fullscreen' ? ` ${styles.fullscreenRoot}` : ''}`}
+    >
       <div className={styles.panelHeader}>
         <div className={styles.panelHeaderRow}>
           <p className={styles.panelTitle}>Conversations</p>
