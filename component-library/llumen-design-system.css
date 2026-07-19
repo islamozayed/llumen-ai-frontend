@@ -1,5 +1,5 @@
 /* Llumen design system
- * Color architecture (Tailwind-style): (1) main UI = five seed palettes with steps --color-{role}-50..900 in :root;
+ * Color architecture (Tailwind-style): (1) main UI = five seed palettes with steps --color-{role}-50..950 in :root;
  * (2) data = refract + categorical seeds for charts only. */
 :root {
   /* —— Main UI: brand, status, neutral (do not use for chart series) —— */
@@ -82,6 +82,7 @@
   --color-primary-700: #456893;
   --color-primary-800: #2e4562;
   --color-primary-900: #172331;
+  --color-primary-950: #0c1119;
 
   /* lc-color-positive (from --positive #25BA5D; same mix ratios as primary, baked to hex) */
   --color-positive-50: #e9f8ef;
@@ -94,6 +95,7 @@
   --color-positive-700: #167038;
   --color-positive-800: #0f4a25;
   --color-positive-900: #072513;
+  --color-positive-950: #041309;
 
   /* lc-color-warning (from --warning #FAB12A) */
   --color-warning-50: #fef7ea;
@@ -106,6 +108,7 @@
   --color-warning-700: #966a19;
   --color-warning-800: #644711;
   --color-warning-900: #322308;
+  --color-warning-950: #191204;
 
   /* lc-color-negative (from --negative #ED5151) */
   --color-negative-50: #fdeeee;
@@ -118,6 +121,7 @@
   --color-negative-700: #8e3131;
   --color-negative-800: #5f2020;
   --color-negative-900: #2f1010;
+  --color-negative-950: #180808;
 
   /* lc-color-neutral */
   /* --color-neutral-50: color-mix(in srgb, var(--neutral) 10%, white);
@@ -140,9 +144,11 @@
   --color-neutral-700: #242930;
   --color-neutral-800: #181c20;
   --color-neutral-900: #0c0e10;
+  --color-neutral-950: #060708;
 
   /* Frosted UI: pair translucent role fills (dropdown, tooltips, glazed surfaces) with this blur */
-  --lc-backdrop-blur-ui: 30px;
+  /* Frosted surface blur (levels 1–3). Keep modest for paint cost. */
+  --lc-backdrop-blur-ui: 24px;
   /* Modal dimming scrim (overlays; independent of light/dark page chrome) */
   --lc-bg-modal-backdrop: color-mix(in srgb, var(--color-neutral-900) 70%, transparent);
 
@@ -157,6 +163,7 @@
   --color-refract-01-700: #534d8f;
   --color-refract-01-800: #38345f;
   --color-refract-01-900: #1c1a30;
+  --color-refract-01-950: #0e0d18;
 
   /* lc-color-refract-02 */
   --color-refract-02-50: #e9f7f6;
@@ -169,6 +176,7 @@
   --color-refract-02-700: #176860;
   --color-refract-02-800: #0f4540;
   --color-refract-02-900: #082320;
+  --color-refract-02-950: #041110;
   /* lc-color-refract-03 */
   --color-refract-03-50: #fbeff6;
   --color-refract-03-100: #f7dfed;
@@ -180,6 +188,7 @@
   --color-refract-03-700: #823864;
   --color-refract-03-800: #572642;
   --color-refract-03-900: #2b1321;
+  --color-refract-03-950: #160911;
 
   /* lc-color-refract-04 */
   --color-refract-04-50: #faf3e7;
@@ -192,6 +201,7 @@
   --color-refract-04-700: #7d530a;
   --color-refract-04-800: #533706;
   --color-refract-04-900: #2a1c03;
+  --color-refract-04-950: #150e02;
 
   /* lc-color-categorical-01 (data viz) */
   --color-categorical-01-50: #f0f5fe;
@@ -204,6 +214,7 @@
   --color-categorical-01-700: #405f90;
   --color-categorical-01-800: #2a3f60;
   --color-categorical-01-900: #152030;
+  --color-categorical-01-950: #0b1018;
 
   /* lc-color-categorical-02 */
   --color-categorical-02-50: #f2f1fd;
@@ -216,6 +227,7 @@
   --color-categorical-02-700: #4a438b;
   --color-categorical-02-800: #312c5d;
   --color-categorical-02-900: #19162e;
+  --color-categorical-02-950: #0c0b17;
 
   /* lc-color-categorical-03 */
   --color-categorical-03-50: #ecf9f8;
@@ -228,6 +240,7 @@
   --color-categorical-03-700: #25766e;
   --color-categorical-03-800: #194e4a;
   --color-categorical-03-900: #0c2725;
+  --color-categorical-03-950: #061412;
 
   /* lc-color-categorical-04 */
   --color-categorical-04-50: #eefaf0;
@@ -240,6 +253,7 @@
   --color-categorical-04-700: #357940;
   --color-categorical-04-800: #24502a;
   --color-categorical-04-900: #122815;
+  --color-categorical-04-950: #09140b;
   /* lc-color-categorical-05 */
   --color-categorical-05-50: #fef6ea;
   --color-categorical-05-100: #fceed6;
@@ -251,6 +265,7 @@
   --color-categorical-05-700: #90651d;
   --color-categorical-05-800: #604313;
   --color-categorical-05-900: #30220a;
+  --color-categorical-05-950: #181105;
   /* lc-color-categorical-06 */
   --color-categorical-06-50: #fef0ec;
   --color-categorical-06-100: #fce1d9;
@@ -262,6 +277,7 @@
   --color-categorical-06-700: #903e26;
   --color-categorical-06-800: #602a1a;
   --color-categorical-06-900: #30150d;
+  --color-categorical-06-950: #180a06;
   /* lc-color-categorical-07 */
   --color-categorical-07-50: #fbeef4;
   --color-categorical-07-100: #f6dce9;
@@ -273,6 +289,7 @@
   --color-categorical-07-700: #7f3056;
   --color-categorical-07-800: #55203a;
   --color-categorical-07-900: #2a101d;
+  --color-categorical-07-950: #15080e;
   /* lc-color-categorical-08 */
   --color-categorical-08-50: #fdeef0;
   --color-categorical-08-100: #fadee1;
@@ -284,6 +301,7 @@
   --color-categorical-08-700: #8b353e;
   --color-categorical-08-800: #5d232a;
   --color-categorical-08-900: #2e1215;
+  --color-categorical-08-950: #17090a;
 
 
 }
@@ -291,7 +309,8 @@
 html[data-theme="dark"] {
   color-scheme: dark;
 
-  /* Glazed surfaces (50% alpha; pair with backdrop-filter: blur(var(--lc-backdrop-blur-ui)) on frosted UI) */
+  /* Surface materials — levels 1–3 are frosted (translucent + blur(24px) by default).
+     Surface-0 / base stays solid (no blur). */
   --lc-surface-base: rgba(6, 14, 23, 0.5);
   /* Page / app column wash */
   --lc-surface-1: rgba(13, 27, 42, 0.5);
@@ -483,7 +502,8 @@ html[data-theme="dark"] {
 html[data-theme="light"] {
   color-scheme: light;
 
-  /* Glazed surfaces (50% alpha; pair with backdrop-filter: blur(var(--lc-backdrop-blur-ui)) on frosted UI) */
+  /* Surface materials — levels 1–3 are frosted (translucent + blur(24px) by default).
+     Surface-0 / base stays solid (no blur). */
   --lc-surface-base: rgba(244, 247, 252, 0.5);
   /* Page / app column wash */
   --lc-surface-1: rgba(255, 255, 255, 0.5);
@@ -717,8 +737,8 @@ html[data-theme="light"] #mesh-gradient-bg {
   padding: 3px;
   border-radius: 9999px;
   background: var(--lc-surface-2);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   border: 1px solid var(--lc-border-default);
   gap: 2px;
 }
@@ -742,8 +762,8 @@ html[data-theme="light"] #mesh-gradient-bg {
 
 .theme-toggle button[aria-pressed="true"] {
   background: var(--lc-surface-1);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   color: var(--lc-text-brand);
   box-shadow: var(--lc-shadow-1);
 }
@@ -1352,8 +1372,8 @@ html[data-theme="dark"] .pg-btn--flat.pg-btn--secondary:active {
   border-radius: var(--lc-ui-radius);
   border: 1px solid var(--lc-border-default);
   background: var(--lc-surface-2);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
 }
 
 .pg-ribbon__divider {
@@ -1741,8 +1761,8 @@ html[data-theme="dark"] .pg-btn--flat.pg-btn--secondary:active {
   border: 1px solid var(--lc-border-card);
   background: var(--lc-bg-card);
   box-shadow: var(--lc-shadow-card);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
 }
 
 .pg-surface-card__title {
@@ -1796,8 +1816,8 @@ html[data-theme="dark"] .pg-btn--flat.pg-btn--secondary:active {
   border: 1px solid var(--lc-border-modal);
   background: var(--lc-bg-modal);
   box-shadow: var(--lc-shadow-modal);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   overflow: auto;
 }
 
@@ -2122,8 +2142,8 @@ html[data-theme="dark"] .pg-btn--flat.pg-btn--secondary:active {
   border-radius: var(--lc-ui-radius);
   border: 1px solid var(--lc-border-default);
   background: var(--lc-surface-2);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
 }
 
 .pg-play-tab {
@@ -2211,8 +2231,8 @@ body {
   z-index: 1;
   font-family: 'DM Sans', system-ui, sans-serif;
   background: var(--lc-surface-base);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   color: var(--lc-text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -2682,8 +2702,8 @@ html[data-theme="dark"] .cc-swatch {
 /* Cards */
 .card {
   background: var(--lc-surface-1);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   border: 1px solid var(--lc-border-default);
   border-radius: var(--radius-2xl);
   padding: 18px 20px;
@@ -2692,8 +2712,8 @@ html[data-theme="dark"] .cc-swatch {
 
 .card-sm {
   background: var(--lc-surface-1);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   border: 1px solid var(--lc-border-default);
   border-radius: var(--radius-sm);
   padding: 14px 16px;
@@ -2902,8 +2922,8 @@ html[data-theme="light"] .swatch-expand--dv .sw-exp .sh {
 /* Void preview */
 .void-surface {
   background: var(--lc-surface-base);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   border: 1px solid var(--lc-border-default);
   border-radius: 8px;
   padding: 12px;
@@ -3098,8 +3118,8 @@ td.tok-desc {
 
 .rd {
   background: var(--lc-surface-2);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   border: 1px solid var(--lc-border-strong);
   width: 60px;
   height: 40px;
@@ -3114,8 +3134,8 @@ td.tok-desc {
 /* Type preview */
 .type-preview {
   background: var(--lc-surface-1);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   border: 1px solid var(--lc-border-default);
   border-radius: var(--radius-2xl);
   padding: 24px;
@@ -3169,8 +3189,8 @@ td.tok-desc {
   left: 50%;
   transform: translateX(-50%);
   background: var(--lc-surface-3);
-  -webkit-backdrop-filter: blur(30px);
-  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   border: 1px solid var(--lc-border-default);
   color: var(--lc-text-primary);
   font-size: 12px;

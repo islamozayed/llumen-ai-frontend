@@ -129,6 +129,7 @@ export const AIR_QUALITY_COMPONENTS: CreatedComponent[] = [
     title: 'Abu Dhabi AQI',
     semanticId: 'aq.monitoring_map',
     inlineSize: 'full',
+    aiGenerated: true,
     caption:
       'Three monitoring locations are currently reporting elevated conditions, with the highest readings concentrated around the Mussafah–ICAD corridor.',
     description:
@@ -151,6 +152,7 @@ export const AIR_QUALITY_COMPONENTS: CreatedComponent[] = [
     title: 'Air Quality Index',
     semanticId: 'aq.aqi',
     inlineSize: 'full',
+    aiGenerated: true,
     caption:
       'Current conditions may affect sensitive populations, particularly where elevated readings overlap with residential areas.',
     description: 'AQI 121 — Unhealthy for Sensitive Groups',

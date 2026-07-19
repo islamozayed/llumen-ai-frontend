@@ -171,12 +171,18 @@ export function CompactAssistantDemo() {
     const middle = chatMiddleRef.current
     const transcript = transcriptElRef.current
     if (!middle) return
+    const tokenPx =
+      Number.parseFloat(getComputedStyle(middle).getPropertyValue('--lc-scrollbar-size')) || 4
     if (!transcript) {
-      middle.style.setProperty('--lc-transcript-scrollbar-inset', '0px')
+      middle.style.setProperty('--lc-transcript-scrollbar-inset', `${tokenPx}px`)
       return
     }
-    const inset = Math.max(0, transcript.offsetWidth - transcript.clientWidth)
-    middle.style.setProperty('--lc-transcript-scrollbar-inset', `${inset}px`)
+    const measured = Math.max(0, transcript.offsetWidth - transcript.clientWidth)
+    // Always reserve at least the token width so empty → first-message doesn't shift
+    middle.style.setProperty(
+      '--lc-transcript-scrollbar-inset',
+      `${Math.max(measured, tokenPx)}px`,
+    )
   }, [])
 
   const transcriptScrollRef = useCallback(
@@ -191,11 +197,8 @@ export function CompactAssistantDemo() {
 
   useEffect(() => {
     const transcript = transcriptElRef.current
-    if (!transcript) {
-      chatMiddleRef.current?.style.setProperty('--lc-transcript-scrollbar-inset', '0px')
-      return
-    }
     syncTranscriptScrollbarInset()
+    if (!transcript) return
     const ro = new ResizeObserver(() => syncTranscriptScrollbarInset())
     ro.observe(transcript)
     window.addEventListener('resize', syncTranscriptScrollbarInset)
@@ -536,8 +539,9 @@ export function CompactAssistantDemo() {
       const target = event.target
       if (!(target instanceof Node)) return
       if (fabColumnRef.current?.contains(target)) return
-      // Thinking popover is portaled to document.body — don't treat it as outside-click.
+      // Thinking popover / attach menu are portaled to document.body — don't treat as outside-click.
       if (target instanceof Element && target.closest('[data-lc-thinking-popover]')) return
+      if (target instanceof Element && target.closest('[data-lc-attach-menu]')) return
       closePanel()
     }
     document.addEventListener('pointerdown', onPointerDown)

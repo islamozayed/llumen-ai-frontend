@@ -6,6 +6,7 @@ import {
   User,
 } from '@phosphor-icons/react'
 import styles from './SessionsPanel.module.css'
+import { landingAssets } from './landing/landingAssets'
 
 export type SessionSummary = {
   id: string
@@ -265,39 +266,7 @@ export function SessionsPanel({ onOpenSession, variant = 'dropdown' }: SessionsP
       className={`${styles.dropdownRoot}${variant === 'fullscreen' ? ` ${styles.fullscreenRoot}` : ''}`}
     >
       <div className={styles.panelHeader}>
-        <div className={styles.panelHeaderRow}>
-          <p className={styles.panelTitle}>Conversations</p>
-          <div className={styles.panelHeaderActions}>
-            <div className={styles.settingsWrap} ref={settingsWrapRef}>
-              <button
-                type="button"
-                className={`${styles.settingsBtn}${settingsOpen ? ` ${styles.settingsBtnActive}` : ''}`}
-                onClick={() => setSettingsOpen((open) => !open)}
-                aria-label="Settings"
-                aria-haspopup="menu"
-                aria-expanded={settingsOpen}
-              >
-                <GearSix size={16} weight="regular" aria-hidden />
-              </button>
-              {settingsOpen ? (
-                <div className={styles.settingsMenu} role="menu" aria-label="Settings">
-                  {SETTINGS_MENU_ITEMS.map(({ id, label, Icon }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      role="menuitem"
-                      className={styles.settingsMenuItem}
-                      onClick={() => setSettingsOpen(false)}
-                    >
-                      <Icon size={16} weight="regular" aria-hidden />
-                      <span>{label}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
+        <p className={styles.panelTitle}>Conversations</p>
         <input
           ref={searchInputRef}
           type="search"
@@ -321,6 +290,44 @@ export function SessionsPanel({ onOpenSession, variant = 'dropdown' }: SessionsP
           <SessionRowItem key={s.id} session={s} onOpen={open} />
         ))}
       </ul>
+
+      <div className={styles.panelFooter}>
+        <div className={styles.userInfo}>
+          <img className={styles.userAvatar} src={landingAssets.userBtn} alt="" />
+          <div className={styles.userText}>
+            <p className={styles.userName}>Islam Zayed</p>
+            <p className={styles.userOrg}>Pixonal</p>
+          </div>
+        </div>
+        <div className={styles.settingsWrap} ref={settingsWrapRef}>
+          <button
+            type="button"
+            className={`${styles.settingsBtn}${settingsOpen ? ` ${styles.settingsBtnActive}` : ''}`}
+            onClick={() => setSettingsOpen((open) => !open)}
+            aria-label="Settings"
+            aria-haspopup="menu"
+            aria-expanded={settingsOpen}
+          >
+            <GearSix size={20} weight="regular" aria-hidden />
+          </button>
+          {settingsOpen ? (
+            <div className={styles.settingsMenu} role="menu" aria-label="Settings">
+              {SETTINGS_MENU_ITEMS.map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="menuitem"
+                  className={styles.settingsMenuItem}
+                  onClick={() => setSettingsOpen(false)}
+                >
+                  <Icon size={16} weight="regular" aria-hidden />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { AiGeneratedMark } from './AiGeneratedMark'
 import type { CreatedComponent, WidgetVariant } from './assistantReplyTypes'
 import styles from './KpiWidgets.module.css'
 
@@ -14,10 +15,27 @@ function StatusBadge({
   return <span className={`${styles.badge} ${toneClass}`}>{label}</span>
 }
 
-function AqiWidget() {
+function WidgetTitle({
+  children,
+  aiGenerated = false,
+  muted = false,
+}: {
+  children: string
+  aiGenerated?: boolean
+  muted?: boolean
+}) {
+  return (
+    <div className={styles.widgetTitleRow}>
+      <p className={muted ? styles.widgetTitleMuted : styles.widgetTitle}>{children}</p>
+      {aiGenerated ? <AiGeneratedMark size={20} /> : null}
+    </div>
+  )
+}
+
+function AqiWidget({ aiGenerated }: { aiGenerated?: boolean }) {
   return (
     <div className={styles.widgetInner}>
-      <p className={styles.widgetTitle}>Air Quality Index</p>
+      <WidgetTitle aiGenerated={aiGenerated}>Air Quality Index</WidgetTitle>
       <p className={styles.widgetValue}>121</p>
       <div className={styles.gaugeTrack} aria-hidden>
         <span className={styles.gaugeThumb} style={{ left: '72%' }} />
@@ -260,10 +278,10 @@ function ChartFallback({ title }: { title: string }) {
   )
 }
 
-function renderVariant(variant: WidgetVariant, title: string) {
+function renderVariant(variant: WidgetVariant, title: string, aiGenerated?: boolean) {
   switch (variant) {
     case 'aqi':
-      return <AqiWidget />
+      return <AqiWidget aiGenerated={aiGenerated} />
     case 'pollutants':
       return <PollutantsWidget />
     case 'population':
@@ -297,7 +315,7 @@ export function KpiWidget({ component, compact = false }: { component: CreatedCo
     <div
       className={`${styles.root} ${compact || component.inlineSize === 'square' ? styles.rootCompact : styles.rootFull}`}
     >
-      {renderVariant(preview.variant, component.title)}
+      {renderVariant(preview.variant, component.title, component.aiGenerated)}
     </div>
   )
 }

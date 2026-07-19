@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { ChatTeardropText, Info, SidebarSimple } from '@phosphor-icons/react'
+import { AiGeneratedMark } from './AiGeneratedMark'
 import type { CreatedComponent } from './assistantReplyTypes'
 import { queryResultsForComponent } from './componentQueryResults'
 import { DataSourceSettingsPanel } from './DataSourceSettingsPanel'
@@ -174,7 +175,7 @@ function MapDescriptionPopover({
 }
 
 export function ComponentDetailPanel({ component, onClose, onShowInConversation }: ComponentDetailPanelProps) {
-  const { title, description, caption, analysis } = component
+  const { title, description, caption, analysis, aiGenerated } = component
   const [activeTab, setActiveTab] = useState<DetailTab>('component')
   const [descOpen, setDescOpen] = useState(false)
   const descBtnRef = useRef<HTMLButtonElement>(null)
@@ -227,7 +228,10 @@ export function ComponentDetailPanel({ component, onClose, onShowInConversation 
           <div className={styles.mapBleedBlur} aria-hidden />
           <div className={`${styles.mapBleedHeaderInner}${descOpen ? ` ${styles.mapBleedHeaderInnerRaised}` : ''}`}>
             <div className={styles.mapBleedHeaderText}>
-              <h2 className={styles.mapBleedTitle}>{title}</h2>
+              <div className={styles.detailTitleRow}>
+                <h2 className={styles.mapBleedTitle}>{title}</h2>
+                {aiGenerated ? <AiGeneratedMark size={16} /> : null}
+              </div>
               <div className={styles.headerInsightRow}>
                 <div className={styles.mapBleedDescWrap}>
                   <button
@@ -323,7 +327,10 @@ export function ComponentDetailPanel({ component, onClose, onShowInConversation 
     <aside className={styles.componentDetail} aria-label={`${title} preview`}>
       <div className={styles.componentDetailHeader}>
         <div className={styles.componentDetailHeaderText}>
-          <h2 className={styles.componentDetailTitle}>{title}</h2>
+          <div className={styles.detailTitleRow}>
+            <h2 className={styles.componentDetailTitle}>{title}</h2>
+            {aiGenerated ? <AiGeneratedMark size={16} /> : null}
+          </div>
           <div className={styles.headerInsightRow}>
             <div className={styles.mapBleedDescWrap}>
               <button

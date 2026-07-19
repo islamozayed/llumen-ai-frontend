@@ -1,6 +1,7 @@
 import { useId, useState, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowSquareOut } from '@phosphor-icons/react'
+import { AiGeneratedMark } from './AiGeneratedMark'
 import type { CreatedComponent } from './assistantReplyTypes'
 import { InteractiveMap } from './InteractiveMap'
 import { KpiWidget } from './KpiWidgets'
@@ -32,7 +33,7 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
   const tooltipId = useId()
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
 
-  const onCardMouseMove = (event: MouseEvent<HTMLDivElement>) => {
+  const onExpandTooltipMove = (event: MouseEvent<HTMLButtonElement>) => {
     if (!showTooltip) return
     const pad = 12
     const approxWidth = 280
@@ -45,7 +46,7 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
     })
   }
 
-  const onCardMouseLeave = () => setTooltipPos(null)
+  const onExpandTooltipLeave = () => setTooltipPos(null)
 
   return (
     <div
@@ -57,9 +58,6 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
         .filter(Boolean)
         .join(' ')}
       data-component-id={component.id}
-      onMouseMove={onCardMouseMove}
-      onMouseEnter={onCardMouseMove}
-      onMouseLeave={onCardMouseLeave}
     >
       <div
         className={[
@@ -85,11 +83,19 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
                   alt={preview.alt ?? component.title}
                 />
               )}
-              <p className={styles.imageTitle}>{component.title}</p>
+              <div className={styles.imageHeader}>
+                <div className={styles.imageTitleRow}>
+                  <p className={styles.imageTitle}>{component.title}</p>
+                  {component.aiGenerated ? <AiGeneratedMark size={20} /> : null}
+                </div>
+              </div>
             </div>
           ) : (
             <div className={styles.fallback}>
-              <p className={styles.imageTitle}>{component.title}</p>
+              <div className={styles.imageTitleRow}>
+                <p className={styles.imageTitle}>{component.title}</p>
+                {component.aiGenerated ? <AiGeneratedMark size={20} /> : null}
+              </div>
             </div>
           )}
           {onExpand ? (
@@ -97,6 +103,9 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
               type="button"
               className={styles.expandBtn}
               onClick={onExpand}
+              onMouseEnter={onExpandTooltipMove}
+              onMouseMove={onExpandTooltipMove}
+              onMouseLeave={onExpandTooltipLeave}
               aria-label={`Open ${component.title}`}
               aria-describedby={showTooltip && tooltipPos ? tooltipId : undefined}
             >
@@ -108,6 +117,9 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
               type="button"
               className={styles.hitArea}
               onClick={onExpand}
+              onMouseEnter={onExpandTooltipMove}
+              onMouseMove={onExpandTooltipMove}
+              onMouseLeave={onExpandTooltipLeave}
               aria-label={`Open ${component.title}`}
               aria-describedby={showTooltip && tooltipPos ? tooltipId : undefined}
             >

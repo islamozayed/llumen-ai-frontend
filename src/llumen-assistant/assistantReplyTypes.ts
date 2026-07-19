@@ -77,6 +77,8 @@ export type CreatedComponent = {
   semanticId?: string
   /** Inline layout: full-width (up to 760) or square tile (1:1, up to 760). */
   inlineSize?: 'full' | 'square'
+  /** When true, show an AI-generated sparkle mark next to the asset headline. */
+  aiGenerated?: boolean
   preview?: CreatedComponentPreview
 }
 

@@ -24,6 +24,10 @@
   padding: var(--space-xl);
 }
 
+.fullscreenRoot .panelFooter {
+  padding: var(--space-xl);
+}
+
 .panelHeader {
   display: flex;
   flex-direction: column;
@@ -31,15 +35,7 @@
   flex-shrink: 0;
   padding: var(--space-xl);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: var(--lc-surface-2);
-}
-
-.panelHeaderRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  min-width: 0;
+  background: transparent;
 }
 
 .panelTitle {
@@ -51,37 +47,60 @@
   color: var(--lc-text-primary);
 }
 
-.panelHeaderActions {
+.panelFooter {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  justify-content: space-between;
+  gap: var(--space-md);
   flex-shrink: 0;
+  padding: var(--space-xl);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
 }
 
-.panelIconBtn {
+.userInfo {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--lc-text-tertiary);
-  cursor: pointer;
-  transition: color var(--lc-duration) var(--lc-ease);
+  gap: var(--space-md);
+  min-width: 0;
 }
 
-.panelIconBtn:hover,
-.panelIconBtnActive {
-  background: transparent;
+.userAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.userText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.userName {
+  margin: 0;
+  font-size: var(--lc-text-body);
+  font-weight: var(--lc-weight-semibold);
+  line-height: var(--lc-leading-body);
   color: var(--lc-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.panelIconBtn:focus-visible {
-  outline: 2px solid rgba(132, 177, 245, 0.8);
-  outline-offset: 2px;
+.userOrg {
+  margin: 0;
+  font-size: var(--lc-text-caption);
+  font-weight: var(--lc-weight-regular);
+  line-height: var(--lc-leading-caption);
+  color: var(--lc-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settingsWrap {
@@ -93,20 +112,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--lc-header-icon-btn-size);
+  height: var(--lc-header-icon-btn-size);
   padding: 0;
   border: none;
   border-radius: 8px;
   background: transparent;
   color: var(--lc-text-primary);
   cursor: pointer;
-  transition: color var(--lc-duration) var(--lc-ease);
+  transition: color var(--lc-duration) var(--lc-ease), opacity var(--lc-duration) var(--lc-ease);
 }
 
 .settingsBtn:hover,
 .settingsBtnActive {
   background: transparent;
+  opacity: 0.72;
 }
 
 .settingsBtn:focus-visible {
@@ -116,7 +136,7 @@
 
 .settingsMenu {
   position: absolute;
-  top: calc(100% + var(--space-sm));
+  bottom: calc(100% + var(--space-sm));
   right: 0;
   z-index: 60;
   min-width: 188px;
@@ -124,8 +144,8 @@
   border-radius: 12px;
   border: 1px solid var(--lc-border-dropdown);
   background: var(--lc-surface-3);
-  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
-  backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   box-shadow:
     0 16px 48px rgba(0, 0, 0, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -190,8 +210,8 @@
   margin: 0;
   padding: var(--space-sm) var(--space-sm) var(--space-md);
   width: 100%;
-  /* Hug content; cap so the full menu stays within 75% of the chat window height */
-  max-height: calc(var(--lc-chat-window-height) * 0.75 - 4.5rem);
+  /* Hug content; reserve room for header + footer inside the 75% chat-window cap */
+  max-height: calc(var(--lc-chat-window-height) * 0.75 - 8.5rem);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -308,8 +328,8 @@
   border-radius: 12px;
   border: 1px solid var(--lc-border-dropdown);
   background: var(--lc-bg-dropdown);
-  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
-  backdrop-filter: blur(var(--lc-backdrop-blur-ui)) saturate(1.25);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
   box-shadow:
     0 16px 48px rgba(0, 0, 0, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);

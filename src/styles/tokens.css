@@ -59,7 +59,8 @@
   --radius-full: 9999px;
 
   --lc-ui-radius: var(--radius-xl);
-  --lc-backdrop-blur-ui: 30px;
+  /* Frosted surface blur (levels 1–3). Keep modest for paint cost. */
+  --lc-backdrop-blur-ui: 24px;
 
   /* Typography — families (component-library) */
   --lc-font-sans: "Innovator Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -147,12 +148,15 @@
   --lc-leading-caption: var(--lc-font-caption-line-height);
   --lc-leading-small: var(--lc-font-small-line-height);
 
-  /* Dark semantic colors — from html[data-theme="dark"] in llumen-design-system.css */
-  --lc-surface-base: rgba(6, 14, 23, 1);
+  /* Dark surfaces — Tailwind gray scale (950 → 700).
+     Levels 1–3 are frosted materials: translucent fill + backdrop blur(24px)
+     via --lc-backdrop-blur-ui (part of the material, not companion tokens).
+     Surface-0 / base stays solid (no blur). */
+  --lc-surface-base: #030712; /* gray-950 */
   --lc-surface-0: var(--lc-surface-base);
-  --lc-surface-1: rgba(13, 27, 42, 0.5);
-  --lc-surface-2: rgba(26, 42, 61, 0.5);
-  --lc-surface-3: rgba(46, 63, 85, 0.5);
+  --lc-surface-1: color-mix(in srgb, #111827 85%, transparent); /* gray-900 */
+  --lc-surface-2: color-mix(in srgb, #1f2937 85%, transparent); /* gray-800 */
+  --lc-surface-3: color-mix(in srgb, #374151 85%, transparent); /* gray-700 */
 
   --lc-bg-base: var(--lc-surface-base);
   --lc-bg-header: color-mix(in srgb, var(--color-neutral-800) 6%, transparent);
@@ -189,6 +193,7 @@
   --color-neutral-800: #181c20;
   --color-neutral-900: #0c0e10;
   --color-primary-300: #abcef9;
+  --color-primary-800: #2e4562;
   --color-positive-300: #7cd69e;
 
   /* Motion */
@@ -198,7 +203,7 @@
   /* Assistant layout (app-specific) */
   --lc-radius-panel-shell: var(--radius-3xl);
   --lc-bg-launcher: rgba(37, 40, 45, 0.4);
-  --lc-blur-launcher: 15px;
+  --lc-blur-launcher: 24px;
   --lc-gradient-chat-separator: linear-gradient(
     90deg,
     transparent 0%,
@@ -231,6 +236,8 @@
   --lc-scrollbar-size: 4px;
   --lc-scrollbar-thumb: rgba(132, 177, 245, 0.14);
   --lc-scrollbar-thumb-hover: rgba(132, 177, 245, 0.24);
+  /* Space between transcript content and scrollbar; mirrored on composer width */
+  --lc-transcript-gutter: var(--space-lg);
 
   /* Chart accents used by KPI widgets */
   --lc-chart-teal: #5ec4b0;

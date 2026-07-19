@@ -455,7 +455,7 @@ function cpVar(varName) {
 function initColorScales() {
   const K = '#000000';
   const W = '#ffffff';
-  const STEPS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900'];
+  const STEPS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'];
   const CC_SCALES = [
     { title: 'Brand — Primary', base: 'color-primary' },
     { title: 'Semantic — Positive', base: 'color-positive' },
