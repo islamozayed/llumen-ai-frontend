@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from 'react'
-import { Diamond, GridFour } from '@phosphor-icons/react'
+import { CheckCircle, Database, Diamond, GridFour, Play } from '@phosphor-icons/react'
 import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
 import styles from './DataSourceSettingsPanel.module.css'
+
+export type DataSourceSettingsVariant = 'api' | 'map'
 
 type RequestTab = 'Parameters' | 'Authentication' | 'Headers' | 'Body' | 'Scripts'
 
@@ -18,6 +20,104 @@ const DEMO_URL =
 const DEMO_PARAMS: QueryParam[] = [
   { key: 'location', value: 'New York' },
   { key: 'units', value: 'metric' },
+]
+
+const DEMO_CONNECTION = {
+  title: 'Production MySQL',
+  endpoint: 'mysql.prod.company.com:3306 - production_db',
+  status: 'Connection established',
+}
+
+/** Simple token highlight for the demo SQL block (keywords / strings). */
+const DEMO_SQL_LINES: {
+  kind: 'blank' | 'code'
+  parts?: { text: string; tone?: 'kw' | 'str' | 'plain' }[]
+}[] = [
+  {
+    kind: 'code',
+    parts: [{ text: 'SELECT', tone: 'kw' }],
+  },
+  {
+    kind: 'code',
+    parts: [{ text: '    g.grid_id,', tone: 'plain' }],
+  },
+  {
+    kind: 'code',
+    parts: [{ text: '    g.longitude,', tone: 'plain' }],
+  },
+  {
+    kind: 'code',
+    parts: [{ text: '    g.latitude,', tone: 'plain' }],
+  },
+  {
+    kind: 'code',
+    parts: [{ text: '    g.area_size_km2,', tone: 'plain' }],
+  },
+  {
+    kind: 'code',
+    parts: [{ text: '    p.population_count,', tone: 'plain' }],
+  },
+  {
+    kind: 'code',
+    parts: [
+      { text: '    p.population_count / g.area_size_km2 ', tone: 'plain' },
+      { text: 'as', tone: 'kw' },
+      { text: ' population_density', tone: 'plain' },
+    ],
+  },
+  {
+    kind: 'code',
+    parts: [
+      { text: 'FROM', tone: 'kw' },
+      { text: ' grid g', tone: 'plain' },
+    ],
+  },
+  {
+    kind: 'code',
+    parts: [
+      { text: 'JOIN', tone: 'kw' },
+      { text: ' population_data p ', tone: 'plain' },
+      { text: 'ON', tone: 'kw' },
+      { text: ' g.grid_id = p.grid_id', tone: 'plain' },
+    ],
+  },
+  {
+    kind: 'code',
+    parts: [
+      { text: 'WHERE', tone: 'kw' },
+      { text: ' g.district_name = ', tone: 'plain' },
+      { text: "'Abu Dhabi Island'", tone: 'str' },
+    ],
+  },
+  {
+    kind: 'code',
+    parts: [
+      { text: '  ', tone: 'plain' },
+      { text: 'AND', tone: 'kw' },
+      { text: ' p.date ', tone: 'plain' },
+      { text: 'BETWEEN', tone: 'kw' },
+      { text: ' ', tone: 'plain' },
+      { text: "'2024-04-10 00:00:00'", tone: 'str' },
+    ],
+  },
+  {
+    kind: 'code',
+    parts: [
+      { text: '  ', tone: 'plain' },
+      { text: 'AND', tone: 'kw' },
+      { text: ' ', tone: 'plain' },
+      { text: "'2024-04-12 23:59:59'", tone: 'str' },
+    ],
+  },
+  {
+    kind: 'code',
+    parts: [
+      { text: 'ORDER BY', tone: 'kw' },
+      { text: ' population_density ', tone: 'plain' },
+      { text: 'DESC', tone: 'kw' },
+      { text: ';', tone: 'plain' },
+    ],
+  },
 ]
 
 function SourceCard({
@@ -64,7 +164,7 @@ function QueryParamRow({ row }: { row: QueryParam }) {
   )
 }
 
-export function DataSourceSettingsPanel() {
+function ApiDataSourceSettings() {
   const [requestTab, setRequestTab] = useState<RequestTab>('Parameters')
   const scrollRef = useRevealScrollbarOnScroll()
 
@@ -151,4 +251,87 @@ export function DataSourceSettingsPanel() {
       </div>
     </div>
   )
+}
+
+function MapDataSourceSettings() {
+  const scrollRef = useRevealScrollbarOnScroll()
+
+  return (
+    <div className={styles.root}>
+      <div ref={scrollRef} className={styles.scroll}>
+        <div className={`${styles.step} ${styles.mapStep}`}>
+          <section className={styles.block}>
+            <h4 className={styles.mapBlockLabel}>Database Connection</h4>
+            <div className={styles.connectionCard}>
+              <div className={styles.connectionMain}>
+                <span className={styles.connectionIcon} aria-hidden>
+                  <Database size={20} weight="fill" />
+                </span>
+                <div className={styles.connectionText}>
+                  <span className={styles.connectionTitle}>{DEMO_CONNECTION.title}</span>
+                  <span className={styles.connectionEndpoint}>{DEMO_CONNECTION.endpoint}</span>
+                </div>
+              </div>
+              <div className={styles.connectionMeta}>
+                <span className={styles.connectionStatus}>
+                  <CheckCircle size={16} weight="fill" aria-hidden />
+                  {DEMO_CONNECTION.status}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section className={styles.querySection}>
+            <div className={styles.queryHeader}>
+              <h3 className={styles.queryTitle}>Query</h3>
+              <button type="button" className={styles.runBtn}>
+                <Play size={14} weight="fill" aria-hidden />
+                Run Query
+              </button>
+            </div>
+            <pre className={styles.sqlBlock} tabIndex={0}>
+              <code>
+                {DEMO_SQL_LINES.map((line, index) =>
+                  line.kind === 'blank' ? (
+                    <span key={index} className={styles.sqlLine}>
+                      {'\n'}
+                    </span>
+                  ) : (
+                    <span key={index} className={styles.sqlLine}>
+                      {line.parts?.map((part, partIndex) => (
+                        <span
+                          key={`${index}-${partIndex}`}
+                          className={
+                            part.tone === 'kw'
+                              ? styles.sqlKw
+                              : part.tone === 'str'
+                                ? styles.sqlStr
+                                : undefined
+                          }
+                        >
+                          {part.text}
+                        </span>
+                      ))}
+                      {'\n'}
+                    </span>
+                  ),
+                )}
+              </code>
+            </pre>
+          </section>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function DataSourceSettingsPanel({
+  variant = 'api',
+}: {
+  variant?: DataSourceSettingsVariant
+}) {
+  if (variant === 'map') {
+    return <MapDataSourceSettings />
+  }
+  return <ApiDataSourceSettings />
 }

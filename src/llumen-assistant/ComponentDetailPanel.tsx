@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { ChatTeardropText, Info, SidebarSimple } from '@phosphor-icons/react'
 import { AiGeneratedMark } from './AiGeneratedMark'
 import type { CreatedComponent } from './assistantReplyTypes'
+import { ApiResponseTerminal } from './ApiResponseTerminal'
 import { queryResultsForComponent } from './componentQueryResults'
 import { DataSourceSettingsPanel } from './DataSourceSettingsPanel'
 import { InteractiveMap, MapControls, type InteractiveMapHandle } from './InteractiveMap'
@@ -18,7 +19,7 @@ type DetailTab = 'component' | 'query-results' | 'data-source'
 
 const DETAIL_TABS: { id: DetailTab; label: string }[] = [
   { id: 'component', label: 'Asset' },
-  { id: 'query-results', label: 'Query Results' },
+  { id: 'query-results', label: 'Data' },
   { id: 'data-source', label: 'Source' },
 ]
 
@@ -90,6 +91,10 @@ function TabPanelContent({ tab, component }: { tab: DetailTab; component: Create
   }
 
   if (tab === 'query-results') {
+    if (component.id === 'air-quality-index') {
+      return <ApiResponseTerminal />
+    }
+
     const table = queryResultsForComponent(component)
     return (
       <div className={styles.componentDetailDataTableWrap}>
@@ -115,7 +120,9 @@ function TabPanelContent({ tab, component }: { tab: DetailTab; component: Create
     )
   }
 
-  return <DataSourceSettingsPanel />
+  return (
+    <DataSourceSettingsPanel variant={isMapDetailComponent(component) ? 'map' : 'api'} />
+  )
 }
 
 function MapDescriptionPopover({

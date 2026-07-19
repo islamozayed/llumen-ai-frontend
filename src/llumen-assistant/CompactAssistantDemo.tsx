@@ -27,6 +27,8 @@ import { SlidesDetailPanel } from './SlidesDetailPanel'
 import {
   AIR_QUALITY_COMPONENTS,
   AIR_QUALITY_REPORT,
+  TURN1_REPLY,
+  TURN2_REPLY,
   detectConversationTurn,
   findComponent,
   findReport,
@@ -41,6 +43,58 @@ type ChatMessage =
   | { id: string; role: 'assistant'; text: string; reply?: AssistantReplyPayload }
 
 const SUBCONTEXT_EXIT_MS = 280
+
+/** Design-capture presets via `?preview=<name>` (used for Figma handoff). */
+type FigmaPreviewMode =
+  | 'empty'
+  | 'conversation'
+  | 'sessions'
+  | 'fullscreen'
+  | 'fullscreen-sessions'
+  | 'detail'
+
+function readFigmaPreviewMode(): FigmaPreviewMode | null {
+  if (typeof window === 'undefined') return null
+  const value = new URLSearchParams(window.location.search).get('preview')
+  switch (value) {
+    case 'empty':
+    case 'conversation':
+    case 'sessions':
+    case 'fullscreen':
+    case 'fullscreen-sessions':
+    case 'detail':
+      return value
+    default:
+      return null
+  }
+}
+
+function buildConversationSeed(): ChatMessage[] {
+  return [
+    {
+      id: 'preview-u1',
+      role: 'user',
+      text: 'What is driving the deterioration in air quality, where is it concentrated, and who may be exposed?',
+    },
+    {
+      id: 'preview-a1',
+      role: 'assistant',
+      text: '',
+      reply: TURN1_REPLY,
+    },
+    {
+      id: 'preview-u2',
+      role: 'user',
+      text: 'Are elevated NO₂ and PM₂.₅ more consistent with traffic or industrial activity?',
+    },
+    {
+      id: 'preview-a2',
+      role: 'assistant',
+      text: '',
+      reply: TURN2_REPLY,
+    },
+  ]
+}
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -139,16 +193,36 @@ function UserMessageBubble({
 }
 
 export function CompactAssistantDemo() {
-  const [open, setOpen] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const previewMode = useMemo(() => readFigmaPreviewMode(), [])
+  const previewForceInstant = previewMode != null
+  const [open, setOpen] = useState(() => previewMode != null)
+  const [expanded, setExpanded] = useState(
+    () => previewMode === 'fullscreen' || previewMode === 'fullscreen-sessions',
+  )
   const [draft, setDraft] = useState('')
-  const [subcontext, setSubcontext] = useState<SubcontextState>({ view: 'closed' })
+  const [subcontext, setSubcontext] = useState<SubcontextState>(() =>
+    previewMode === 'detail'
+      ? { view: 'map', componentId: 'air-quality-monitoring-map' }
+      : { view: 'closed' },
+  )
   const [subcontextClosing, setSubcontextClosing] = useState(false)
-  const [sessionsOpen, setSessionsOpen] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [sessionsOpen, setSessionsOpen] = useState(
+    () => previewMode === 'sessions' || previewMode === 'fullscreen-sessions',
+  )
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    previewMode === 'conversation' ||
+    previewMode === 'sessions' ||
+    previewMode === 'fullscreen' ||
+    previewMode === 'fullscreen-sessions' ||
+    previewMode === 'detail'
+      ? buildConversationSeed()
+      : [],
+  )
   const [streaming, setStreaming] = useState(false)
   const [replyRendering, setReplyRendering] = useState(false)
-  const [chatTitle, setChatTitle] = useState('New chat')
+  const [chatTitle, setChatTitle] = useState(() =>
+    previewMode && previewMode !== 'empty' ? 'Air quality corridor review' : 'New chat',
+  )
   const titleEditedRef = useRef(false)
   const streamTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const assistantMsgId = useRef<string | null>(null)
@@ -612,7 +686,7 @@ export function CompactAssistantDemo() {
                         ? subcontext.componentId
                         : null
                     }
-                    instantTimeline={assistant.id !== lastAssistantMessageId}
+                    instantTimeline={previewForceInstant || assistant.id !== lastAssistantMessageId}
                     conversationPanelRef={chatMiddleRef}
                   />
                 </div>
