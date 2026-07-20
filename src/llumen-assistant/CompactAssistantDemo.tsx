@@ -15,6 +15,9 @@ import { AssistantPanel } from './AssistantPanel'
 import { ChatComposer } from './ChatComposer'
 import { PanelHeader } from './PanelHeader'
 import type { ChatQuestionIndexItem } from './PanelHeader'
+import { SessionsPanel, DEMO_SESSION_ID } from './SessionsPanel'
+import { ShareModal } from './ShareModal'
+import { splitTextWithInlineMentions, getCategoryIcon } from './inlineContextData'
 import type {
   AgentResponseBlock,
   AssistantReplyPayload,
@@ -69,6 +72,22 @@ function readFigmaPreviewMode(): FigmaPreviewMode | null {
   }
 }
 
+function buildTurn1Seed(): ChatMessage[] {
+  return [
+    {
+      id: 'demo-u1',
+      role: 'user',
+      text: 'What is driving the deterioration in air quality, where is it concentrated, and who may be exposed?',
+    },
+    {
+      id: 'demo-a1',
+      role: 'assistant',
+      text: '',
+      reply: TURN1_REPLY,
+    },
+  ]
+}
+
 function buildConversationSeed(): ChatMessage[] {
   return [
     {
@@ -95,6 +114,8 @@ function buildConversationSeed(): ChatMessage[] {
     },
   ]
 }
+
+const SESSIONS_SIDEBAR_BREAKPOINT_PX = 1536
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -151,7 +172,20 @@ function UserMessageBubble({
   return (
     <div data-message-id={messageId} className={styles.msgUserRow}>
       <div className={styles.msgUser}>
-        <span className={styles.msgUserText}>{text}</span>
+        <span className={styles.msgUserText}>
+          {splitTextWithInlineMentions(text).map((segment, index) => {
+            if (segment.type !== 'mention') {
+              return <span key={`t-${index}`}>{segment.value}</span>
+            }
+            const Icon = getCategoryIcon(segment.categoryId)
+            return (
+              <span key={`m-${index}`} className={styles.inlineMention}>
+                <Icon className={styles.inlineMentionIcon} size={12} weight="bold" aria-hidden />
+                <span className={styles.inlineMentionLabel}>{segment.name}</span>
+              </span>
+            )
+          })}
+        </span>
         {showJump ? (
           <div className={styles.msgUserJumpWrap} ref={menuRef}>
             <button
@@ -209,6 +243,7 @@ export function CompactAssistantDemo() {
   const [sessionsOpen, setSessionsOpen] = useState(
     () => previewMode === 'sessions' || previewMode === 'fullscreen-sessions',
   )
+  const [shareOpen, setShareOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     previewMode === 'conversation' ||
     previewMode === 'sessions' ||
@@ -411,9 +446,14 @@ export function CompactAssistantDemo() {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (shareOpen) return
         e.preventDefault()
         if (subcontext.view !== 'closed') {
           closeSubcontext()
+          return
+        }
+        if (sessionsOpen) {
+          setSessionsOpen(false)
           return
         }
         if (expanded) {
@@ -436,7 +476,7 @@ export function CompactAssistantDemo() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, subcontext.view, closeSubcontext, expanded])
+  }, [open, subcontext.view, closeSubcontext, expanded, sessionsOpen, shareOpen])
 
   const startAssistantReply = useCallback((reply: AssistantReplyPayload) => {
     const aid = uid()
@@ -545,6 +585,21 @@ export function CompactAssistantDemo() {
     return findReport(subcontext.reportId) ?? AIR_QUALITY_REPORT
   }, [subcontext])
 
+  const handleSessionsOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setSessionsOpen(nextOpen)
+      if (
+        nextOpen &&
+        expanded &&
+        subcontext.view !== 'closed' &&
+        window.innerWidth < SESSIONS_SIDEBAR_BREAKPOINT_PX
+      ) {
+        closeSubcontext()
+      }
+    },
+    [expanded, subcontext.view, closeSubcontext],
+  )
+
   const splitOpen = subcontext.view !== 'closed'
 
   const onComponentSelect = useCallback((component: CreatedComponent) => {
@@ -590,10 +645,29 @@ export function CompactAssistantDemo() {
     setMessages([])
     setDraft('')
     closeSubcontextImmediately()
-    setSessionsOpen(false)
     setChatTitle('New chat')
     titleEditedRef.current = false
   }, [clearStream, closeSubcontextImmediately])
+
+  const loadDemoSession = useCallback(() => {
+    clearStream()
+    setMessages(buildTurn1Seed())
+    setDraft('')
+    closeSubcontextImmediately()
+    setChatTitle('Air quality corridor review')
+    titleEditedRef.current = true
+  }, [clearStream, closeSubcontextImmediately])
+
+  const openSession = useCallback(
+    (id: string) => {
+      if (id === DEMO_SESSION_ID) {
+        loadDemoSession()
+        return
+      }
+      resetConversation()
+    },
+    [loadDemoSession, resetConversation],
+  )
 
   const closePanel = useCallback(() => {
     setOpen(false)
@@ -616,6 +690,9 @@ export function CompactAssistantDemo() {
       // Thinking popover / attach menu are portaled to document.body — don't treat as outside-click.
       if (target instanceof Element && target.closest('[data-lc-thinking-popover]')) return
       if (target instanceof Element && target.closest('[data-lc-attach-menu]')) return
+      if (target instanceof Element && target.closest('[data-lc-inline-context-menu]')) return
+      if (target instanceof Element && target.closest('[data-lc-conversation-menu]')) return
+      if (target instanceof Element && target.closest('[data-lc-share-modal]')) return
       closePanel()
     }
     document.addEventListener('pointerdown', onPointerDown)
@@ -686,7 +763,11 @@ export function CompactAssistantDemo() {
                         ? subcontext.componentId
                         : null
                     }
-                    instantTimeline={previewForceInstant || assistant.id !== lastAssistantMessageId}
+                    instantTimeline={
+                      previewForceInstant ||
+                      assistant.id !== lastAssistantMessageId ||
+                      assistant.id.startsWith('demo-')
+                    }
                     conversationPanelRef={chatMiddleRef}
                   />
                 </div>
@@ -741,10 +822,23 @@ export function CompactAssistantDemo() {
               ref={assistantPanelRef}
               expanded={expanded}
               splitView={splitOpen}
-              allowOverflow={sessionsOpen}
+              allowOverflow={sessionsOpen && !expanded}
               thinking={replyRendering}
             >
               <div className={styles.splitBody}>
+                {expanded && sessionsOpen ? (
+                  <aside
+                    className={styles.sessionsSidebar}
+                    aria-label="Conversations"
+                    data-lc-sessions-sidebar
+                  >
+                    <SessionsPanel
+                      variant="fullscreen"
+                      onOpenSession={openSession}
+                      onShareSession={() => setShareOpen(true)}
+                    />
+                  </aside>
+                ) : null}
                 <div className={`${styles.chatColumn} ${splitOpen ? styles.chatColumnSplit : ''}`}>
                   <div className={styles.panelViewStack}>
                     <PanelHeader
@@ -753,12 +847,14 @@ export function CompactAssistantDemo() {
                       onToggleExpanded={toggleExpanded}
                       chatTitle={chatTitle}
                       onChatTitleChange={onChatTitleChange}
-                      onOpenSession={resetConversation}
+                      onOpenSession={openSession}
                       onNewSession={resetConversation}
+                      onDeleteConversation={resetConversation}
+                      onShareConversation={() => setShareOpen(true)}
                       hasAssistantReply={hasAssistantReply}
                       sessionsOpen={sessionsOpen}
                       sessionsFullscreen={expanded}
-                      onSessionsOpenChange={setSessionsOpen}
+                      onSessionsOpenChange={handleSessionsOpenChange}
                     />
                     <div className={styles.separator} />
                     {chatMiddle}
@@ -806,6 +902,11 @@ export function CompactAssistantDemo() {
         </div>
         <AssistantLauncher onOpen={openLauncher} />
       </div>
+      <ShareModal
+        open={shareOpen}
+        title={`Share “${chatTitle}”`}
+        onClose={() => setShareOpen(false)}
+      />
     </div>
   )
 }

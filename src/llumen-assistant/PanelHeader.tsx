@@ -2,9 +2,13 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowsInSimple,
   ArrowsOutSimple,
-  MagnifyingGlass,
+  DotsThreeVertical,
+  Export,
+  List,
+  PencilSimple,
   Plus,
   SidebarSimple,
+  Trash,
   X,
 } from '@phosphor-icons/react'
 import { SessionsPanel } from './SessionsPanel'
@@ -25,12 +29,22 @@ export type PanelHeaderProps = {
   onChatTitleChange?: (title: string) => void
   onOpenSession?: (id: string) => void
   onNewSession?: () => void
-  /** Hide in-conversation search and title edit until at least one assistant reply exists. */
+  /** Clear the active conversation (delete). */
+  onDeleteConversation?: () => void
+  /** Open share dialog for the active conversation. */
+  onShareConversation?: () => void
+  /** Hide overflow actions and title edit until at least one assistant reply exists. */
   hasAssistantReply?: boolean
   sessionsOpen?: boolean
   sessionsFullscreen?: boolean
   onSessionsOpenChange?: (open: boolean) => void
 }
+
+const CONVERSATION_MENU_ITEMS = [
+  { id: 'rename', label: 'Rename', Icon: PencilSimple },
+  { id: 'share', label: 'Share', Icon: Export },
+  { id: 'delete', label: 'Delete', Icon: Trash, destructive: true },
+] as const
 
 export function PanelHeader({
   onClose,
@@ -40,19 +54,20 @@ export function PanelHeader({
   onChatTitleChange,
   onOpenSession,
   onNewSession,
+  onDeleteConversation,
+  onShareConversation,
   hasAssistantReply = false,
   sessionsOpen = false,
   sessionsFullscreen = false,
   onSessionsOpenChange,
 }: PanelHeaderProps) {
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(chatTitle)
   const [titleHovered, setTitleHovered] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const [overflowOpen, setOverflowOpen] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const sessionsWrapRef = useRef<HTMLDivElement>(null)
+  const overflowWrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!editingTitle) setTitleDraft(chatTitle)
@@ -60,25 +75,10 @@ export function PanelHeader({
 
   useEffect(() => {
     if (!hasAssistantReply) {
-      setSearchOpen(false)
-      setSearchQuery('')
       setEditingTitle(false)
+      setOverflowOpen(false)
     }
   }, [hasAssistantReply])
-
-  useEffect(() => {
-    if (!searchOpen) return
-    searchInputRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        e.stopPropagation()
-        setSearchOpen(false)
-      }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [searchOpen])
 
   useLayoutEffect(() => {
     if (editingTitle) titleInputRef.current?.focus()
@@ -103,10 +103,22 @@ export function PanelHeader({
     }
   }, [sessionsOpen, sessionsFullscreen, onSessionsOpenChange])
 
-  const closeSearch = () => {
-    setSearchOpen(false)
-    setSearchQuery('')
-  }
+  useEffect(() => {
+    if (!overflowOpen) return
+    const onPointer = (e: MouseEvent) => {
+      if (overflowWrapRef.current?.contains(e.target as Node)) return
+      setOverflowOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOverflowOpen(false)
+    }
+    window.addEventListener('mousedown', onPointer)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('mousedown', onPointer)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [overflowOpen])
 
   const commitTitle = () => {
     const next = titleDraft.trim() || 'New chat'
@@ -115,25 +127,26 @@ export function PanelHeader({
     setEditingTitle(false)
   }
 
-  if (searchOpen && hasAssistantReply) {
-    return (
-      <div className={styles.headerRow}>
-        <div className={styles.headerSearchBar}>
-          <input
-            ref={searchInputRef}
-            type="search"
-            className={styles.headerSearchInput}
-            placeholder="Find in conversation..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Find in conversation"
-          />
-          <button type="button" className={styles.headerSearchClose} onClick={closeSearch} aria-label="Close search">
-            <X className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
-          </button>
-        </div>
-      </div>
-    )
+  const startRename = () => {
+    setOverflowOpen(false)
+    setTitleDraft(chatTitle)
+    setEditingTitle(true)
+  }
+
+  const onOverflowAction = (id: (typeof CONVERSATION_MENU_ITEMS)[number]['id']) => {
+    if (id === 'rename') {
+      startRename()
+      return
+    }
+    if (id === 'share') {
+      setOverflowOpen(false)
+      onShareConversation?.()
+      return
+    }
+    if (id === 'delete') {
+      setOverflowOpen(false)
+      onDeleteConversation?.()
+    }
   }
 
   return (
@@ -146,24 +159,30 @@ export function PanelHeader({
             onClick={() => onSessionsOpenChange?.(!sessionsOpen)}
             aria-label="Conversations"
             aria-expanded={sessionsOpen}
-            aria-haspopup="menu"
+            aria-haspopup={sessionsFullscreen ? undefined : 'menu'}
           >
-            <SidebarSimple className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
+            {sessionsFullscreen ? (
+              <SidebarSimple className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
+            ) : (
+              <List className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
+            )}
           </button>
-          {sessionsOpen ? (
+          {sessionsOpen && !sessionsFullscreen ? (
             <div
-              className={`${styles.headerSessionsMenu}${
-                sessionsFullscreen ? ` ${styles.headerSessionsMenuFullscreen}` : ''
-              }`}
+              className={styles.headerSessionsMenu}
               role="menu"
               aria-label="Conversations"
               data-lc-sessions-menu
             >
               <SessionsPanel
-                variant={sessionsFullscreen ? 'fullscreen' : 'dropdown'}
+                variant="dropdown"
                 onOpenSession={(id) => {
                   onOpenSession?.(id)
                   onSessionsOpenChange?.(false)
+                }}
+                onShareSession={() => {
+                  onSessionsOpenChange?.(false)
+                  onShareConversation?.()
                 }}
               />
             </div>
@@ -230,14 +249,43 @@ export function PanelHeader({
         )}
 
         {hasAssistantReply ? (
-          <button
-            type="button"
-            className={styles.headerSearchBtn}
-            onClick={() => setSearchOpen(true)}
-            aria-label="Find in conversation"
-          >
-            <MagnifyingGlass className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
-          </button>
+          <div className={styles.headerOverflowWrap} ref={overflowWrapRef}>
+            <button
+              type="button"
+              className={`${styles.headerSearchBtn}${overflowOpen ? ` ${styles.headerBtnActive}` : ''}`}
+              onClick={() => setOverflowOpen((open) => !open)}
+              aria-label="Conversation options"
+              aria-haspopup="menu"
+              aria-expanded={overflowOpen}
+            >
+              <DotsThreeVertical className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
+            </button>
+            {overflowOpen ? (
+              <div
+                className={styles.headerOverflowMenu}
+                role="menu"
+                aria-label="Conversation options"
+                data-lc-conversation-menu
+              >
+                {CONVERSATION_MENU_ITEMS.map(({ id, label, Icon, ...rest }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="menuitem"
+                    className={`${styles.headerOverflowMenuItem}${
+                      'destructive' in rest && rest.destructive
+                        ? ` ${styles.headerOverflowMenuItemDanger}`
+                        : ''
+                    }`}
+                    onClick={() => onOverflowAction(id)}
+                  >
+                    <Icon size={16} weight="regular" aria-hidden />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

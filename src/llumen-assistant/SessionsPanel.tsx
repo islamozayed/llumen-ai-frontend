@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   DotsThreeVertical,
+  Export,
   GearSix,
+  PencilSimple,
   Trash,
   User,
 } from '@phosphor-icons/react'
 import styles from './SessionsPanel.module.css'
-import { landingAssets } from './landing/landingAssets'
 
 export type SessionSummary = {
   id: string
@@ -15,7 +16,16 @@ export type SessionSummary = {
   preview: string
 }
 
+/** Preloaded demo session — turn 1 question + agent reply. */
+export const DEMO_SESSION_ID = 'aq-corridor'
+
 const MOCK_SESSIONS: SessionSummary[] = [
+  {
+    id: DEMO_SESSION_ID,
+    title: 'Air quality corridor review',
+    updatedLabel: 'Today · just now',
+    preview: 'What is driving the deterioration in air quality, where is it concentrated…',
+  },
   {
     id: '1',
     title: 'Marina logistics brief',
@@ -27,12 +37,6 @@ const MOCK_SESSIONS: SessionSummary[] = [
     title: 'Weekly ops recap',
     updatedLabel: 'Today · 11:02 AM',
     preview: 'Summary of throughput, exceptions, and SLA notes for stakeholders.',
-  },
-  {
-    id: '3',
-    title: 'Air quality corridor review',
-    updatedLabel: 'Yesterday',
-    preview: 'NO₂ and PM₂.₅ elevation around Mussafah–ICAD corridor.',
   },
   {
     id: '4',
@@ -81,12 +85,14 @@ const MOCK_SESSIONS: SessionSummary[] = [
 
 export type SessionsPanelProps = {
   onOpenSession: (id: string) => void
+  onShareSession?: (id: string) => void
   variant?: 'dropdown' | 'fullscreen'
 }
 
 const SESSION_MENU_ITEMS = [
-  { id: 'rename', label: 'Rename' },
-  { id: 'delete', label: 'Delete', destructive: true },
+  { id: 'rename', label: 'Rename', Icon: PencilSimple },
+  { id: 'share', label: 'Share', Icon: Export },
+  { id: 'delete', label: 'Delete', Icon: Trash, destructive: true },
 ] as const
 
 const SETTINGS_MENU_ITEMS = [
@@ -97,9 +103,11 @@ const SETTINGS_MENU_ITEMS = [
 function SessionRowItem({
   session,
   onOpen,
+  onShare,
 }: {
   session: SessionSummary
   onOpen: (id: string) => void
+  onShare?: (id: string) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [titleScrolling, setTitleScrolling] = useState(false)
@@ -133,7 +141,6 @@ function SessionRowItem({
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const overflow = Math.ceil(title.scrollWidth - wrap.clientWidth)
     if (overflow <= 1) return
-    // ~36px/s, clamped so short overflows still feel intentional
     setTitleScrollMs(Math.max(900, Math.min(7000, overflow * 28)))
     setTitleShiftPx(overflow)
     setTitleScrolling(true)
@@ -202,11 +209,12 @@ function SessionRowItem({
                   className={`${styles.sessionMenuItem}${
                     'destructive' in item && item.destructive ? ` ${styles.sessionMenuItemDanger}` : ''
                   }`}
-                  onClick={() => setMenuOpen(false)}
+                  onClick={() => {
+                    setMenuOpen(false)
+                    if (item.id === 'share') onShare?.(session.id)
+                  }}
                 >
-                  {'destructive' in item && item.destructive ? (
-                    <Trash size={16} weight="regular" aria-hidden />
-                  ) : null}
+                  <item.Icon size={16} weight="regular" aria-hidden />
                   <span>{item.label}</span>
                 </button>
               ))}
@@ -218,8 +226,12 @@ function SessionRowItem({
   )
 }
 
-/** Conversation history shown as a compact or full-height popup. */
-export function SessionsPanel({ onOpenSession, variant = 'dropdown' }: SessionsPanelProps) {
+/** Conversation history — compact dropdown, or full-height sidebar in fullscreen. */
+export function SessionsPanel({
+  onOpenSession,
+  onShareSession,
+  variant = 'dropdown',
+}: SessionsPanelProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -267,6 +279,39 @@ export function SessionsPanel({ onOpenSession, variant = 'dropdown' }: SessionsP
     >
       <div className={styles.panelHeader}>
         <p className={styles.panelTitle}>Conversations</p>
+        <div className={styles.headerActions}>
+          <div className={styles.settingsWrap} ref={settingsWrapRef}>
+            <button
+              type="button"
+              className={`${styles.headerIconBtn}${settingsOpen ? ` ${styles.headerIconBtnActive}` : ''}`}
+              onClick={() => setSettingsOpen((open) => !open)}
+              aria-label="Settings"
+              aria-haspopup="menu"
+              aria-expanded={settingsOpen}
+            >
+              <GearSix size={20} weight="regular" aria-hidden />
+            </button>
+            {settingsOpen ? (
+              <div className={styles.settingsMenu} role="menu" aria-label="Settings">
+                {SETTINGS_MENU_ITEMS.map(({ id, label, Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="menuitem"
+                    className={styles.settingsMenuItem}
+                    onClick={() => setSettingsOpen(false)}
+                  >
+                    <Icon size={16} weight="regular" aria-hidden />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.searchSection}>
         <input
           ref={searchInputRef}
           type="search"
@@ -287,47 +332,9 @@ export function SessionsPanel({ onOpenSession, variant = 'dropdown' }: SessionsP
 
       <ul className={styles.list}>
         {filteredSessions.map((s) => (
-          <SessionRowItem key={s.id} session={s} onOpen={open} />
+          <SessionRowItem key={s.id} session={s} onOpen={open} onShare={onShareSession} />
         ))}
       </ul>
-
-      <div className={styles.panelFooter}>
-        <div className={styles.userInfo}>
-          <img className={styles.userAvatar} src={landingAssets.userBtn} alt="" />
-          <div className={styles.userText}>
-            <p className={styles.userName}>Islam Zayed</p>
-            <p className={styles.userOrg}>Pixonal</p>
-          </div>
-        </div>
-        <div className={styles.settingsWrap} ref={settingsWrapRef}>
-          <button
-            type="button"
-            className={`${styles.settingsBtn}${settingsOpen ? ` ${styles.settingsBtnActive}` : ''}`}
-            onClick={() => setSettingsOpen((open) => !open)}
-            aria-label="Settings"
-            aria-haspopup="menu"
-            aria-expanded={settingsOpen}
-          >
-            <GearSix size={20} weight="regular" aria-hidden />
-          </button>
-          {settingsOpen ? (
-            <div className={styles.settingsMenu} role="menu" aria-label="Settings">
-              {SETTINGS_MENU_ITEMS.map(({ id, label, Icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="menuitem"
-                  className={styles.settingsMenuItem}
-                  onClick={() => setSettingsOpen(false)}
-                >
-                  <Icon size={16} weight="regular" aria-hidden />
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
     </div>
   )
 }
