@@ -14,7 +14,8 @@ import { AssistantLauncher } from './AssistantLauncher'
 import { AssistantPanel } from './AssistantPanel'
 import { ChatComposer } from './ChatComposer'
 import { PanelHeader } from './PanelHeader'
-import type { ChatQuestionIndexItem } from './PanelHeader'
+import type { ChatQuestionIndexItem, ChatSearchState } from './PanelHeader'
+import { useTranscriptSearch } from './useTranscriptSearch'
 import { SessionsPanel, DEMO_SESSION_ID } from './SessionsPanel'
 import { ShareModal } from './ShareModal'
 import { splitTextWithInlineMentions, getCategoryIcon } from './inlineContextData'
@@ -244,6 +245,7 @@ export function CompactAssistantDemo() {
     () => previewMode === 'sessions' || previewMode === 'fullscreen-sessions',
   )
   const [shareOpen, setShareOpen] = useState(false)
+  const [chatSearch, setChatSearch] = useState<ChatSearchState>({ open: false, query: '' })
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     previewMode === 'conversation' ||
     previewMode === 'sessions' ||
@@ -302,6 +304,33 @@ export function CompactAssistantDemo() {
       syncTranscriptScrollbarInset()
     },
     [transcriptRevealRef, transcriptStickRef, syncTranscriptScrollbarInset],
+  )
+
+  const searchQueryActive = chatSearch.open ? chatSearch.query : ''
+  const {
+    matchCount: searchMatchCount,
+    activeIndex: searchActiveMatch,
+    goNext: goNextSearchMatch,
+    goPrev: goPrevSearchMatch,
+  } = useTranscriptSearch({
+    rootRef: transcriptElRef,
+    query: searchQueryActive,
+    revision: transcriptContentKey,
+    hitClass: styles.searchHit,
+    activeHitClass: styles.searchHitActive,
+  })
+
+  const onChatSearchChange = useCallback((state: ChatSearchState) => {
+    setChatSearch(state)
+  }, [])
+
+  const onSearchMatchNavigate = useCallback(
+    (direction: 'prev' | 'next') => {
+      releaseStick()
+      if (direction === 'prev') goPrevSearchMatch()
+      else goNextSearchMatch()
+    },
+    [releaseStick, goPrevSearchMatch, goNextSearchMatch],
   )
 
   useEffect(() => {
@@ -855,6 +884,10 @@ export function CompactAssistantDemo() {
                       sessionsOpen={sessionsOpen}
                       sessionsFullscreen={expanded}
                       onSessionsOpenChange={handleSessionsOpenChange}
+                      onChatSearchChange={onChatSearchChange}
+                      searchMatchCount={searchMatchCount}
+                      searchActiveMatch={searchActiveMatch}
+                      onSearchMatchNavigate={onSearchMatchNavigate}
                     />
                     <div className={styles.separator} />
                     {chatMiddle}

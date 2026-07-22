@@ -2,9 +2,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowsInSimple,
   ArrowsOutSimple,
+  CaretDown,
+  CaretUp,
   DotsThreeVertical,
   Export,
   List,
+  MagnifyingGlass,
   PencilSimple,
   Plus,
   SidebarSimple,
@@ -21,6 +24,11 @@ export type ChatQuestionIndexItem = {
   responseId: string
 }
 
+export type ChatSearchState = {
+  open: boolean
+  query: string
+}
+
 export type PanelHeaderProps = {
   onClose: () => void
   expanded?: boolean
@@ -33,14 +41,20 @@ export type PanelHeaderProps = {
   onDeleteConversation?: () => void
   /** Open share dialog for the active conversation. */
   onShareConversation?: () => void
-  /** Hide overflow actions and title edit until at least one assistant reply exists. */
+  /** Hide overflow actions, search, and title edit until at least one assistant reply exists. */
   hasAssistantReply?: boolean
   sessionsOpen?: boolean
   sessionsFullscreen?: boolean
   onSessionsOpenChange?: (open: boolean) => void
+  /** Notify parent when in-chat search open/query changes. */
+  onChatSearchChange?: (state: ChatSearchState) => void
+  searchMatchCount?: number
+  searchActiveMatch?: number
+  onSearchMatchNavigate?: (direction: 'prev' | 'next') => void
 }
 
 const CONVERSATION_MENU_ITEMS = [
+  { id: 'search', label: 'Search', Icon: MagnifyingGlass },
   { id: 'rename', label: 'Rename', Icon: PencilSimple },
   { id: 'share', label: 'Share', Icon: Export },
   { id: 'delete', label: 'Delete', Icon: Trash, destructive: true },
@@ -60,14 +74,27 @@ export function PanelHeader({
   sessionsOpen = false,
   sessionsFullscreen = false,
   onSessionsOpenChange,
+  onChatSearchChange,
+  searchMatchCount = 0,
+  searchActiveMatch = -1,
+  onSearchMatchNavigate,
 }: PanelHeaderProps) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(chatTitle)
   const [titleHovered, setTitleHovered] = useState(false)
   const [overflowOpen, setOverflowOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const sessionsWrapRef = useRef<HTMLDivElement>(null)
   const overflowWrapRef = useRef<HTMLDivElement>(null)
+  const onChatSearchChangeRef = useRef(onChatSearchChange)
+  onChatSearchChangeRef.current = onChatSearchChange
+
+  const emitSearchChange = (open: boolean, query: string) => {
+    onChatSearchChangeRef.current?.({ open, query })
+  }
 
   useEffect(() => {
     if (!editingTitle) setTitleDraft(chatTitle)
@@ -77,12 +104,45 @@ export function PanelHeader({
     if (!hasAssistantReply) {
       setEditingTitle(false)
       setOverflowOpen(false)
+      setSearchOpen(false)
+      setSearchQuery('')
+      emitSearchChange(false, '')
     }
   }, [hasAssistantReply])
+
+  useEffect(() => {
+    if (sessionsOpen) {
+      setSearchOpen(false)
+      setSearchQuery('')
+      setOverflowOpen(false)
+      emitSearchChange(false, '')
+    }
+  }, [sessionsOpen])
 
   useLayoutEffect(() => {
     if (editingTitle) titleInputRef.current?.focus()
   }, [editingTitle])
+
+  useEffect(() => {
+    if (!searchOpen) return
+    searchInputRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        setSearchOpen(false)
+        setSearchQuery('')
+        emitSearchChange(false, '')
+        return
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        onSearchMatchNavigate?.(e.shiftKey ? 'prev' : 'next')
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [searchOpen, onSearchMatchNavigate])
 
   useEffect(() => {
     if (!sessionsOpen) return
@@ -120,6 +180,12 @@ export function PanelHeader({
     }
   }, [overflowOpen])
 
+  const closeSearch = () => {
+    setSearchOpen(false)
+    setSearchQuery('')
+    emitSearchChange(false, '')
+  }
+
   const commitTitle = () => {
     const next = titleDraft.trim() || 'New chat'
     setTitleDraft(next)
@@ -133,7 +199,23 @@ export function PanelHeader({
     setEditingTitle(true)
   }
 
+  const startSearch = () => {
+    setOverflowOpen(false)
+    setEditingTitle(false)
+    setSearchOpen(true)
+    emitSearchChange(true, searchQuery)
+  }
+
+  const onSearchQueryInput = (value: string) => {
+    setSearchQuery(value)
+    emitSearchChange(true, value)
+  }
+
   const onOverflowAction = (id: (typeof CONVERSATION_MENU_ITEMS)[number]['id']) => {
+    if (id === 'search') {
+      startSearch()
+      return
+    }
     if (id === 'rename') {
       startRename()
       return
@@ -147,6 +229,58 @@ export function PanelHeader({
       setOverflowOpen(false)
       onDeleteConversation?.()
     }
+  }
+
+  const hasQuery = searchQuery.trim().length > 0
+  const matchLabel =
+    hasQuery && searchMatchCount > 0
+      ? `${searchActiveMatch + 1}/${searchMatchCount}`
+      : hasQuery
+        ? '0/0'
+        : null
+
+  if (searchOpen && hasAssistantReply) {
+    return (
+      <div className={`${styles.headerRow} ${styles.headerRowSearch}`}>
+        <div className={styles.headerSearchBar}>
+          <input
+            ref={searchInputRef}
+            type="search"
+            className={styles.headerSearchInput}
+            placeholder="Search in chat"
+            value={searchQuery}
+            onChange={(e) => onSearchQueryInput(e.target.value)}
+            aria-label="Search in chat"
+          />
+          {matchLabel ? (
+            <div className={styles.headerSearchNav} role="status" aria-live="polite">
+              <span className={styles.headerSearchCount}>{matchLabel}</span>
+              <button
+                type="button"
+                className={styles.headerSearchNavBtn}
+                onClick={() => onSearchMatchNavigate?.('prev')}
+                disabled={searchMatchCount <= 0}
+                aria-label="Previous match"
+              >
+                <CaretUp className={styles.headerPhosphor} size={14} weight="bold" aria-hidden />
+              </button>
+              <button
+                type="button"
+                className={styles.headerSearchNavBtn}
+                onClick={() => onSearchMatchNavigate?.('next')}
+                disabled={searchMatchCount <= 0}
+                aria-label="Next match"
+              >
+                <CaretDown className={styles.headerPhosphor} size={14} weight="bold" aria-hidden />
+              </button>
+            </div>
+          ) : null}
+          <button type="button" className={styles.headerSearchClose} onClick={closeSearch} aria-label="Close search">
+            <X className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
