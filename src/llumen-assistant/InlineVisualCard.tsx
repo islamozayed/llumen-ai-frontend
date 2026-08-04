@@ -75,7 +75,11 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
           ) : preview?.kind === 'image' ? (
             <div className={isMap ? styles.mapImageStage : styles.imageStage}>
               {isMap ? (
-                <InteractiveMap className={styles.mapInteractive} showControls={false} />
+                <InteractiveMap
+                  className={styles.mapInteractive}
+                  controlsClassName={styles.mapControls}
+                  scrollZoom={false}
+                />
               ) : (
                 <img
                   className={preview.fit === 'cover' ? styles.imageCover : styles.imageContain}

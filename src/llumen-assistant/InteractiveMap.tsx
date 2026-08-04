@@ -24,6 +24,9 @@ export type InteractiveMapProps = {
   zoom?: number
   /** When false, host UI should render MapControls separately. */
   showControls?: boolean
+  controlsClassName?: string
+  /** Scroll wheel zoom. Disable in scrollable hosts (e.g. chat transcript). */
+  scrollZoom?: boolean
 }
 
 export function MapControls({
@@ -80,7 +83,14 @@ export function MapControls({
 }
 
 export const InteractiveMap = forwardRef<InteractiveMapHandle, InteractiveMapProps>(function InteractiveMap(
-  { className, center = DEFAULT_CENTER, zoom = DEFAULT_ZOOM, showControls = true },
+  {
+    className,
+    center = DEFAULT_CENTER,
+    zoom = DEFAULT_ZOOM,
+    showControls = true,
+    controlsClassName,
+    scrollZoom = true,
+  },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -114,6 +124,7 @@ export const InteractiveMap = forwardRef<InteractiveMapHandle, InteractiveMapPro
       center,
       zoom,
       attributionControl: false,
+      scrollZoom,
     })
 
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right')
@@ -136,13 +147,14 @@ export const InteractiveMap = forwardRef<InteractiveMapHandle, InteractiveMapPro
       mapRef.current = null
       setReady(false)
     }
-  }, [center, zoom])
+  }, [center, zoom, scrollZoom])
 
   return (
     <div className={[styles.root, className].filter(Boolean).join(' ')}>
       <div ref={containerRef} className={styles.canvas} />
       {showControls ? (
         <MapControls
+          className={controlsClassName}
           disabled={!ready}
           onZoomIn={zoomIn}
           onZoomOut={zoomOut}
