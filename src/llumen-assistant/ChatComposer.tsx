@@ -10,10 +10,12 @@ import {
   useCallback,
   useEffect,
   useId,
+  useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  forwardRef,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
@@ -363,17 +365,25 @@ export type ChatComposerProps = {
   hasThreadMessages?: boolean
 }
 
-export function ChatComposer({
-  value,
-  onChange,
-  onSend,
-  onStop,
-  sendState,
-  showParameters = true,
-  onAttachClick,
-  disabled = false,
-  hasThreadMessages = false,
-}: ChatComposerProps) {
+export type ChatComposerHandle = {
+  /** Insert an @-mention chip at the current caret (or end of the editor). */
+  insertMention: (item: InlineContextItem) => void
+}
+
+export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function ChatComposer(
+  {
+    value,
+    onChange,
+    onSend,
+    onStop,
+    sendState,
+    showParameters = true,
+    onAttachClick,
+    disabled = false,
+    hasThreadMessages = false,
+  },
+  ref,
+) {
   const editorRef = useRef<HTMLDivElement>(null)
   const chatBoxRef = useRef<HTMLDivElement>(null)
   const composerHeightRef = useRef<number | null>(null)
@@ -451,19 +461,30 @@ export function ChatComposer({
     })
   }, [])
 
-  const insertMention = useCallback(
-    (item: InlineContextItem) => {
+  const insertMentionChip = useCallback(
+    (item: InlineContextItem, options?: { replaceTriggerLength?: number }) => {
       const editor = editorRef.current
-      if (!editor || !mentionMenu) return
+      if (!editor || editorDisabled) return
       editor.focus()
-      const del = deleteTriggerBeforeCaret(mentionMenu.triggerLength)
-      if (!del) {
-        closeMentionMenu()
-        return
+
+      let insertRange: Range | null = null
+      const replaceLen = options?.replaceTriggerLength
+      if (replaceLen != null && replaceLen > 0) {
+        insertRange = deleteTriggerBeforeCaret(replaceLen)
+        if (!insertRange) {
+          closeMentionMenu()
+          return
+        }
+      } else {
+        ensureCaretInEditor(editor)
+        const sel = window.getSelection()
+        if (!sel || !sel.rangeCount) return
+        insertRange = sel.getRangeAt(0)
+        insertRange.deleteContents()
       }
 
       const chip = createMentionChip(item)
-      del.insertNode(chip)
+      insertRange.insertNode(chip)
       const space = document.createTextNode('\u00a0')
       chip.after(space)
 
@@ -479,7 +500,25 @@ export function ChatComposer({
       closeMentionMenu()
       emitChange()
     },
-    [closeMentionMenu, emitChange, mentionMenu],
+    [closeMentionMenu, editorDisabled, emitChange],
+  )
+
+  const insertMention = useCallback(
+    (item: InlineContextItem) => {
+      if (!mentionMenu) return
+      insertMentionChip(item, { replaceTriggerLength: mentionMenu.triggerLength })
+    },
+    [insertMentionChip, mentionMenu],
+  )
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      insertMention: (item: InlineContextItem) => {
+        insertMentionChip(item)
+      },
+    }),
+    [insertMentionChip],
   )
 
   const selectCategory = useCallback(
@@ -828,4 +867,4 @@ export function ChatComposer({
       </div>
     </div>
   )
-}
+})

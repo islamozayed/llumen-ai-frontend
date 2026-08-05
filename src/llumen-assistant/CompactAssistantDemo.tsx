@@ -12,13 +12,15 @@ import { MESH_COLORS_DEMO_PAGE, MESH_FRAME_DEMO_PAGE } from './paperMeshConstant
 import { AssistantHero } from './AssistantHero'
 import { AssistantLauncher } from './AssistantLauncher'
 import { AssistantPanel } from './AssistantPanel'
-import { ChatComposer } from './ChatComposer'
+import { ChatComposer, type ChatComposerHandle } from './ChatComposer'
 import { PanelHeader } from './PanelHeader'
 import type { ChatQuestionIndexItem, ChatSearchState } from './PanelHeader'
 import { useTranscriptSearch } from './useTranscriptSearch'
 import { SessionsPanel, DEMO_SESSION_ID } from './SessionsPanel'
 import { ShareModal } from './ShareModal'
-import { splitTextWithInlineMentions, getCategoryIcon } from './inlineContextData'
+import { SourcesPanel } from './SourcesPanel'
+import { sourcesForDemoConversation } from './conversationSources'
+import { splitTextWithInlineMentions, getCategoryIcon, type InlineContextItem } from './inlineContextData'
 import type {
   AgentResponseBlock,
   AssistantReplyPayload,
@@ -255,6 +257,16 @@ export function CompactAssistantDemo() {
       ? buildConversationSeed()
       : [],
   )
+  const [sources, setSources] = useState(() =>
+    sourcesForDemoConversation(
+      previewMode === 'conversation' ||
+        previewMode === 'sessions' ||
+        previewMode === 'fullscreen' ||
+        previewMode === 'fullscreen-sessions' ||
+        previewMode === 'detail',
+    ),
+  )
+  const [sourcesPanelDismissed, setSourcesPanelDismissed] = useState(false)
   const [streaming, setStreaming] = useState(false)
   const [replyRendering, setReplyRendering] = useState(false)
   const [chatTitle, setChatTitle] = useState(() =>
@@ -274,6 +286,7 @@ export function CompactAssistantDemo() {
   const subcontextViewRef = useRef(subcontext.view)
   subcontextViewRef.current = subcontext.view
   const transcriptRevealRef = useRevealScrollbarOnScroll()
+  const composerRef = useRef<ChatComposerHandle>(null)
   const transcriptContentKey = `${messages.length}:${streaming ? '1' : '0'}`
   const { ref: transcriptStickRef, releaseStick } = useStickToBottomScroll(transcriptContentKey)
   const transcriptElRef = useRef<HTMLDivElement | null>(null)
@@ -532,6 +545,10 @@ export function CompactAssistantDemo() {
     if (!titleEditedRef.current && priorAssistant === 0) {
       setChatTitle(titleFromReply(reply))
     }
+    if (priorAssistant === 0) {
+      setSources((prev) => (prev.length > 0 ? prev : sourcesForDemoConversation(true)))
+      setSourcesPanelDismissed(false)
+    }
     setMessages((m) => [...m, { id: uid(), role: 'user', text: t }])
     startAssistantReply(reply)
   }, [draft, streaming, messages, startAssistantReply])
@@ -629,7 +646,35 @@ export function CompactAssistantDemo() {
     [expanded, subcontext.view, closeSubcontext],
   )
 
+  const sourcesFloatOpen =
+    expanded &&
+    subcontext.view === 'closed' &&
+    !subcontextClosing &&
+    sources.length > 0 &&
+    !sourcesPanelDismissed
+
   const splitOpen = subcontext.view !== 'closed'
+
+  const removeSource = useCallback((id: string) => {
+    setSources((prev) => prev.filter((s) => s.id !== id))
+  }, [])
+
+  const addSource = useCallback((item: InlineContextItem) => {
+    setSources((prev) =>
+      prev.some((s) => s.id === item.id)
+        ? prev
+        : [...prev, { id: item.id, label: item.name, categoryId: item.categoryId }],
+    )
+    composerRef.current?.insertMention(item)
+  }, [])
+
+  const dismissSourcesPanel = useCallback(() => {
+    setSourcesPanelDismissed(true)
+  }, [])
+
+  useEffect(() => {
+    if (expanded) setSourcesPanelDismissed(false)
+  }, [expanded])
 
   const onComponentSelect = useCallback((component: CreatedComponent) => {
     if (streaming) return
@@ -672,6 +717,8 @@ export function CompactAssistantDemo() {
   const resetConversation = useCallback(() => {
     clearStream()
     setMessages([])
+    setSources([])
+    setSourcesPanelDismissed(false)
     setDraft('')
     closeSubcontextImmediately()
     setChatTitle('New chat')
@@ -681,6 +728,8 @@ export function CompactAssistantDemo() {
   const loadDemoSession = useCallback(() => {
     clearStream()
     setMessages(buildTurn1Seed())
+    setSources(sourcesForDemoConversation(true))
+    setSourcesPanelDismissed(false)
     setDraft('')
     closeSubcontextImmediately()
     setChatTitle('Air quality corridor review')
@@ -705,6 +754,8 @@ export function CompactAssistantDemo() {
     setSessionsOpen(false)
     clearStream()
     setMessages([])
+    setSources([])
+    setSourcesPanelDismissed(false)
     setDraft('')
     setChatTitle('New chat')
     titleEditedRef.current = false
@@ -721,6 +772,8 @@ export function CompactAssistantDemo() {
       if (target instanceof Element && target.closest('[data-lc-attach-menu]')) return
       if (target instanceof Element && target.closest('[data-lc-inline-context-menu]')) return
       if (target instanceof Element && target.closest('[data-lc-conversation-menu]')) return
+      if (target instanceof Element && target.closest('[data-lc-sources-menu]')) return
+      if (target instanceof Element && target.closest('[data-lc-sources-panel]')) return
       if (target instanceof Element && target.closest('[data-lc-share-modal]')) return
       closePanel()
     }
@@ -810,6 +863,7 @@ export function CompactAssistantDemo() {
         </div>
       )}
       <ChatComposer
+        ref={composerRef}
         value={draft}
         onChange={setDraft}
         onSend={send}
@@ -888,6 +942,12 @@ export function CompactAssistantDemo() {
                       searchMatchCount={searchMatchCount}
                       searchActiveMatch={searchActiveMatch}
                       onSearchMatchNavigate={onSearchMatchNavigate}
+                      sources={sources}
+                      onRemoveSource={removeSource}
+                      onAddSource={addSource}
+                      sourcesPanelOpen={sourcesFloatOpen}
+                      onToggleSourcesPanel={() => setSourcesPanelDismissed((v) => !v)}
+                      subcontextOpen={subcontext.view !== 'closed'}
                     />
                     <div className={styles.separator} />
                     {chatMiddle}
@@ -928,6 +988,14 @@ export function CompactAssistantDemo() {
                       }
                     />
                   </div>
+                ) : null}
+                {sourcesFloatOpen ? (
+                    <SourcesPanel
+                      sources={sources}
+                      onRemove={removeSource}
+                      onAdd={addSource}
+                      onClose={dismissSourcesPanel}
+                    />
                 ) : null}
               </div>
             </AssistantPanel>

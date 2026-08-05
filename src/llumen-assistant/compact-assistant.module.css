@@ -238,6 +238,7 @@
 }
 
 .splitBody {
+  position: relative;
   display: flex;
   flex: 1;
   min-height: 0;
@@ -505,6 +506,10 @@
   min-width: 0;
 }
 
+.headerInsightRow button {
+  font-size: 14px;
+}
+
 .mapBleedDescBtn {
   display: inline-flex;
   align-items: center;
@@ -515,7 +520,7 @@
   background: transparent;
   color: var(--lc-text-primary);
   font-family: var(--lc-font-sans);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: var(--lc-weight-regular);
   line-height: 20px;
   cursor: pointer;
@@ -529,6 +534,40 @@
   outline: 2px solid rgba(255, 255, 255, 0.55);
   outline-offset: 3px;
   border-radius: 4px;
+}
+
+.saveToAssetsBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--lc-text-primary);
+  font-family: var(--lc-font-sans);
+  font-size: 14px;
+  font-weight: var(--lc-weight-regular);
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.saveToAssetsBtn:hover {
+  opacity: 0.72;
+}
+
+.saveToAssetsBtn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.saveToAssetsBtnSaved {
+  cursor: default;
+}
+
+.saveToAssetsBtnSaved:hover {
+  opacity: 1;
 }
 
 .mapDescriptionPopover {
@@ -718,7 +757,7 @@
   padding: 0;
   gap: 4px;
   font-family: var(--lc-font-sans);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: var(--lc-weight-medium);
   line-height: 20px;
   min-width: 0;
@@ -1325,7 +1364,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--lc-header-icon-btn-size);
+  width: 20px;
   height: var(--lc-header-icon-btn-size);
   padding: 0;
   border: none;
@@ -1335,6 +1374,10 @@
   cursor: pointer;
   flex-shrink: 0;
   transition: color var(--lc-duration) var(--lc-ease), opacity var(--lc-duration) var(--lc-ease);
+}
+
+.headerSourcesBtn {
+  width: var(--lc-header-icon-btn-size);
 }
 
 .headerSearchBtn:hover,
@@ -1363,6 +1406,22 @@
   box-shadow:
     0 16px 48px rgba(0, 0, 0, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.headerSourcesMenu {
+  position: absolute;
+  top: calc(100% + var(--space-sm));
+  right: 0;
+  z-index: 50;
+  border-radius: 12px;
+  border: 1px solid var(--lc-border-dropdown);
+  background: var(--lc-surface-3);
+  -webkit-backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  backdrop-filter: blur(var(--lc-backdrop-blur-ui));
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  overflow: hidden;
 }
 
 .headerOverflowMenuItem {
@@ -1793,6 +1852,8 @@
   flex-direction: column;
   gap: var(--space-lg);
   width: 100%;
+  padding-inline: var(--space-xl);
+  box-sizing: border-box;
 }
 
 .msgUserRow {
@@ -2237,6 +2298,43 @@
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
+}
+
+.inlineContextMenuSearch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  margin: 0 0 var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.inlineContextMenuSearchIcon {
+  flex-shrink: 0;
+  color: var(--lc-text-tertiary);
+}
+
+.inlineContextMenuSearchInput {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--lc-text-primary);
+  font-family: var(--lc-font-sans);
+  font-size: var(--lc-text-body);
+  line-height: var(--lc-leading-body);
+  outline: none;
+}
+
+.inlineContextMenuSearchInput::placeholder {
+  color: var(--lc-text-tertiary);
+}
+
+.inlineContextMenuSearchInput::-webkit-search-cancel-button {
+  appearance: none;
 }
 
 .inlineContextMenuSection {

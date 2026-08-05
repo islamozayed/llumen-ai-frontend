@@ -1,7 +1,7 @@
 import { useId, useState, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowSquareOut } from '@phosphor-icons/react'
-import { AiGeneratedMark } from './AiGeneratedMark'
+import { AiGeneratedBadge } from './AiGeneratedBadge'
 import type { CreatedComponent } from './assistantReplyTypes'
 import { InteractiveMap } from './InteractiveMap'
 import { KpiWidget } from './KpiWidgets'
@@ -90,7 +90,7 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
               <div className={styles.imageHeader}>
                 <div className={styles.imageTitleRow}>
                   <p className={styles.imageTitle}>{component.title}</p>
-                  {component.aiGenerated ? <AiGeneratedMark size={20} /> : null}
+                  {component.aiGenerated ? <AiGeneratedBadge /> : null}
                 </div>
               </div>
             </div>
@@ -98,7 +98,7 @@ export function InlineVisualCard({ component, active = false, onExpand }: Inline
             <div className={styles.fallback}>
               <div className={styles.imageTitleRow}>
                 <p className={styles.imageTitle}>{component.title}</p>
-                {component.aiGenerated ? <AiGeneratedMark size={20} /> : null}
+                {component.aiGenerated ? <AiGeneratedBadge /> : null}
               </div>
             </div>
           )}

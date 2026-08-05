@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { ChatTeardropText, Info, SidebarSimple } from '@phosphor-icons/react'
-import { AiGeneratedMark } from './AiGeneratedMark'
+import { ChatTeardropText, Check, FloppyDisk, Info, SidebarSimple } from '@phosphor-icons/react'
+import { AiGeneratedBadge } from './AiGeneratedBadge'
 import type { CreatedComponent } from './assistantReplyTypes'
 import { ApiResponseTerminal } from './ApiResponseTerminal'
 import { queryResultsForComponent } from './componentQueryResults'
@@ -25,6 +25,38 @@ const DETAIL_TABS: { id: DetailTab; label: string }[] = [
 
 function isMapDetailComponent(component: CreatedComponent) {
   return component.preview?.kind === 'image' && component.preview.detailView === 'map'
+}
+
+function SaveToAssetsButton({
+  saved,
+  onSave,
+}: {
+  saved: boolean
+  onSave: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`${styles.saveToAssetsBtn}${saved ? ` ${styles.saveToAssetsBtnSaved}` : ''}`}
+      onClick={() => {
+        if (!saved) onSave()
+      }}
+      aria-pressed={saved}
+      aria-label={saved ? 'In asset library' : 'Save to Assets'}
+    >
+      {saved ? (
+        <>
+          <Check size={18} weight="regular" aria-hidden />
+          In asset library
+        </>
+      ) : (
+        <>
+          <FloppyDisk size={18} weight="regular" aria-hidden />
+          Save to Assets
+        </>
+      )}
+    </button>
+  )
 }
 
 function ComponentPreview({ component }: { component: CreatedComponent }) {
@@ -185,6 +217,7 @@ export function ComponentDetailPanel({ component, onClose, onShowInConversation 
   const { title, description, caption, analysis, aiGenerated } = component
   const [activeTab, setActiveTab] = useState<DetailTab>('component')
   const [descOpen, setDescOpen] = useState(false)
+  const [savedToAssets, setSavedToAssets] = useState(false)
   const descBtnRef = useRef<HTMLButtonElement>(null)
   const mapRef = useRef<InteractiveMapHandle>(null)
   const headerRef = useRef<HTMLDivElement>(null)
@@ -196,6 +229,7 @@ export function ComponentDetailPanel({ component, onClose, onShowInConversation 
   useEffect(() => {
     setActiveTab('component')
     setDescOpen(false)
+    setSavedToAssets(false)
   }, [component.id])
 
   useEffect(() => {
@@ -237,7 +271,7 @@ export function ComponentDetailPanel({ component, onClose, onShowInConversation 
             <div className={styles.mapBleedHeaderText}>
               <div className={styles.detailTitleRow}>
                 <h2 className={styles.mapBleedTitle}>{title}</h2>
-                {aiGenerated ? <AiGeneratedMark size={16} /> : null}
+                {aiGenerated ? <AiGeneratedBadge /> : null}
               </div>
               <div className={styles.headerInsightRow}>
                 <div className={styles.mapBleedDescWrap}>
@@ -270,6 +304,12 @@ export function ComponentDetailPanel({ component, onClose, onShowInConversation 
                     <ChatTeardropText size={20} weight="regular" aria-hidden />
                     <span>Show in Conversation</span>
                   </button>
+                ) : null}
+                {aiGenerated ? (
+                  <SaveToAssetsButton
+                    saved={savedToAssets}
+                    onSave={() => setSavedToAssets(true)}
+                  />
                 ) : null}
               </div>
             </div>
@@ -336,7 +376,7 @@ export function ComponentDetailPanel({ component, onClose, onShowInConversation 
         <div className={styles.componentDetailHeaderText}>
           <div className={styles.detailTitleRow}>
             <h2 className={styles.componentDetailTitle}>{title}</h2>
-            {aiGenerated ? <AiGeneratedMark size={16} /> : null}
+            {aiGenerated ? <AiGeneratedBadge /> : null}
           </div>
           <div className={styles.headerInsightRow}>
             <div className={styles.mapBleedDescWrap}>
@@ -370,6 +410,12 @@ export function ComponentDetailPanel({ component, onClose, onShowInConversation 
                 <ChatTeardropText size={20} weight="regular" aria-hidden />
                 <span>Show in Conversation</span>
               </button>
+            ) : null}
+            {aiGenerated ? (
+              <SaveToAssetsButton
+                saved={savedToAssets}
+                onSave={() => setSavedToAssets(true)}
+              />
             ) : null}
           </div>
         </div>

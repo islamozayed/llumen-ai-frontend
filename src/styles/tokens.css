@@ -196,6 +196,9 @@
   --color-primary-500: #73adf5;
   --color-primary-800: #2e4562;
   --color-positive-300: #7cd69e;
+  --color-negative-300: #f49797;
+  --color-negative-500: #ed5151;
+  --lc-text-negative: var(--color-negative-300);
 
   /* Motion */
   --lc-duration: 220ms;

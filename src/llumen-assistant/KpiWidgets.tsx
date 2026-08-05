@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { AiGeneratedMark } from './AiGeneratedMark'
+import { AiGeneratedBadge } from './AiGeneratedBadge'
 import type { CreatedComponent, WidgetVariant } from './assistantReplyTypes'
 import styles from './KpiWidgets.module.css'
 
@@ -27,7 +27,7 @@ function WidgetTitle({
   return (
     <div className={styles.widgetTitleRow}>
       <p className={muted ? styles.widgetTitleMuted : styles.widgetTitle}>{children}</p>
-      {aiGenerated ? <AiGeneratedMark size={20} /> : null}
+      {aiGenerated ? <AiGeneratedBadge /> : null}
     </div>
   )
 }

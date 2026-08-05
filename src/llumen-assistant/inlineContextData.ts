@@ -180,6 +180,10 @@ export function findItemByName(name: string): InlineContextItem | undefined {
   return INLINE_CONTEXT_ITEMS.find((item) => item.name === name)
 }
 
+export function findItemById(id: string): InlineContextItem | undefined {
+  return INLINE_CONTEXT_ITEMS.find((item) => item.id === id)
+}
+
 export function getCategoryIcon(categoryId: InlineContextCategoryId): Icon {
   return getCategory(categoryId)?.Icon ?? Database
 }

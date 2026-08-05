@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowsInSimple,
   ArrowsOutSimple,
+  BracketsSquare,
   CaretDown,
   CaretUp,
   DotsThreeVertical,
@@ -14,7 +15,10 @@ import {
   Trash,
   X,
 } from '@phosphor-icons/react'
+import type { ConversationSource } from './conversationSources'
+import type { InlineContextItem } from './inlineContextData'
 import { SessionsPanel } from './SessionsPanel'
+import { SourcesPopup } from './SourcesPanel'
 import styles from './compact-assistant.module.css'
 
 export type ChatQuestionIndexItem = {
@@ -51,6 +55,15 @@ export type PanelHeaderProps = {
   searchMatchCount?: number
   searchActiveMatch?: number
   onSearchMatchNavigate?: (direction: 'prev' | 'next') => void
+  sources?: ConversationSource[]
+  onRemoveSource?: (id: string) => void
+  onAddSource?: (item: InlineContextItem) => void
+  /** Toggle floating Sources panel visibility in fullscreen. */
+  onToggleSourcesPanel?: () => void
+  /** Whether the fullscreen floating Sources panel is currently visible. */
+  sourcesPanelOpen?: boolean
+  /** When true in fullscreen, Sources opens as a header popup (subcontext is occupying the rail). */
+  subcontextOpen?: boolean
 }
 
 const CONVERSATION_MENU_ITEMS = [
@@ -78,6 +91,12 @@ export function PanelHeader({
   searchMatchCount = 0,
   searchActiveMatch = -1,
   onSearchMatchNavigate,
+  sources = [],
+  onRemoveSource,
+  onAddSource,
+  onToggleSourcesPanel,
+  sourcesPanelOpen = false,
+  subcontextOpen = false,
 }: PanelHeaderProps) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(chatTitle)
@@ -85,12 +104,18 @@ export function PanelHeader({
   const [overflowOpen, setOverflowOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [sourcesOpen, setSourcesOpen] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const sessionsWrapRef = useRef<HTMLDivElement>(null)
   const overflowWrapRef = useRef<HTMLDivElement>(null)
+  const sourcesWrapRef = useRef<HTMLDivElement>(null)
   const onChatSearchChangeRef = useRef(onChatSearchChange)
   onChatSearchChangeRef.current = onChatSearchChange
+  const showSources = sources.length > 0 && Boolean(onRemoveSource)
+  /** Windowed always; fullscreen only while subcontext owns the right rail. */
+  const sourcesAsPopup = !expanded || subcontextOpen
+  const sourcesControlActive = sourcesAsPopup ? sourcesOpen : sourcesPanelOpen
 
   const emitSearchChange = (open: boolean, query: string) => {
     onChatSearchChangeRef.current?.({ open, query })
@@ -107,6 +132,7 @@ export function PanelHeader({
       setSearchOpen(false)
       setSearchQuery('')
       emitSearchChange(false, '')
+      setSourcesOpen(false)
     }
   }, [hasAssistantReply])
 
@@ -116,8 +142,18 @@ export function PanelHeader({
       setSearchQuery('')
       setOverflowOpen(false)
       emitSearchChange(false, '')
+      setSourcesOpen(false)
     }
   }, [sessionsOpen])
+
+  useEffect(() => {
+    if (sources.length === 0) setSourcesOpen(false)
+  }, [sources.length])
+
+  useEffect(() => {
+    // Floating panel mode: keep the header popup closed.
+    if (expanded && !subcontextOpen) setSourcesOpen(false)
+  }, [expanded, subcontextOpen])
 
   useLayoutEffect(() => {
     if (editingTitle) titleInputRef.current?.focus()
@@ -185,6 +221,25 @@ export function PanelHeader({
     setSearchQuery('')
     emitSearchChange(false, '')
   }
+
+  useEffect(() => {
+    if (!sourcesOpen) return
+    const onPointer = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (sourcesWrapRef.current?.contains(target)) return
+      if (target instanceof Element && target.closest('[data-lc-inline-context-menu]')) return
+      setSourcesOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSourcesOpen(false)
+    }
+    window.addEventListener('mousedown', onPointer)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('mousedown', onPointer)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [sourcesOpen])
 
   const commitTitle = () => {
     const next = titleDraft.trim() || 'New chat'
@@ -387,7 +442,10 @@ export function PanelHeader({
             <button
               type="button"
               className={`${styles.headerSearchBtn}${overflowOpen ? ` ${styles.headerBtnActive}` : ''}`}
-              onClick={() => setOverflowOpen((open) => !open)}
+              onClick={() => {
+                setSourcesOpen(false)
+                setOverflowOpen((open) => !open)
+              }}
               aria-label="Conversation options"
               aria-haspopup="menu"
               aria-expanded={overflowOpen}
@@ -417,6 +475,43 @@ export function PanelHeader({
                     <span>{label}</span>
                   </button>
                 ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showSources ? (
+          <div className={styles.headerOverflowWrap} ref={sourcesWrapRef}>
+            <button
+              type="button"
+              className={`${styles.headerSearchBtn} ${styles.headerSourcesBtn}${
+                sourcesControlActive ? ` ${styles.headerBtnActive}` : ''
+              }`}
+              onClick={() => {
+                setOverflowOpen(false)
+                if (!sourcesAsPopup) {
+                  setSourcesOpen(false)
+                  onToggleSourcesPanel?.()
+                  return
+                }
+                setSourcesOpen((open) => !open)
+              }}
+              aria-label="Sources"
+              aria-haspopup={sourcesAsPopup ? 'dialog' : undefined}
+              aria-expanded={sourcesControlActive}
+              aria-pressed={!sourcesAsPopup ? sourcesPanelOpen : undefined}
+            >
+              <BracketsSquare className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
+            </button>
+            {sourcesAsPopup && sourcesOpen ? (
+              <div className={styles.headerSourcesMenu}>
+                <SourcesPopup
+                  sources={sources}
+                  onRemove={(id) => {
+                    onRemoveSource?.(id)
+                  }}
+                  onAdd={onAddSource}
+                />
               </div>
             ) : null}
           </div>
