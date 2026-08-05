@@ -2009,9 +2009,9 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-md);
-  min-width: 60px;
+  min-width: 72px;
   height: 50px;
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-md) var(--space-xl);
   border-radius: var(--radius-full);
   border: 1px solid var(--lc-border-default);
   background: var(--lc-bg-launcher);
@@ -2038,6 +2038,25 @@
   width: 24px;
   height: 24px;
   display: block;
+  transform-origin: center;
+  animation: launcherOrbPulse 2.4s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes launcherOrbPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.14);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launcherIcon {
+    animation: none;
+  }
 }
 
 /* ChatComposer / ChatBox — matches reference LlumenChatInput .inputContainer */
