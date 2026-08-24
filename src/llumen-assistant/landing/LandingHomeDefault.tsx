@@ -376,11 +376,13 @@ function PopulationChart({ chart }: { chart: NonNullable<AttentionItem['chart']>
 function VoteButton({
   label,
   pressed,
+  className,
   onClick,
   children,
 }: {
   label: string
   pressed: boolean
+  className?: string
   onClick: () => void
   children: ReactNode
 }) {
@@ -396,7 +398,7 @@ function VoteButton({
     <>
       <button
         type="button"
-        className={`${styles.voteBtn}${pressed ? ` ${styles.voteBtnActive}` : ''}`}
+        className={`${styles.voteBtn}${pressed ? ` ${styles.voteBtnActive}` : ''}${className ? ` ${className}` : ''}`}
         aria-pressed={pressed}
         aria-label={label}
         aria-describedby={pos ? tooltipId : undefined}
@@ -445,6 +447,7 @@ function AttentionCard({
   const className = [
     styles.card,
     item.type === 'ai' ? styles.cardAi : '',
+    item.type === 'chart' ? styles.cardChart : '',
     expanded ? styles.cardExpanded : styles.cardCollapsed,
     slotClass,
     offstage ? styles.cardOff : '',
@@ -472,19 +475,10 @@ function AttentionCard({
         {item.type === 'slides' && item.image ? <img src={item.image} alt="" /> : null}
         {item.type !== 'ai' ? <div className={styles.cardScrim} /> : null}
       </div>
-      {item.type === 'chart' && item.chart && expanded ? (
-        <div className={styles.chartPane}>
-          <PopulationChart chart={item.chart} />
-        </div>
-      ) : null}
       <div className={styles.info}>
         <div className={styles.cardFooter}>
-          {item.type === 'chart' && item.chart && !expanded ? (
+          {item.type === 'chart' && item.chart ? (
             <div className={styles.chartSlot}>
-              <PopulationChart chart={item.chart} />
-            </div>
-          ) : item.type === 'chart' && item.chart ? (
-            <div className={`${styles.chartSlot} ${styles.chartSlotMobile}`}>
               <PopulationChart chart={item.chart} />
             </div>
           ) : null}
@@ -501,12 +495,24 @@ function AttentionCard({
               <ChatText size={20} weight="regular" aria-hidden />
               Tell Me More
             </button>
-            <VoteButton label="Show more like this" pressed={vote === 'up'} onClick={() => onVote('up')}>
-              <ThumbsUp size={20} weight={vote === 'up' ? 'fill' : 'regular'} />
-            </VoteButton>
-            <VoteButton label="Not interested" pressed={vote === 'down'} onClick={() => onVote('down')}>
-              <ThumbsDown size={20} weight={vote === 'down' ? 'fill' : 'regular'} />
-            </VoteButton>
+            <div className={styles.voteGroup} data-vote={vote ?? 'none'}>
+              <VoteButton
+                className={styles.voteBtnUp}
+                label="Show more like this"
+                pressed={vote === 'up'}
+                onClick={() => onVote('up')}
+              >
+                <ThumbsUp size={20} weight={vote === 'up' ? 'fill' : 'regular'} />
+              </VoteButton>
+              <VoteButton
+                className={styles.voteBtnDown}
+                label="Not interested"
+                pressed={vote === 'down'}
+                onClick={() => onVote('down')}
+              >
+                <ThumbsDown size={20} weight={vote === 'down' ? 'fill' : 'regular'} />
+              </VoteButton>
+            </div>
           </div>
         </div>
       </div>
@@ -514,10 +520,11 @@ function AttentionCard({
         <button
           type="button"
           className={styles.viewSlidesBtn}
+          aria-label="View Slides"
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          View Slides
+          <span className={styles.viewSlidesLabel}>View Slides</span>
           <ArrowRight size={20} weight="regular" aria-hidden />
         </button>
       ) : null}
