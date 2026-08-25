@@ -30,9 +30,27 @@ const AUTOPLAY_MS = 7000
 const CAROUSEL_GAP = 12
 const PEEK_COUNT = 2
 const CAROUSEL_MS = 560
+const TICKER_MAX = 5
 
 function wrap(index: number, length: number) {
   return ((index % length) + length) % length
+}
+
+function tickerSlots(active: number, count: number, max = TICKER_MAX) {
+  if (count <= 0) return []
+  if (count <= max) {
+    return Array.from({ length: count }, (_, index) => ({ index, edge: false }))
+  }
+  const start = Math.max(0, Math.min(active - Math.floor(max / 2), count - max))
+  const moreLeft = start > 0
+  const moreRight = start + max < count
+  return Array.from({ length: max }, (_, offset) => {
+    const index = start + offset
+    const edge =
+      (offset === 0 && moreLeft && index !== active) ||
+      (offset === max - 1 && moreRight && index !== active)
+    return { index, edge }
+  })
 }
 
 type CardLayout = { left: number; width: number }
@@ -107,11 +125,11 @@ const CATEGORY_FILTERS = [
 
 const AI_GRADIENTS = [
   'linear-gradient(180deg, #4a4969 0%, #7072ab 50%, #cd82a0 100%)',
-  'linear-gradient(180deg, #3d4a6b 0%, #6a7ab8 48%, #c48bb0 100%)',
-  'linear-gradient(180deg, #52446e 0%, #7c72b4 50%, #d08aa8 100%)',
-  'linear-gradient(180deg, #394860 0%, #6478a8 48%, #c47a96 100%)',
-  'linear-gradient(165deg, #4a3d69 0%, #7a6ab0 52%, #d48aa0 100%)',
-  'linear-gradient(180deg, #3e4568 0%, #6d7aaa 52%, #c98aa4 100%)',
+  'linear-gradient(180deg, #40405c 0%, #6f71aa 80%, #8a76ab 100%)',
+  'linear-gradient(180deg, #757abf 0%, #8583be 60%, #eab0d1 100%)',
+  'linear-gradient(180deg, #94c5f8 0%, #8ec0e8 25%, #7e9ad2 45%, #6d74bc 70%, #5a61ad 100%)',
+  'linear-gradient(180deg, #9be2fe 0%, #67d1fb 22%, #2d8fb8 55%, #2478a0 100%)',
+  'linear-gradient(180deg, #57c1eb 0%, #246fa8 100%)',
 ] as const
 
 type ChartSeries = {
@@ -218,6 +236,46 @@ const ATTENTION: AttentionItem[] = [
     highlight: 'service-center delays of 40 minutes',
     after: ' within 72 hours',
     gradient: AI_GRADIENTS[2],
+  },
+  {
+    id: 'ai-gradient-2',
+    type: 'ai',
+    title: 'Coastal Heat Stress Advisory',
+    domain: 'Operations',
+    before: 'Night-time temperatures along the corniche stayed above 32°C for a third consecutive week, with heat-related clinic visits ',
+    highlight: 'up 22%',
+    after: ' versus the seasonal baseline',
+    gradient: AI_GRADIENTS[1],
+  },
+  {
+    id: 'ai-gradient-4',
+    type: 'ai',
+    title: 'Water Network Pressure Review',
+    domain: 'Engineering',
+    before: 'Several districts in Al Ain recorded overnight pressure drops that typically precede ',
+    highlight: 'service interruptions of 4–6 hours',
+    after: ' within the next 48 hours',
+    gradient: AI_GRADIENTS[3],
+  },
+  {
+    id: 'ai-gradient-5',
+    type: 'ai',
+    title: 'School-Zone Congestion Watch',
+    domain: 'Customer Success',
+    before: 'Pickup queues at three model schools in Khalifa City stretched past ',
+    highlight: '18 minutes at close',
+    after: ", doubling last month's average wait",
+    gradient: AI_GRADIENTS[4],
+  },
+  {
+    id: 'ai-gradient-6',
+    type: 'ai',
+    title: 'Retail Footfall Anomaly Brief',
+    domain: 'Sales',
+    before: 'Weekend mall occupancy in Yas Island fell ',
+    highlight: '14% below forecast',
+    after: ' despite event programming that usually lifts traffic',
+    gradient: AI_GRADIENTS[5],
   },
 ]
 
@@ -709,28 +767,34 @@ export default function LandingHomeDefault() {
 
             <div className={styles.controls}>
               <div className={styles.progress} role="tablist" aria-label="Attention items">
-                {ATTENTION.map((item, index) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="tab"
-                    aria-label={`Attention ${index + 1}, ${item.type}: ${item.title}`}
-                    aria-selected={index === active}
-                    className={`${styles.dot}${index === active ? ` ${styles.dotActive}` : ''}${
-                      index === active && !playing ? ` ${styles.dotPaused}` : ''
-                    }`}
-                    onClick={() => goTo(index)}
-                  >
-                    {index === active ? (
-                      <span
-                        className={styles.dotFill}
-                        onAnimationEnd={() => {
-                          if (playing) goTo(active + 1)
-                        }}
-                      />
-                    ) : null}
-                  </button>
-                ))}
+                {tickerSlots(active, count).map(({ index, edge }) => {
+                  const item = ATTENTION[index]
+                  const selected = index === active
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="tab"
+                      aria-label={`Attention ${index + 1}, ${item.type}: ${item.title}`}
+                      aria-selected={selected}
+                      aria-setsize={count}
+                      aria-posinset={index + 1}
+                      className={`${styles.dot}${selected ? ` ${styles.dotActive}` : ''}${
+                        selected && !playing ? ` ${styles.dotPaused}` : ''
+                      }${edge ? ` ${styles.dotEdge}` : ''}`}
+                      onClick={() => goTo(index)}
+                    >
+                      {selected ? (
+                        <span
+                          className={styles.dotFill}
+                          onAnimationEnd={() => {
+                            if (playing) goTo(active + 1)
+                          }}
+                        />
+                      ) : null}
+                    </button>
+                  )
+                })}
               </div>
               <div className={styles.ctrlGroup}>
                 <button

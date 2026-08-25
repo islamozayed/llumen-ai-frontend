@@ -1,4 +1,5 @@
 import type { CreatedComponent } from './assistantReplyTypes'
+import { airQualityMapQueryTable } from './airQualityMapDemoData'
 
 export type QueryResultTable = {
   columns: string[]
@@ -6,16 +7,7 @@ export type QueryResultTable = {
 }
 
 const QUERY_RESULTS_BY_ID: Record<string, QueryResultTable> = {
-  'air-quality-monitoring-map': {
-    columns: ['Station', 'Location', 'AQI', 'NO₂ (µg/m³)', 'PM₂.₅ (µg/m³)', 'Status'],
-    rows: [
-      ['AQ-14', 'Mussafah industrial', '168', '430', '70', 'Unhealthy'],
-      ['AQ-09', 'ICAD corridor', '142', '310', '58', 'Unhealthy for Sensitive'],
-      ['AQ-03', 'Mina Zayed approach', '121', '198', '44', 'Unhealthy for Sensitive'],
-      ['AQ-21', 'Saadiyat coastal', '78', '62', '18', 'Moderate'],
-      ['AQ-07', 'Downtown Corniche', '64', '48', '14', 'Moderate'],
-    ],
-  },
+  'air-quality-monitoring-map': airQualityMapQueryTable(),
   'air-quality-index': {
     columns: ['Timestamp', 'Station', 'AQI', 'Category', 'Dominant pollutant'],
     rows: [

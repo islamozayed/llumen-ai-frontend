@@ -3,6 +3,7 @@ import { ChatTeardropText, Check, FloppyDisk, Info, SidebarSimple } from '@phosp
 import { AiGeneratedBadge } from './AiGeneratedBadge'
 import type { CreatedComponent } from './assistantReplyTypes'
 import { ApiResponseTerminal } from './ApiResponseTerminal'
+import { DataProfilePanel } from './DataProfilePanel'
 import { queryResultsForComponent } from './componentQueryResults'
 import { DataSourceSettingsPanel } from './DataSourceSettingsPanel'
 import { InteractiveMap, MapControls, type InteractiveMapHandle } from './InteractiveMap'
@@ -16,11 +17,17 @@ export type ComponentDetailPanelProps = {
 }
 
 type DetailTab = 'component' | 'query-results' | 'data-source'
+type DataSubTab = 'results' | 'profile'
 
 const DETAIL_TABS: { id: DetailTab; label: string }[] = [
   { id: 'component', label: 'Asset' },
   { id: 'query-results', label: 'Data' },
   { id: 'data-source', label: 'Source' },
+]
+
+const DATA_SUB_TABS: { id: DataSubTab; label: string }[] = [
+  { id: 'results', label: 'Query Results' },
+  { id: 'profile', label: 'Data Profile' },
 ]
 
 function isMapDetailComponent(component: CreatedComponent) {
@@ -117,39 +124,88 @@ function ComponentPreview({ component }: { component: CreatedComponent }) {
   return <p className={styles.componentDetailTextMuted}>Preview not available for this component.</p>
 }
 
+function QueryResultsContent({ component }: { component: CreatedComponent }) {
+  if (component.id === 'air-quality-index') {
+    return <ApiResponseTerminal />
+  }
+
+  const table = queryResultsForComponent(component)
+  return (
+    <div className={styles.componentDetailDataTableWrap}>
+      <table className={styles.componentDetailDataTable}>
+        <thead>
+          <tr>
+            {table.columns.map((col) => (
+              <th key={col}>{col}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((row, rowIndex) => (
+            <tr key={`${component.id}-row-${rowIndex}`}>
+              {row.map((cell, cellIndex) => (
+                <td key={`${component.id}-${rowIndex}-${cellIndex}`}>{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function DataTabContent({ component }: { component: CreatedComponent }) {
+  const [dataSubTab, setDataSubTab] = useState<DataSubTab>('results')
+
+  useEffect(() => {
+    setDataSubTab('results')
+  }, [component.id])
+
+  return (
+    <div className={styles.dataTabRoot}>
+      <div className={styles.dataSubTabs} role="tablist" aria-label="Data views">
+        {DATA_SUB_TABS.map((tab) => {
+          const selected = dataSubTab === tab.id
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              id={`component-data-subtab-${tab.id}`}
+              className={`${styles.dataSubTab}${selected ? ` ${styles.dataSubTabActive}` : ''}`}
+              aria-selected={selected}
+              aria-controls={`component-data-panel-${tab.id}`}
+              onClick={() => setDataSubTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      <div
+        className={styles.dataSubPanel}
+        role="tabpanel"
+        id={`component-data-panel-${dataSubTab}`}
+        aria-labelledby={`component-data-subtab-${dataSubTab}`}
+      >
+        {dataSubTab === 'results' ? (
+          <QueryResultsContent component={component} />
+        ) : (
+          <DataProfilePanel component={component} />
+        )}
+      </div>
+    </div>
+  )
+}
+
 function TabPanelContent({ tab, component }: { tab: DetailTab; component: CreatedComponent }) {
   if (tab === 'component') {
     return <ComponentPreview component={component} />
   }
 
   if (tab === 'query-results') {
-    if (component.id === 'air-quality-index') {
-      return <ApiResponseTerminal />
-    }
-
-    const table = queryResultsForComponent(component)
-    return (
-      <div className={styles.componentDetailDataTableWrap}>
-        <table className={styles.componentDetailDataTable}>
-          <thead>
-            <tr>
-              {table.columns.map((col) => (
-                <th key={col}>{col}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {table.rows.map((row, rowIndex) => (
-              <tr key={`${component.id}-row-${rowIndex}`}>
-                {row.map((cell, cellIndex) => (
-                  <td key={`${component.id}-${rowIndex}-${cellIndex}`}>{cell}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
+    return <DataTabContent component={component} />
   }
 
   return (
