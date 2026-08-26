@@ -444,21 +444,16 @@
   font-family: inherit;
   font-size: 14px;
   line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.cardCollapsed .actionBtn,
 .cardCollapsed .viewSlidesBtn {
   width: 36px;
   padding: 0;
   gap: 0;
 }
 
-.cardCollapsed .actionInner {
-  gap: 0;
-}
-
-.cardCollapsed .actionLabel,
 .cardCollapsed .viewSlidesLabel {
   position: absolute;
   width: 1px;
@@ -766,6 +761,23 @@
   font-size: 12px;
   line-height: 16px;
   color: rgba(255, 255, 255, 0.48);
+}
+
+@media (max-width: 1149px) {
+  .viewSlidesBtn {
+    width: 36px;
+    padding: 0;
+    gap: 0;
+  }
+
+  .viewSlidesLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
 }
 
 @media (max-width: 1280px) {

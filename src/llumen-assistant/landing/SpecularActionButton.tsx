@@ -401,7 +401,12 @@ export function SpecularActionButton({
   }, [motionKey])
 
   return (
-    <button ref={btnRef} type="button" className={className} aria-label="Tell me more">
+    <button
+      ref={btnRef}
+      type="button"
+      className={className}
+      aria-label="Tell me more"
+    >
       <span ref={fxRef} className={styles.actionSpecular} aria-hidden />
       <span className={styles.actionInner}>{children}</span>
     </button>

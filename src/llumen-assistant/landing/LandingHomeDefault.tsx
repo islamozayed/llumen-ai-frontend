@@ -10,6 +10,7 @@ import {
   Bell,
   ChatText,
   GearSix,
+  Link,
   LockSimple,
   MagnifyingGlass,
   Pause,
@@ -28,10 +29,20 @@ import { SpecularActionButton } from './SpecularActionButton'
 import styles from './LandingHome.module.css'
 
 const AUTOPLAY_MS = 7000
-const CAROUSEL_GAP = 12
+const CAROUSEL_GAP = 16
 const PEEK_COUNT = 2
+const PEEK_ONE_BELOW_VW = 1600
+const PEEK_NONE_BELOW_VW = 1150
+const HERO_SHARE = 1023 / 1857
+const HERO_SHARE_ONE_PEEK = 0.65
 const CAROUSEL_MS = 560
 const TICKER_MAX = 5
+
+function peekCountForViewport(width: number) {
+  if (width < PEEK_NONE_BELOW_VW) return 0
+  if (width < PEEK_ONE_BELOW_VW) return 1
+  return PEEK_COUNT
+}
 
 function wrap(index: number, length: number) {
   return ((index % length) + length) % length
@@ -67,10 +78,15 @@ function cardMetrics(trackWidth: number, peekCount: number): CardMetrics {
   if (peekCount === 0) {
     return { heroWidth: trackWidth, peekWidth: trackWidth, trackWidth }
   }
+  if (peekCount === 1) {
+    const heroWidth = trackWidth * HERO_SHARE_ONE_PEEK
+    const peekWidth = Math.max(0, trackWidth * (1 - HERO_SHARE_ONE_PEEK) - CAROUSEL_GAP)
+    return { heroWidth, peekWidth, trackWidth }
+  }
+  const designAvailable = Math.max(0, trackWidth - CAROUSEL_GAP * PEEK_COUNT)
+  const peekWidth = (designAvailable * (1 - HERO_SHARE)) / PEEK_COUNT
   const gaps = CAROUSEL_GAP * peekCount
-  const available = Math.max(0, trackWidth - gaps)
-  const heroWidth = available * (1023 / 1857)
-  const peekWidth = (available - heroWidth) / peekCount
+  const heroWidth = Math.max(0, trackWidth - gaps - peekWidth * peekCount)
   return { heroWidth, peekWidth, trackWidth }
 }
 
@@ -438,6 +454,58 @@ function PopulationChart({ chart }: { chart: NonNullable<AttentionItem['chart']>
   )
 }
 
+function usePeekCount() {
+  const [peekCount, setPeekCount] = useState(() =>
+    typeof window === 'undefined' ? PEEK_COUNT : peekCountForViewport(window.innerWidth),
+  )
+
+  useLayoutEffect(() => {
+    const one = window.matchMedia(`(max-width: ${PEEK_ONE_BELOW_VW - 1}px)`)
+    const none = window.matchMedia(`(max-width: ${PEEK_NONE_BELOW_VW - 1}px)`)
+    const apply = () => setPeekCount(none.matches ? 0 : one.matches ? 1 : PEEK_COUNT)
+    apply()
+    one.addEventListener('change', apply)
+    none.addEventListener('change', apply)
+    return () => {
+      one.removeEventListener('change', apply)
+      none.removeEventListener('change', apply)
+    }
+  }, [])
+
+  return peekCount
+}
+
+function useAnchoredTooltip(enabled = true) {
+  const tooltipId = useId()
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    if (!enabled) setPos(null)
+  }, [enabled])
+
+  const show = (event: { currentTarget: HTMLElement }) => {
+    if (!enabled) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    setPos({ x: rect.left + rect.width / 2, y: rect.top - 8 })
+  }
+  const hide = () => setPos(null)
+
+  return {
+    describedBy: enabled && pos ? tooltipId : undefined,
+    show,
+    hide,
+    node: (label: string) =>
+      enabled && pos
+        ? createPortal(
+            <div id={tooltipId} className={styles.tooltip} role="tooltip" style={{ left: pos.x, top: pos.y }}>
+              {label}
+            </div>,
+            document.body,
+          )
+        : null,
+  }
+}
+
 function VoteButton({
   label,
   pressed,
@@ -449,13 +517,7 @@ function VoteButton({
   onClick: () => void
   children: ReactNode
 }) {
-  const tooltipId = useId()
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
-
-  const show = (event: { currentTarget: HTMLButtonElement }) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    setPos({ x: rect.left + rect.width / 2, y: rect.top - 8 })
-  }
+  const tooltip = useAnchoredTooltip()
 
   return (
     <>
@@ -464,24 +526,17 @@ function VoteButton({
         className={`${styles.voteBtn}${pressed ? ` ${styles.voteBtnActive}` : ''}`}
         aria-pressed={pressed}
         aria-label={label}
-        aria-describedby={pos ? tooltipId : undefined}
+        aria-describedby={tooltip.describedBy}
         onClick={onClick}
-        onMouseEnter={show}
-        onMouseMove={show}
-        onMouseLeave={() => setPos(null)}
-        onFocus={show}
-        onBlur={() => setPos(null)}
+        onMouseEnter={tooltip.show}
+        onMouseMove={tooltip.show}
+        onMouseLeave={tooltip.hide}
+        onFocus={tooltip.show}
+        onBlur={tooltip.hide}
       >
         {children}
       </button>
-      {pos
-        ? createPortal(
-            <div id={tooltipId} className={styles.tooltip} role="tooltip" style={{ left: pos.x, top: pos.y }}>
-              {label}
-            </div>,
-            document.body,
-          )
-        : null}
+      {tooltip.node(label)}
     </>
   )
 }
@@ -494,6 +549,7 @@ function AttentionCard({
   offstage,
   snap,
   park,
+  iconOnlySlides,
   onExpand,
   vote,
   onVote,
@@ -505,10 +561,14 @@ function AttentionCard({
   offstage: boolean
   snap: boolean
   park: boolean
+  iconOnlySlides: boolean
   onExpand?: () => void
   vote: 'up' | 'down' | null
   onVote: (value: 'up' | 'down') => void
 }) {
+  const slidesTip = useAnchoredTooltip(
+    (iconOnlySlides || !expanded) && !offstage && !snap && !park && item.type === 'slides',
+  )
   const className = [
     styles.card,
     item.type === 'ai' ? styles.cardAi : '',
@@ -587,16 +647,25 @@ function AttentionCard({
         </div>
       </div>
       {item.type === 'slides' ? (
-        <button
-          type="button"
-          className={styles.viewSlidesBtn}
-          aria-label="View Slides"
-          onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
-        >
-          <span className={styles.viewSlidesLabel}>View Slides</span>
-          <ArrowRight size={20} weight="regular" aria-hidden />
-        </button>
+        <>
+          <button
+            type="button"
+            className={styles.viewSlidesBtn}
+            aria-label="View Slides"
+            aria-describedby={slidesTip.describedBy}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+            onMouseEnter={slidesTip.show}
+            onMouseMove={slidesTip.show}
+            onMouseLeave={slidesTip.hide}
+            onFocus={slidesTip.show}
+            onBlur={slidesTip.hide}
+          >
+            <Link size={20} weight="regular" aria-hidden />
+            <span className={styles.viewSlidesLabel}>View Slides</span>
+          </button>
+          {slidesTip.node('View Slides')}
+        </>
       ) : null}
     </article>
   )
@@ -611,6 +680,7 @@ export default function LandingHomeDefault() {
   const [trackReady, setTrackReady] = useState(false)
   const [exiting, setExiting] = useState<number[]>([])
   const [incoming, setIncoming] = useState<number[]>([])
+  const peekCount = usePeekCount()
   const trackRef = useRef<HTMLDivElement>(null)
   const prevLayoutsRef = useRef<Record<string, CardLayout>>({})
   const exitTimersRef = useRef<Record<number, number>>({})
@@ -660,7 +730,6 @@ export default function LandingHomeDefault() {
     }
   }, [])
 
-  const peekCount = trackWidth > 0 && trackWidth < 860 ? 0 : PEEK_COUNT
   const metrics = cardMetrics(trackWidth, peekCount)
   peekCountRef.current = peekCount
 
@@ -795,6 +864,7 @@ export default function LandingHomeDefault() {
                     offstage={offstage}
                     snap={snap}
                     park={park}
+                    iconOnlySlides={peekCount === 0}
                     onExpand={() => goTo(index)}
                     vote={votes[item.id] ?? null}
                     onVote={(value) =>
