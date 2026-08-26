@@ -24,6 +24,7 @@ import {
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { landingAssets as a } from './landingAssets'
+import { SpecularActionButton } from './SpecularActionButton'
 import styles from './LandingHome.module.css'
 
 const AUTOPLAY_MS = 7000
@@ -90,6 +91,12 @@ function carouselLayout(
     }
   }
   return { left: trackWidth + CAROUSEL_GAP, width: peekWidth }
+}
+
+function parkedLayout(metrics: CardMetrics, slot: number): CardLayout {
+  const width = metrics.peekWidth || metrics.heroWidth
+  const step = width + CAROUSEL_GAP
+  return { left: -(step * (slot + 1)), width }
 }
 
 function isOffstage(layout: CardLayout, trackWidth: number) {
@@ -434,13 +441,11 @@ function PopulationChart({ chart }: { chart: NonNullable<AttentionItem['chart']>
 function VoteButton({
   label,
   pressed,
-  className,
   onClick,
   children,
 }: {
   label: string
   pressed: boolean
-  className?: string
   onClick: () => void
   children: ReactNode
 }) {
@@ -456,7 +461,7 @@ function VoteButton({
     <>
       <button
         type="button"
-        className={`${styles.voteBtn}${pressed ? ` ${styles.voteBtnActive}` : ''}${className ? ` ${className}` : ''}`}
+        className={`${styles.voteBtn}${pressed ? ` ${styles.voteBtnActive}` : ''}`}
         aria-pressed={pressed}
         aria-label={label}
         aria-describedby={pos ? tooltipId : undefined}
@@ -488,6 +493,7 @@ function AttentionCard({
   layout,
   offstage,
   snap,
+  park,
   onExpand,
   vote,
   onVote,
@@ -498,6 +504,7 @@ function AttentionCard({
   layout: CardLayout
   offstage: boolean
   snap: boolean
+  park: boolean
   onExpand?: () => void
   vote: 'up' | 'down' | null
   onVote: (value: 'up' | 'down') => void
@@ -510,6 +517,7 @@ function AttentionCard({
     slotClass,
     offstage ? styles.cardOff : '',
     snap ? styles.cardSnap : '',
+    park ? styles.cardPark : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -519,6 +527,7 @@ function AttentionCard({
     width: layout.width,
     ...(item.type === 'ai' && item.gradient ? { background: item.gradient } : {}),
     ...(snap ? { transition: 'none', visibility: 'hidden' as const } : {}),
+    ...(park ? { transition: 'none' } : {}),
   }
 
   return (
@@ -549,13 +558,17 @@ function AttentionCard({
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
-            <button type="button" className={styles.actionBtn}>
+            <SpecularActionButton
+              className={styles.actionBtn}
+              enabled={!offstage && !snap && !park}
+              motionKey={`${Math.round(layout.left)}:${Math.round(layout.width)}:${expanded ? 'x' : 'c'}`}
+              settleMs={CAROUSEL_MS}
+            >
               <ChatText size={20} weight="regular" aria-hidden />
-              Tell Me More
-            </button>
-            <div className={styles.voteGroup} data-vote={vote ?? 'none'}>
+              <span className={styles.actionLabel}>Tell Me More</span>
+            </SpecularActionButton>
+            <div className={styles.voteGroup}>
               <VoteButton
-                className={styles.voteBtnUp}
                 label="Show more like this"
                 pressed={vote === 'up'}
                 onClick={() => onVote('up')}
@@ -563,7 +576,6 @@ function AttentionCard({
                 <ThumbsUp size={20} weight={vote === 'up' ? 'fill' : 'regular'} />
               </VoteButton>
               <VoteButton
-                className={styles.voteBtnDown}
                 label="Not interested"
                 pressed={vote === 'down'}
                 onClick={() => onVote('down')}
@@ -598,11 +610,12 @@ export default function LandingHomeDefault() {
   const [trackWidth, setTrackWidth] = useState(0)
   const [trackReady, setTrackReady] = useState(false)
   const [exiting, setExiting] = useState<number[]>([])
+  const [incoming, setIncoming] = useState<number[]>([])
   const trackRef = useRef<HTMLDivElement>(null)
   const prevLayoutsRef = useRef<Record<string, CardLayout>>({})
-  const generationRef = useRef<Record<string, number>>({})
   const exitTimersRef = useRef<Record<number, number>>({})
   const activeRef = useRef(0)
+  const peekCountRef = useRef(0)
 
   const count = ATTENTION.length
   activeRef.current = active
@@ -613,7 +626,9 @@ export default function LandingHomeDefault() {
     if (next === current) return
     const forward = wrap(next - current, count)
     const backward = wrap(current - next, count)
+    const peekCount = peekCountRef.current
     if (forward > 0 && forward <= backward) {
+      setIncoming([])
       const leaving = Array.from({ length: forward }, (_, step) => wrap(current + step, count))
       setExiting((prev) => [...new Set([...prev, ...leaving])])
       for (const itemIndex of leaving) {
@@ -623,6 +638,17 @@ export default function LandingHomeDefault() {
           delete exitTimersRef.current[itemIndex]
         }, CAROUSEL_MS)
       }
+    } else {
+      for (const timer of Object.values(exitTimersRef.current)) window.clearTimeout(timer)
+      exitTimersRef.current = {}
+      setExiting([])
+      const visible = new Set(
+        [current, ...Array.from({ length: peekCount }, (_, step) => wrap(current + 1 + step, count))],
+      )
+      const entering = Array.from({ length: peekCount + 1 }, (_, step) => wrap(next + step, count)).filter(
+        (itemIndex) => !visible.has(itemIndex),
+      )
+      setIncoming(entering)
     }
     setActive(next)
   }, [count])
@@ -636,14 +662,30 @@ export default function LandingHomeDefault() {
 
   const peekCount = trackWidth > 0 && trackWidth < 860 ? 0 : PEEK_COUNT
   const metrics = cardMetrics(trackWidth, peekCount)
+  peekCountRef.current = peekCount
+
+  useEffect(() => {
+    if (incoming.length === 0) return
+    let inner = 0
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setIncoming([]))
+    })
+    return () => {
+      cancelAnimationFrame(outer)
+      cancelAnimationFrame(inner)
+    }
+  }, [incoming])
 
   useLayoutEffect(() => {
     ATTENTION.forEach((item, index) => {
       const rel = wrap(index - active, count)
-      const layout = carouselLayout(rel, metrics, exiting.includes(index), peekCount)
+      const park = incoming.includes(index)
+      const layout = park
+        ? parkedLayout(metrics, rel)
+        : carouselLayout(rel, metrics, exiting.includes(index), peekCount)
       prevLayoutsRef.current[item.id] = layout
     })
-  }, [active, count, exiting, peekCount, trackWidth])
+  }, [active, count, exiting, incoming, peekCount, trackWidth])
 
   useLayoutEffect(() => {
     const node = trackRef.current
@@ -736,22 +778,23 @@ export default function LandingHomeDefault() {
               {ATTENTION.map((item, index) => {
                 const rel = wrap(index - active, count)
                 const leaving = exiting.includes(index)
-                const layout = carouselLayout(rel, metrics, leaving, peekCount)
-                const expanded = rel === 0 || leaving
+                const park = incoming.includes(index)
+                const layout = park
+                  ? parkedLayout(metrics, rel)
+                  : carouselLayout(rel, metrics, leaving, peekCount)
+                const expanded = !park && (rel === 0 || leaving)
                 const offstage = isOffstage(layout, trackWidth)
-                const snap = crossesOffstage(prevLayoutsRef.current[item.id], layout, trackWidth)
-                if (snap) {
-                  generationRef.current[item.id] = (generationRef.current[item.id] ?? 0) + 1
-                }
+                const snap = !park && crossesOffstage(prevLayoutsRef.current[item.id], layout, trackWidth)
                 return (
                   <AttentionCard
-                    key={`${item.id}-${generationRef.current[item.id] ?? 0}`}
+                    key={item.id}
                     item={item}
                     expanded={expanded}
-                    slotClass={leaving || rel === 0 ? styles.cardHero : styles.cardPeek}
+                    slotClass={park || !(leaving || rel === 0) ? styles.cardPeek : styles.cardHero}
                     layout={layout}
                     offstage={offstage}
                     snap={snap}
+                    park={park}
                     onExpand={() => goTo(index)}
                     vote={votes[item.id] ?? null}
                     onVote={(value) =>

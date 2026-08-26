@@ -231,6 +231,10 @@
   visibility: hidden;
 }
 
+.trackReady .card.cardPark {
+  transition: none;
+}
+
 .cardOff {
   border-color: transparent;
   pointer-events: none;
@@ -261,6 +265,7 @@
 .pillBtn:focus-visible,
 .iconBtn:focus-visible,
 .ctrlBtn:focus-visible,
+.actionBtn:focus-visible,
 .viewSlidesBtn:focus-visible {
   outline: 2px solid #70aeff;
   outline-offset: 2px;
@@ -369,7 +374,45 @@
 }
 
 .actionBtn {
-  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: visible;
+  isolation: isolate;
+  padding: 8px 12px;
+  border: 1.4px solid var(--lc-text-secondary);
+  border-radius: 18px;
+  background: transparent;
+  color: #f5f5f5;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.actionBtn[data-specular='on'] {
+  border-color: transparent;
+}
+
+.actionInner {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.actionSpecular {
+  position: absolute;
+  top: -20px;
+  left: -20px;
+  width: 220px;
+  height: 76px;
+  pointer-events: none;
+  z-index: 1;
+  visibility: hidden;
+}
+
+.actionSpecular canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .voteBtn {
@@ -408,80 +451,18 @@
   cursor: pointer;
 }
 
-.cardCollapsed:has(.voteGroup:hover) .info,
-.cardCollapsed:has(.voteGroup:focus-within) .info {
-  z-index: 5;
-}
-
-.cardCollapsed:has(.voteGroup:hover) .viewSlidesBtn,
-.cardCollapsed:has(.voteGroup:focus-within) .viewSlidesBtn {
-  z-index: 1;
-}
-
-.cardCollapsed .voteGroup {
-  position: relative;
-  z-index: 6;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-}
-
-.cardCollapsed .voteGroup .voteBtn {
-  position: absolute;
-  top: 0;
-  left: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.cardCollapsed .voteGroup[data-vote='none'] .voteBtnUp,
-.cardCollapsed .voteGroup[data-vote='up'] .voteBtnUp,
-.cardCollapsed .voteGroup[data-vote='down'] .voteBtnDown {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.cardCollapsed .voteGroup:hover .voteBtn,
-.cardCollapsed .voteGroup:focus-within .voteBtn {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.cardCollapsed .voteGroup:hover .voteBtnDown,
-.cardCollapsed .voteGroup:focus-within .voteBtnDown {
-  left: 46px;
-}
-
-.cardCollapsed .voteGroup[data-vote='down']:hover .voteBtnDown,
-.cardCollapsed .voteGroup[data-vote='down']:focus-within .voteBtnDown {
-  left: 0;
-}
-
-.cardCollapsed .voteGroup[data-vote='down']:hover .voteBtnUp,
-.cardCollapsed .voteGroup[data-vote='down']:focus-within .voteBtnUp {
-  left: 46px;
-}
-
-.cardCollapsed .voteGroup:hover::before,
-.cardCollapsed .voteGroup:focus-within::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  right: -50px;
-  bottom: -4px;
-  left: -4px;
-  z-index: -1;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-full);
-  background: rgba(12, 18, 28, 0.88);
-}
-
+.cardCollapsed .actionBtn,
 .cardCollapsed .viewSlidesBtn {
   width: 36px;
   padding: 0;
   gap: 0;
 }
 
+.cardCollapsed .actionInner {
+  gap: 0;
+}
+
+.cardCollapsed .actionLabel,
 .cardCollapsed .viewSlidesLabel {
   position: absolute;
   width: 1px;
