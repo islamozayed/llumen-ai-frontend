@@ -8,7 +8,11 @@ import { MeshGradient } from '@paper-design/shaders-react'
 import gsap from 'gsap'
 import styles from './compact-assistant.module.css'
 import LandingHomeDefault from './landing/LandingHomeDefault'
-import { MESH_COLORS_DEMO_PAGE, MESH_FRAME_DEMO_PAGE } from './paperMeshConstants'
+import {
+  MESH_COLORS_DEMO_PAGE,
+  MESH_FRAME_DEMO_PAGE,
+  MESH_MAX_PIXEL_COUNT_DEMO_PAGE,
+} from './paperMeshConstants'
 import { AssistantHero } from './AssistantHero'
 import { AssistantLauncher } from './AssistantLauncher'
 import { AssistantPanel } from './AssistantPanel'
@@ -885,6 +889,7 @@ export function CompactAssistantDemo() {
           swirl={0}
           frame={MESH_FRAME_DEMO_PAGE}
           colors={[...MESH_COLORS_DEMO_PAGE]}
+          maxPixelCount={MESH_MAX_PIXEL_COUNT_DEMO_PAGE}
           className={styles.demoPageShaderCanvas}
         />
       </div>
