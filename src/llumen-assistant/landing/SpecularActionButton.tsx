@@ -231,8 +231,7 @@ export function SpecularActionButton({
       const dt = Math.min((now - last) / 1000, 0.05)
       last = now
       idleAngle += SPEED * dt
-      const steer = pointerAngle != null
-      const target = steer ? pointerAngle : idleAngle
+      const target = pointerAngle ?? idleAngle
       const diff = ((target - angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI
       angle += diff * (1 - Math.exp(-dt * 7))
       bright += (proximityT - bright) * (1 - Math.exp(-dt * 8))
