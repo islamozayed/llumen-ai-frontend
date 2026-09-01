@@ -1,7 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
-  ArrowsInSimple,
-  ArrowsOutSimple,
   BracketsSquare,
   CaretDown,
   CaretUp,
@@ -36,7 +34,6 @@ export type ChatSearchState = {
 export type PanelHeaderProps = {
   onClose: () => void
   expanded?: boolean
-  onToggleExpanded?: () => void
   chatTitle?: string
   onChatTitleChange?: (title: string) => void
   onOpenSession?: (id: string) => void
@@ -76,7 +73,6 @@ const CONVERSATION_MENU_ITEMS = [
 export function PanelHeader({
   onClose,
   expanded = false,
-  onToggleExpanded,
   chatTitle = 'New chat',
   onChatTitleChange,
   onOpenSession,
@@ -519,20 +515,6 @@ export function PanelHeader({
       </div>
 
       <div className={styles.headerActions}>
-        {onToggleExpanded ? (
-          <button
-            type="button"
-            className={styles.headerBtn}
-            onClick={onToggleExpanded}
-            aria-label={expanded ? 'Exit full screen' : 'Enter full screen'}
-          >
-            {expanded ? (
-              <ArrowsInSimple className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
-            ) : (
-              <ArrowsOutSimple className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
-            )}
-          </button>
-        ) : null}
         <button type="button" className={styles.headerBtn} onClick={onClose} aria-label="Close assistant">
           <X className={styles.headerPhosphor} size={20} weight="regular" aria-hidden />
         </button>

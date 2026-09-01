@@ -126,12 +126,14 @@ export function SpecularActionButton({
   enabled = true,
   motionKey = '',
   settleMs = 560,
+  onClick,
   children,
 }: {
   className: string
   enabled?: boolean
   motionKey?: string
   settleMs?: number
+  onClick?: () => void
   children: ReactNode
 }) {
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -405,6 +407,7 @@ export function SpecularActionButton({
       type="button"
       className={className}
       aria-label="Tell me more"
+      onClick={onClick}
     >
       <span ref={fxRef} className={styles.actionSpecular} aria-hidden />
       <span className={styles.actionInner}>{children}</span>

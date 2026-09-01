@@ -217,6 +217,9 @@
 
   --lc-panel-width: 34vw;
   --lc-panel-min-width: 600px;
+  /* Docked left agent rail (pushes landing / story content) */
+  --lc-rail-width: min(420px, 38vw);
+  --lc-rail-enter-duration: 320ms;
   --lc-panel-detail-width: 55vw;
   /* Responsive split rail: track viewport changes without retaining the compact panel's 600px minimum. */
   --lc-panel-chat-split-width: clamp(320px, 42dvw, 640px);
@@ -241,7 +244,7 @@
   --lc-scrollbar-size: 4px;
   --lc-scrollbar-thumb: rgba(132, 177, 245, 0.14);
   --lc-scrollbar-thumb-hover: rgba(132, 177, 245, 0.24);
-  /* Space between transcript content and scrollbar; mirrored on composer width */
+  /* Equal right-rail gaps: content ↔ scrollbar ↔ rail edge (matches left rail pad) */
   --lc-transcript-gutter: var(--space-lg);
 
   /* Chart accents used by KPI widgets */
@@ -252,5 +255,6 @@
 @media (prefers-reduced-motion: reduce) {
   :root {
     --lc-duration: 0ms;
+    --lc-rail-enter-duration: 0ms;
   }
 }

@@ -39,6 +39,15 @@
   overscroll-behavior: contain;
   pointer-events: auto;
   -webkit-overflow-scrolling: touch;
+  transition: padding-left var(--lc-rail-enter-duration, 320ms) var(--lc-ease);
+}
+
+.demoPageRailOpen .demoLandingLayer {
+  padding-left: var(--lc-rail-width);
+}
+
+.demoPageStory .demoLandingLayer {
+  overflow: hidden;
 }
 
 .demoLandingLayer > * {
@@ -62,19 +71,61 @@
 
 .fabColumn {
   position: fixed;
-  right: var(--space-3xl);
+  left: var(--space-3xl);
+  right: auto;
   bottom: var(--space-3xl);
   z-index: 2;
-  width: var(--lc-panel-width);
-  min-width: var(--lc-panel-min-width);
+  width: auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  align-items: stretch;
+  align-items: flex-start;
   gap: var(--space-lg);
   box-sizing: border-box;
   pointer-events: none;
-  transition: width var(--lc-search-expand-duration) var(--lc-search-expand-ease);
+  /* No width/left morph — docked rail slides in instead of growing from the FAB */
+}
+
+/* Full-height left agent rail — pushes page via demoPageRailOpen padding */
+.fabColumnDocked {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--lc-rail-width);
+  min-width: var(--lc-rail-width);
+  max-width: var(--lc-rail-width);
+  height: 100dvh;
+  justify-content: stretch;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--lc-surface-0, #0e1014);
+  /* Animate `left` (not transform) so position:fixed subcontext stays viewport-relative */
+  transform: none;
+  animation: lcRailSlideIn var(--lc-rail-enter-duration, 320ms) var(--lc-ease) both;
+}
+
+@keyframes lcRailSlideIn {
+  from {
+    left: calc(-1 * var(--lc-rail-width));
+  }
+  to {
+    left: 0;
+  }
+}
+
+.fabColumnDocked.fabColumnSplit {
+  /* Chat stays in the rail; detail overlays the remaining page */
+  width: var(--lc-rail-width);
+  min-width: var(--lc-rail-width);
+  max-width: var(--lc-rail-width);
+}
+
+.fabColumnHidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .fabColumnSplit {
@@ -97,6 +148,20 @@
   transition:
     opacity var(--lc-duration) var(--lc-ease),
     transform var(--lc-duration) var(--lc-ease);
+}
+
+.fabColumnDocked .panelWrap {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  /* Rail owns the motion — don't fade/rise the panel independently */
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+.fabColumnDocked .panelWrapHidden {
+  display: none;
 }
 
 .panelWrap > * {
@@ -128,6 +193,19 @@
   overscroll-behavior: contain;
   box-shadow: var(--lc-shadow-4);
   box-sizing: border-box;
+}
+
+.fabColumnDocked .requestBox {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  /* Sides + bottom = 12px gutter; top stays tighter under the header */
+  padding: var(--space-md) var(--lc-transcript-gutter) var(--lc-transcript-gutter);
+}
+
+.fabColumnDocked .requestBoxSplit {
+  /* Beat `.requestBoxSplit { padding: 0 }` so the rail doesn't jump */
+  padding: var(--space-md) var(--lc-transcript-gutter) var(--lc-transcript-gutter);
 }
 
 .requestBoxAllowOverflow,
@@ -338,6 +416,52 @@
   overscroll-behavior: contain;
 }
 
+/* Agent subcontext overlays the page to the right of the docked rail.
+   Prefer the portaled `.detailOverlay` (sibling of the rail) so it never
+   inherits overflow/containing-block from `.requestBox`. */
+.fabColumnDocked .detailColumn {
+  display: none;
+}
+
+.detailOverlay {
+  position: fixed;
+  top: 0;
+  left: var(--lc-rail-width);
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: var(--lc-surface-0, #0e1014);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.detailOverlay.detailColumnEnter {
+  animation: detailColumnSlideIn 360ms var(--lc-ease) both;
+}
+
+.detailOverlay.detailColumnExit {
+  pointer-events: none;
+  animation: detailColumnSlideOut 280ms var(--lc-ease) both;
+}
+
+.fabColumnDocked .chatColumnSplit {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+  border-right: none;
+  /* Gutters live on `.requestBox` — don't stack floating-panel chat padding */
+  padding: 0;
+}
+
+.fabColumnDocked .requestBox .chatColumn {
+  padding: 0;
+}
+
 .detailColumnEnter {
   animation: detailColumnSlideIn 360ms var(--lc-ease) both;
 }
@@ -350,7 +474,8 @@
 @keyframes detailColumnSlideIn {
   from {
     opacity: 0;
-    transform: translateX(32px);
+    /* Enter from the rail (left), not from off-screen right */
+    transform: translateX(-40px);
   }
   to {
     opacity: 1;
@@ -365,7 +490,7 @@
   }
   to {
     opacity: 0;
-    transform: translateX(32px);
+    transform: translateX(-40px);
   }
 }
 
@@ -376,7 +501,8 @@
   max-width: none;
 }
 
-.detailColumn .componentDetail {
+.detailColumn .componentDetail,
+.detailOverlay .componentDetail {
   flex: 1;
   height: 100%;
   min-height: 100%;
@@ -386,13 +512,16 @@
   padding: var(--space-3xl) var(--space-4xl);
 }
 
-.detailColumn .componentDetailMap {
+.detailColumn .componentDetailMap,
+.detailOverlay .componentDetailMap {
   padding: 0;
   background: transparent;
 }
 
 .detailColumn .componentDetail.componentDetailMapShell,
-.detailColumn .componentDetail.componentDetailMapBleed {
+.detailColumn .componentDetail.componentDetailMapBleed,
+.detailOverlay .componentDetail.componentDetailMapShell,
+.detailOverlay .componentDetail.componentDetailMapBleed {
   padding: 0;
   background: transparent;
 }
@@ -1754,7 +1883,6 @@
 .middleEmpty .chatBox {
   margin-top: auto;
   align-self: flex-start;
-  width: calc(100% - var(--lc-transcript-scrollbar-inset) - var(--lc-transcript-gutter));
   box-sizing: border-box;
 }
 
@@ -1841,14 +1969,27 @@
   gap: var(--space-lg);
   margin: 0 0 var(--space-lg);
   padding: 0;
-  padding-right: var(--lc-transcript-gutter);
-  scrollbar-gutter: stable;
+  /* No padding-right: overlay scrollbars sit on the padding edge and ate the
+     chatbox↔scrollbar gap. Inset content/composer via width instead. */
+  /* Avoid scrollbar-gutter:stable — it reserves more than --lc-scrollbar-size and
+     shrinks the composer when the first answer appears (empty → filled jump). */
+  scrollbar-gutter: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--lc-scrollbar-thumb) transparent;
   box-sizing: border-box;
 }
 
-/* Transcript + composer share the exact same content rail width */
+/*
+ * Right-rail rhythm (docked + floating):
+ *   content/chatbox | gutter (12) | scrollbar (4) | gutter (12) | rail edge
+ * Scrollbar stays on the transcript’s right edge; composer + turns end 12px left of it.
+ * Outer 12px is requestBox padding-right (--lc-transcript-gutter).
+ */
+.middleEmpty .chatBox,
+.middle:not(.middleEmpty) > .chatBox {
+  width: calc(100% - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
+}
+
 .middle:not(.middleEmpty) > .transcript {
   align-self: stretch;
   justify-self: stretch;
@@ -1857,7 +1998,6 @@
   height: 100%;
   margin: 0;
   padding: 0;
-  padding-right: var(--lc-transcript-gutter);
   padding-bottom: calc(var(--lc-composer-reserve, 200px) + var(--space-lg));
   border-bottom-left-radius: var(--radius-3xl);
   border-bottom-right-radius: var(--radius-3xl);
@@ -1872,7 +2012,6 @@
   align-self: end;
   justify-self: start;
   z-index: 5;
-  width: calc(100% - var(--lc-transcript-scrollbar-inset) - var(--lc-transcript-gutter));
   max-width: none;
   margin: 0;
   box-sizing: border-box;
@@ -1890,7 +2029,7 @@
 }
 
 .chatColumnSplit .middle:not(.middleEmpty) > .chatBox {
-  width: calc(100% - var(--lc-transcript-scrollbar-inset) - var(--lc-transcript-gutter));
+  width: calc(100% - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
   max-width: none;
 }
 
@@ -1928,8 +2067,15 @@
   flex-direction: column;
   gap: var(--space-lg);
   width: 100%;
-  padding-inline: var(--space-xl);
+  padding-left: var(--space-xl);
+  /* Match composer: stop 12px before the scrollbar track */
+  padding-right: calc(var(--lc-transcript-gutter) + var(--lc-transcript-scrollbar-inset));
   box-sizing: border-box;
+}
+
+/* Docked rail: full content width aligned with composer (no extra left inset) */
+.fabColumnDocked .msgTurn {
+  padding-left: 0;
 }
 
 .msgUserRow {

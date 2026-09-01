@@ -711,34 +711,91 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.56);
+  -webkit-backdrop-filter: blur(30px);
+  backdrop-filter: blur(30px);
 }
 
+.storyCardBtn {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.storyCardBtn:hover .storyMediaLayers {
+  transform: scale(1.03);
+}
+
+.storyCardBtn:focus-visible {
+  outline: 2px solid rgba(109, 233, 225, 0.7);
+  outline-offset: 2px;
+}
+
+/*
+ * Figma Card/story gradient alpha mask (node 1740:15947 / story-mask.svg):
+ * opaque through 55%, then fades to transparent at the bottom edge.
+ */
 .storyMedia {
   position: relative;
-  aspect-ratio: 16 / 9;
+  width: 100%;
+  aspect-ratio: 363.2 / 204.3;
   overflow: hidden;
-  background: #0b1018;
+  background: transparent;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0% 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0% 55%, transparent 100%);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
-.storyMedia img {
+.storyMediaLayers {
+  position: absolute;
+  inset: 0;
+  transition: transform 280ms ease;
+}
+
+.storyMediaImg,
+.storyMediaOverlay {
+  position: absolute;
+  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  pointer-events: none;
 }
 
 .storyBody {
   display: flex;
+  flex: 1 0 auto;
   flex-direction: column;
   gap: 12px;
+  justify-content: center;
   padding: 16px;
+  min-width: 0;
+}
+
+.storyCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .storyCategory {
   font-size: 12px;
   font-weight: 600;
   line-height: 16px;
-  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.48);
 }
@@ -749,6 +806,7 @@
   font-size: 18px;
   font-weight: 600;
   line-height: 24px;
+  color: #fff;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;

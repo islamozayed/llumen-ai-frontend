@@ -8,6 +8,10 @@ import { MeshGradient } from '@paper-design/shaders-react'
 import gsap from 'gsap'
 import styles from './compact-assistant.module.css'
 import LandingHomeDefault from './landing/LandingHomeDefault'
+import { LandingChatbox, type LandingContextChip } from './landing/LandingChatbox'
+import type { LandingTellMeMorePayload } from './landing/LandingHomeDefault'
+import { StoryView } from './story/StoryView'
+import type { LandingStory } from './story/storyDemoData'
 import {
   MESH_COLORS_DEMO_PAGE,
   MESH_FRAME_DEMO_PAGE,
@@ -251,6 +255,9 @@ export function CompactAssistantDemo() {
     () => previewMode === 'sessions' || previewMode === 'fullscreen-sessions',
   )
   const [shareOpen, setShareOpen] = useState(false)
+  const [activeStoryId, setActiveStoryId] = useState<string | null>(null)
+  const [landingChips, setLandingChips] = useState<LandingContextChip[]>([])
+  const [landingFocusToken, setLandingFocusToken] = useState(0)
   const [chatSearch, setChatSearch] = useState<ChatSearchState>({ open: false, query: '' })
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     previewMode === 'conversation' ||
@@ -297,20 +304,12 @@ export function CompactAssistantDemo() {
 
   const syncTranscriptScrollbarInset = useCallback(() => {
     const middle = chatMiddleRef.current
-    const transcript = transcriptElRef.current
     if (!middle) return
     const tokenPx =
       Number.parseFloat(getComputedStyle(middle).getPropertyValue('--lc-scrollbar-size')) || 4
-    if (!transcript) {
-      middle.style.setProperty('--lc-transcript-scrollbar-inset', `${tokenPx}px`)
-      return
-    }
-    const measured = Math.max(0, transcript.offsetWidth - transcript.clientWidth)
-    // Always reserve at least the token width so empty → first-message doesn't shift
-    middle.style.setProperty(
-      '--lc-transcript-scrollbar-inset',
-      `${Math.max(measured, tokenPx)}px`,
-    )
+    // Keep a fixed reserve (token) in empty + filled states. Measuring the live
+    // scrollbar/gutter made the composer shrink when the first answer appeared.
+    middle.style.setProperty('--lc-transcript-scrollbar-inset', `${tokenPx}px`)
   }, [])
 
   const transcriptScrollRef = useCallback(
@@ -539,23 +538,30 @@ export function CompactAssistantDemo() {
     }, thinkingMs)
   }, [])
 
+  const sendText = useCallback(
+    (raw: string) => {
+      const t = raw.trim()
+      if (!t || streaming) return
+      setDraft('')
+      const priorAssistant = messages.filter((msg) => msg.role === 'assistant').length
+      const turn = detectConversationTurn(t, priorAssistant)
+      const reply = replyForTurn(turn)
+      if (!titleEditedRef.current && priorAssistant === 0) {
+        setChatTitle(titleFromReply(reply))
+      }
+      if (priorAssistant === 0) {
+        setSources((prev) => (prev.length > 0 ? prev : sourcesForDemoConversation(true)))
+        setSourcesPanelDismissed(false)
+      }
+      setMessages((m) => [...m, { id: uid(), role: 'user', text: t }])
+      startAssistantReply(reply)
+    },
+    [streaming, messages, startAssistantReply],
+  )
+
   const send = useCallback(() => {
-    const t = draft.trim()
-    if (!t || streaming) return
-    setDraft('')
-    const priorAssistant = messages.filter((msg) => msg.role === 'assistant').length
-    const turn = detectConversationTurn(t, priorAssistant)
-    const reply = replyForTurn(turn)
-    if (!titleEditedRef.current && priorAssistant === 0) {
-      setChatTitle(titleFromReply(reply))
-    }
-    if (priorAssistant === 0) {
-      setSources((prev) => (prev.length > 0 ? prev : sourcesForDemoConversation(true)))
-      setSourcesPanelDismissed(false)
-    }
-    setMessages((m) => [...m, { id: uid(), role: 'user', text: t }])
-    startAssistantReply(reply)
-  }, [draft, streaming, messages, startAssistantReply])
+    sendText(draft)
+  }, [draft, sendText])
 
   const questionIndex = useMemo((): ChatQuestionIndexItem[] => {
     const items: ChatQuestionIndexItem[] = []
@@ -570,23 +576,6 @@ export function CompactAssistantDemo() {
     }
     return items
   }, [messages])
-
-  const toggleExpanded = useCallback(() => {
-    const nextExpanded = !expanded
-    const el = assistantPanelRef.current
-    if (el) {
-      const rect = el.getBoundingClientRect()
-      pendingPanelAnimRef.current = {
-        top: rect.top,
-        left: rect.left,
-        width: rect.width,
-        height: rect.height,
-      }
-    }
-    revealSessionsAfterExpandRef.current = nextExpanded && subcontext.view === 'closed'
-    setSessionsOpen(false)
-    setExpanded(nextExpanded)
-  }, [expanded, subcontext.view])
 
   const jumpToQuestion = useCallback((questionId: string) => {
     releaseStick()
@@ -765,29 +754,104 @@ export function CompactAssistantDemo() {
     titleEditedRef.current = false
   }, [clearStream, closeSubcontextImmediately])
 
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Node)) return
-      if (fabColumnRef.current?.contains(target)) return
-      // Thinking popover / attach menu are portaled to document.body — don't treat as outside-click.
-      if (target instanceof Element && target.closest('[data-lc-thinking-popover]')) return
-      if (target instanceof Element && target.closest('[data-lc-attach-menu]')) return
-      if (target instanceof Element && target.closest('[data-lc-inline-context-menu]')) return
-      if (target instanceof Element && target.closest('[data-lc-conversation-menu]')) return
-      if (target instanceof Element && target.closest('[data-lc-sources-menu]')) return
-      if (target instanceof Element && target.closest('[data-lc-sources-panel]')) return
-      if (target instanceof Element && target.closest('[data-lc-share-modal]')) return
-      closePanel()
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => document.removeEventListener('pointerdown', onPointerDown)
-  }, [open, closePanel])
+  // Docked left rail: close only via header control (not outside click).
+
+  const landingChipToMention = useCallback(
+    (chip: LandingContextChip): InlineContextItem => ({
+      id: chip.id,
+      name: chip.label,
+      categoryId: chip.categoryId ?? 'briefings',
+      description: chip.domain,
+    }),
+    [],
+  )
 
   const openLauncher = useCallback(() => {
     setOpen(true)
+    setExpanded(false)
   }, [])
+
+  const openStoryAsk = useCallback(
+    ({ story, slideIndex }: { story: LandingStory; slideIndex: number }) => {
+      const slide = story.slides[slideIndex]
+      const chipLabel = slide?.title ?? story.storyTitle
+      setDraft((prev) => {
+        const mention = `@${chipLabel}`
+        if (!prev.trim()) return `Tell me more about ${mention}`
+        if (prev.includes(mention)) return prev
+        return `${prev.trim()} ${mention}`
+      })
+      setOpen(true)
+      setExpanded(false)
+    },
+    [],
+  )
+
+  const submitLandingAsk = useCallback(
+    (text: string, chips: LandingContextChip[]) => {
+      const chipLine =
+        chips.length > 0
+          ? `Context: ${chips.map((c) => (c.domain ? `${c.domain} — ${c.label}` : c.label)).join('; ')}`
+          : ''
+      const composed = [chipLine, text.trim()].filter(Boolean).join('\n\n')
+      const fallback =
+        chips.length === 1
+          ? `Tell me more about ${chips[0].label}`
+          : chips.length > 1
+            ? 'Tell me more about these findings'
+            : ''
+      // Clear before open so the transfer effect does not re-insert into the composer
+      setLandingChips([])
+      setOpen(true)
+      setExpanded(false)
+      sendText(composed || fallback)
+    },
+    [sendText],
+  )
+
+  const onTellMeMore = useCallback(
+    (item: LandingTellMeMorePayload) => {
+      const chip: LandingContextChip = {
+        id: item.id,
+        label: item.title,
+        domain: item.domain,
+        categoryId: 'briefings',
+      }
+      if (open) {
+        composerRef.current?.insertMention(landingChipToMention(chip))
+        return
+      }
+      setLandingChips((prev) => {
+        if (prev.some((c) => c.id === item.id)) return prev
+        return [...prev, chip]
+      })
+      setLandingFocusToken((n) => n + 1)
+    },
+    [open, landingChipToMention],
+  )
+
+  // Opening the rail with chips on the landing chatbox → move them into ChatComposer
+  useEffect(() => {
+    if (!open || landingChips.length === 0) return
+    const pending = landingChips
+    setLandingChips([])
+    let cancelled = false
+    let tries = 0
+    const insert = () => {
+      if (cancelled) return
+      if (!composerRef.current) {
+        if (tries++ < 30) window.requestAnimationFrame(insert)
+        return
+      }
+      for (const chip of pending) {
+        composerRef.current.insertMention(landingChipToMention(chip))
+      }
+    }
+    window.requestAnimationFrame(insert)
+    return () => {
+      cancelled = true
+    }
+  }, [open, landingChips, landingChipToMention])
 
   const isNewChat = messages.length === 0
   const hasAssistantReply = messages.some((m) => m.role === 'assistant')
@@ -879,11 +943,18 @@ export function CompactAssistantDemo() {
     </div>
   )
 
+  const storyActive = activeStoryId != null
+  const showLauncher = !open && !storyActive
+
   return (
-    <div className={styles.demoPage}>
+    <div
+      className={`${styles.demoPage}${open ? ` ${styles.demoPageRailOpen}` : ''}${
+        storyActive ? ` ${styles.demoPageStory}` : ''
+      }`}
+    >
       <div className={styles.demoPageShader} aria-hidden>
         <MeshGradient
-          speed={open ? 0 : 0.4}
+          speed={open || storyActive ? 0 : 0.4}
           scale={1}
           distortion={0.09}
           swirl={0}
@@ -894,12 +965,31 @@ export function CompactAssistantDemo() {
         />
       </div>
       <div className={styles.demoLandingLayer}>
-        <LandingHomeDefault />
+        {storyActive ? (
+          <StoryView
+            storyId={activeStoryId}
+            onBack={() => setActiveStoryId(null)}
+            onAsk={openStoryAsk}
+            agentOpen={open}
+          />
+        ) : (
+          <LandingHomeDefault onOpenStory={setActiveStoryId} onTellMeMore={onTellMeMore} />
+        )}
       </div>
-      {open ? <div className={styles.backdrop} aria-hidden /> : null}
+      {!storyActive ? (
+        <LandingChatbox
+          onSubmit={submitLandingAsk}
+          chips={landingChips}
+          onRemoveChip={(id) => setLandingChips((prev) => prev.filter((c) => c.id !== id))}
+          focusToken={landingFocusToken}
+          exiting={open}
+        />
+      ) : null}
       <div
         ref={fabColumnRef}
-        className={`${styles.fabColumn}${splitOpen ? ` ${styles.fabColumnSplit}` : ''}`}
+        className={`${styles.fabColumn}${open ? ` ${styles.fabColumnDocked}` : ''}${
+          !showLauncher && !open ? ` ${styles.fabColumnHidden}` : ''
+        }`}
       >
         <div
           className={`${styles.panelWrap} ${open ? '' : styles.panelWrapHidden}`}
@@ -908,9 +998,9 @@ export function CompactAssistantDemo() {
           {open && (
             <AssistantPanel
               ref={assistantPanelRef}
-              expanded={expanded}
+              expanded={false}
               splitView={splitOpen}
-              allowOverflow={sessionsOpen && !expanded}
+              allowOverflow={sessionsOpen}
               thinking={replyRendering}
             >
               <div className={styles.splitBody}>
@@ -931,8 +1021,7 @@ export function CompactAssistantDemo() {
                   <div className={styles.panelViewStack}>
                     <PanelHeader
                       onClose={closePanel}
-                      expanded={expanded}
-                      onToggleExpanded={toggleExpanded}
+                      expanded={false}
                       chatTitle={chatTitle}
                       onChatTitleChange={onChatTitleChange}
                       onOpenSession={openSession}
@@ -941,7 +1030,7 @@ export function CompactAssistantDemo() {
                       onShareConversation={() => setShareOpen(true)}
                       hasAssistantReply={hasAssistantReply}
                       sessionsOpen={sessionsOpen}
-                      sessionsFullscreen={expanded}
+                      sessionsFullscreen={false}
                       onSessionsOpenChange={handleSessionsOpenChange}
                       onChatSearchChange={onChatSearchChange}
                       searchMatchCount={searchMatchCount}
@@ -958,42 +1047,6 @@ export function CompactAssistantDemo() {
                     {chatMiddle}
                   </div>
                 </div>
-                {selectedComponent ? (
-                  <div
-                    className={`${styles.detailColumn} ${
-                      subcontextClosing ? styles.detailColumnExit : styles.detailColumnEnter
-                    }`}
-                  >
-                    <ComponentDetailPanel
-                      component={selectedComponent}
-                      onClose={closeSubcontext}
-                      onShowInConversation={() =>
-                        showInConversation({ componentId: selectedComponent.id })
-                      }
-                    />
-                  </div>
-                ) : null}
-                {activeReport && subcontext.view === 'slides' ? (
-                  <div
-                    className={`${styles.detailColumn} ${
-                      subcontextClosing ? styles.detailColumnExit : styles.detailColumnEnter
-                    }`}
-                  >
-                    <SlidesDetailPanel
-                      report={activeReport}
-                      components={AIR_QUALITY_COMPONENTS}
-                      activeSlide={subcontext.activeSlide}
-                      onSlideChange={(index) =>
-                        setSubcontext({ view: 'slides', reportId: activeReport.id, activeSlide: index })
-                      }
-                      onClose={closeSubcontext}
-                      onShowInConversation={() => showInConversation({ reportId: activeReport.id })}
-                      onHome={() =>
-                        setSubcontext({ view: 'slides', reportId: activeReport.id, activeSlide: 0 })
-                      }
-                    />
-                  </div>
-                ) : null}
                 {sourcesFloatOpen ? (
                     <SourcesPanel
                       sources={sources}
@@ -1006,8 +1059,45 @@ export function CompactAssistantDemo() {
             </AssistantPanel>
           )}
         </div>
-        <AssistantLauncher onOpen={openLauncher} />
+        {showLauncher ? <AssistantLauncher onOpen={openLauncher} /> : null}
       </div>
+      {/* Subcontext overlays the page beside the rail (outside rail overflow/transform). */}
+      {open && selectedComponent ? (
+        <div
+          className={`${styles.detailOverlay} ${
+            subcontextClosing ? styles.detailColumnExit : styles.detailColumnEnter
+          }`}
+        >
+          <ComponentDetailPanel
+            component={selectedComponent}
+            onClose={closeSubcontext}
+            onShowInConversation={() =>
+              showInConversation({ componentId: selectedComponent.id })
+            }
+          />
+        </div>
+      ) : null}
+      {open && activeReport && subcontext.view === 'slides' ? (
+        <div
+          className={`${styles.detailOverlay} ${
+            subcontextClosing ? styles.detailColumnExit : styles.detailColumnEnter
+          }`}
+        >
+          <SlidesDetailPanel
+            report={activeReport}
+            components={AIR_QUALITY_COMPONENTS}
+            activeSlide={subcontext.activeSlide}
+            onSlideChange={(index) =>
+              setSubcontext({ view: 'slides', reportId: activeReport.id, activeSlide: index })
+            }
+            onClose={closeSubcontext}
+            onShowInConversation={() => showInConversation({ reportId: activeReport.id })}
+            onHome={() =>
+              setSubcontext({ view: 'slides', reportId: activeReport.id, activeSlide: 0 })
+            }
+          />
+        </div>
+      ) : null}
       <ShareModal
         open={shareOpen}
         title={`Share “${chatTitle}”`}

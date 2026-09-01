@@ -21,4 +21,32 @@ export const landingAssets = {
   image119: `${b}/image-119.png`,
   image120: `${b}/image-120.png`,
   image121: `${b}/image-121.png`,
+  /** Figma Stories grid thumbs (node 1740:15946) */
+  storyThumbMapBase: `${b}/story-thumb-map-base.png`,
+  storyThumbMapMarkers: `${b}/story-thumb-map-markers.png`,
+  storyThumbChartBase: `${b}/story-thumb-chart-base.png`,
+  storyThumbChartBars: `${b}/story-thumb-chart-bars.png`,
 } as const
+
+/** Thumbnail variants from the Figma Stories grid — keep story copy separate. */
+export type StoryThumbVariant = 'map' | 'chart' | 'satellite'
+
+export function storyThumbLayers(variant: StoryThumbVariant): {
+  image: string
+  overlay?: string
+} {
+  switch (variant) {
+    case 'map':
+      return {
+        image: landingAssets.storyThumbMapBase,
+        overlay: landingAssets.storyThumbMapMarkers,
+      }
+    case 'chart':
+      return {
+        image: landingAssets.storyThumbChartBase,
+        overlay: landingAssets.storyThumbChartBars,
+      }
+    case 'satellite':
+      return { image: landingAssets.storyThumbChartBase }
+  }
+}
