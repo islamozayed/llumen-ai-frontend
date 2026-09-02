@@ -9,7 +9,14 @@ import gsap from 'gsap'
 import styles from './compact-assistant.module.css'
 import LandingHomeDefault from './landing/LandingHomeDefault'
 import { LandingChatbox, type LandingContextChip } from './landing/LandingChatbox'
+import { HubChatbox } from './landing/HubChatbox'
 import type { LandingTellMeMorePayload } from './landing/LandingHomeDefault'
+import { InteractionModelSwitcher } from './InteractionModelSwitcher'
+import {
+  persistChatInteractionModel,
+  readChatInteractionModel,
+  type ChatInteractionModel,
+} from './interactionModel'
 import { StoryView } from './story/StoryView'
 import type { LandingStory } from './story/storyDemoData'
 import {
@@ -240,6 +247,10 @@ function UserMessageBubble({
 export function CompactAssistantDemo() {
   const previewMode = useMemo(() => readFigmaPreviewMode(), [])
   const previewForceInstant = previewMode != null
+  const [interactionModel, setInteractionModel] = useState<ChatInteractionModel>(() =>
+    readChatInteractionModel(previewMode != null),
+  )
+  const isHub = interactionModel === 'hub'
   const [open, setOpen] = useState(() => previewMode != null)
   const [expanded, setExpanded] = useState(
     () => previewMode === 'fullscreen' || previewMode === 'fullscreen-sessions',
@@ -258,6 +269,9 @@ export function CompactAssistantDemo() {
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null)
   const [landingChips, setLandingChips] = useState<LandingContextChip[]>([])
   const [landingFocusToken, setLandingFocusToken] = useState(0)
+  const [hubStoryOpen, setHubStoryOpen] = useState(false)
+  const [hubMorphFrom, setHubMorphFrom] = useState<DOMRect | null>(null)
+  const [hubRailMode, setHubRailMode] = useState<'thread' | 'sessions'>('thread')
   const [chatSearch, setChatSearch] = useState<ChatSearchState>({ open: false, query: '' })
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     previewMode === 'conversation' ||
@@ -488,40 +502,51 @@ export function CompactAssistantDemo() {
   }, [subcontext.view])
 
   useEffect(() => {
-    if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (shareOpen) return
+      if (e.key !== 'Escape') return
+      if (shareOpen) return
+      if (isHub && hubStoryOpen && !open) {
         e.preventDefault()
-        if (subcontext.view !== 'closed') {
-          closeSubcontext()
-          return
-        }
-        if (sessionsOpen) {
-          setSessionsOpen(false)
-          return
-        }
-        if (expanded) {
-          const el = assistantPanelRef.current
-          if (el) {
-            const rect = el.getBoundingClientRect()
-            pendingPanelAnimRef.current = {
-              top: rect.top,
-              left: rect.left,
-              width: rect.width,
-              height: rect.height,
-            }
-          }
-          setExpanded(false)
-          return
-        }
-        setOpen(false)
-        setExpanded(false)
+        setHubStoryOpen(false)
+        setHubMorphFrom(null)
+        return
       }
+      if (!open) return
+      e.preventDefault()
+      if (subcontext.view !== 'closed') {
+        closeSubcontext()
+        return
+      }
+      if (isHub && hubRailMode === 'sessions') {
+        setOpen(false)
+        setSessionsOpen(false)
+        setHubRailMode('thread')
+        return
+      }
+      if (sessionsOpen) {
+        setSessionsOpen(false)
+        return
+      }
+      if (expanded) {
+        const el = assistantPanelRef.current
+        if (el) {
+          const rect = el.getBoundingClientRect()
+          pendingPanelAnimRef.current = {
+            top: rect.top,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+          }
+        }
+        setExpanded(false)
+        return
+      }
+      setOpen(false)
+      setExpanded(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, subcontext.view, closeSubcontext, expanded, sessionsOpen, shareOpen])
+  }, [open, subcontext.view, closeSubcontext, expanded, sessionsOpen, shareOpen, isHub, hubStoryOpen, hubRailMode])
 
   const startAssistantReply = useCallback((reply: AssistantReplyPayload) => {
     const aid = uid()
@@ -733,11 +758,16 @@ export function CompactAssistantDemo() {
     (id: string) => {
       if (id === DEMO_SESSION_ID) {
         loadDemoSession()
-        return
+      } else {
+        resetConversation()
       }
-      resetConversation()
+      if (isHub) {
+        setHubRailMode('thread')
+        setSessionsOpen(false)
+        setLandingChips([])
+      }
     },
-    [loadDemoSession, resetConversation],
+    [loadDemoSession, resetConversation, isHub],
   )
 
   const closePanel = useCallback(() => {
@@ -745,6 +775,7 @@ export function CompactAssistantDemo() {
     setExpanded(false)
     closeSubcontextImmediately()
     setSessionsOpen(false)
+    setHubRailMode('thread')
     clearStream()
     setMessages([])
     setSources([])
@@ -766,15 +797,60 @@ export function CompactAssistantDemo() {
     [],
   )
 
+  const closeHubSessionsRail = useCallback(() => {
+    setOpen(false)
+    setSessionsOpen(false)
+    setHubRailMode('thread')
+  }, [])
+
+  const onInteractionModelChange = useCallback(
+    (next: ChatInteractionModel) => {
+      persistChatInteractionModel(next)
+      setInteractionModel(next)
+      closePanel()
+      setHubStoryOpen(false)
+      setHubMorphFrom(null)
+      setLandingChips([])
+    },
+    [closePanel],
+  )
+
   const openLauncher = useCallback(() => {
     setOpen(true)
     setExpanded(false)
   }, [])
 
+  const openHubSessions = useCallback(() => {
+    setHubRailMode('sessions')
+    setSessionsOpen(true)
+    setOpen(true)
+    setExpanded(false)
+  }, [])
+
   const openStoryAsk = useCallback(
-    ({ story, slideIndex }: { story: LandingStory; slideIndex: number }) => {
+    ({
+      story,
+      slideIndex,
+      sourceRect,
+    }: {
+      story: LandingStory
+      slideIndex: number
+      sourceRect: DOMRect
+    }) => {
       const slide = story.slides[slideIndex]
       const chipLabel = slide?.title ?? story.storyTitle
+      if (isHub) {
+        const chip: LandingContextChip = {
+          id: `story-${story.id ?? chipLabel}-${slideIndex}`,
+          label: chipLabel,
+          categoryId: 'briefings',
+        }
+        setLandingChips((prev) => (prev.some((c) => c.id === chip.id) ? prev : [...prev, chip]))
+        setHubMorphFrom(sourceRect)
+        setHubStoryOpen(true)
+        setLandingFocusToken((n) => n + 1)
+        return
+      }
       setDraft((prev) => {
         const mention = `@${chipLabel}`
         if (!prev.trim()) return `Tell me more about ${mention}`
@@ -784,7 +860,7 @@ export function CompactAssistantDemo() {
       setOpen(true)
       setExpanded(false)
     },
-    [],
+    [isHub],
   )
 
   const submitLandingAsk = useCallback(
@@ -802,6 +878,8 @@ export function CompactAssistantDemo() {
             : ''
       // Clear before open so the transfer effect does not re-insert into the composer
       setLandingChips([])
+      setHubRailMode('thread')
+      setSessionsOpen(false)
       setOpen(true)
       setExpanded(false)
       sendText(composed || fallback)
@@ -817,7 +895,8 @@ export function CompactAssistantDemo() {
         domain: item.domain,
         categoryId: 'briefings',
       }
-      if (open) {
+      const hubSessionsRail = isHub && open && hubRailMode === 'sessions'
+      if (open && !hubSessionsRail) {
         composerRef.current?.insertMention(landingChipToMention(chip))
         return
       }
@@ -827,12 +906,12 @@ export function CompactAssistantDemo() {
       })
       setLandingFocusToken((n) => n + 1)
     },
-    [open, landingChipToMention],
+    [open, landingChipToMention, isHub, hubRailMode],
   )
 
   // Opening the rail with chips on the landing chatbox → move them into ChatComposer
   useEffect(() => {
-    if (!open || landingChips.length === 0) return
+    if (!open || landingChips.length === 0 || isHub) return
     const pending = landingChips
     setLandingChips([])
     let cancelled = false
@@ -851,7 +930,16 @@ export function CompactAssistantDemo() {
     return () => {
       cancelled = true
     }
-  }, [open, landingChips, landingChipToMention])
+  }, [open, landingChips, landingChipToMention, isHub])
+
+  useEffect(() => {
+    if (!(isHub && open && hubRailMode === 'thread' && hubStoryOpen)) return
+    const id = window.setTimeout(() => {
+      setHubStoryOpen(false)
+      setHubMorphFrom(null)
+    }, 360)
+    return () => window.clearTimeout(id)
+  }, [isHub, open, hubRailMode, hubStoryOpen])
 
   const isNewChat = messages.length === 0
   const hasAssistantReply = messages.some((m) => m.role === 'assistant')
@@ -944,7 +1032,19 @@ export function CompactAssistantDemo() {
   )
 
   const storyActive = activeStoryId != null
-  const showLauncher = !open && !storyActive
+  const showLauncher = !isHub && !open && !storyActive
+  const hubSessionsRail = isHub && open && hubRailMode === 'sessions'
+  const hubThreadRail = isHub && open && hubRailMode === 'thread'
+  // Keep hub for sessions browsing; hide on landing once the thread rail owns the composer.
+  // On story, keep mounted briefly so the orb→hub exit animation can finish.
+  const showHub =
+    isHub &&
+    (hubSessionsRail ||
+      (!open && (!storyActive || hubStoryOpen)) ||
+      (hubThreadRail && storyActive && hubStoryOpen))
+  const uxSwitcher = (
+    <InteractionModelSwitcher value={interactionModel} onChange={onInteractionModelChange} />
+  )
 
   return (
     <div
@@ -968,21 +1068,61 @@ export function CompactAssistantDemo() {
         {storyActive ? (
           <StoryView
             storyId={activeStoryId}
-            onBack={() => setActiveStoryId(null)}
+            onBack={() => {
+              setActiveStoryId(null)
+              setHubStoryOpen(false)
+              setHubMorphFrom(null)
+              setLandingChips([])
+              // Landing hub should reopen idle (orb + placeholder), not focused/engaged.
+              setLandingFocusToken(0)
+            }}
             onAsk={openStoryAsk}
-            agentOpen={open}
+            agentOpen={open || hubStoryOpen}
+            headerEnd={uxSwitcher}
           />
         ) : (
-          <LandingHomeDefault onOpenStory={setActiveStoryId} onTellMeMore={onTellMeMore} />
+          <LandingHomeDefault
+            onOpenStory={setActiveStoryId}
+            onTellMeMore={onTellMeMore}
+            headerEnd={uxSwitcher}
+          />
         )}
       </div>
-      {!storyActive ? (
+      {!isHub && !storyActive ? (
         <LandingChatbox
           onSubmit={submitLandingAsk}
           chips={landingChips}
           onRemoveChip={(id) => setLandingChips((prev) => prev.filter((c) => c.id !== id))}
           focusToken={landingFocusToken}
           exiting={open}
+        />
+      ) : null}
+      {showHub ? (
+        <HubChatbox
+          // Remount when leaving a story so draft/focus/files don't carry over engaged.
+          key={storyActive ? `story-${activeStoryId}` : 'landing'}
+          onSubmit={submitLandingAsk}
+          chips={landingChips}
+          onRemoveChip={(id) => setLandingChips((prev) => prev.filter((c) => c.id !== id))}
+          onOpenSessions={openHubSessions}
+          focusToken={landingFocusToken}
+          exiting={hubThreadRail}
+          placement={storyActive ? 'story' : 'landing'}
+          railOpen={hubSessionsRail}
+          morphFrom={storyActive ? hubMorphFrom : null}
+          onCollapse={
+            storyActive
+              ? () => {
+                  setHubStoryOpen(false)
+                  setHubMorphFrom(null)
+                  if (hubSessionsRail) {
+                    setOpen(false)
+                    setSessionsOpen(false)
+                    setHubRailMode('thread')
+                  }
+                }
+              : undefined
+          }
         />
       ) : null}
       <div
@@ -1000,7 +1140,7 @@ export function CompactAssistantDemo() {
               ref={assistantPanelRef}
               expanded={false}
               splitView={splitOpen}
-              allowOverflow={sessionsOpen}
+              allowOverflow={sessionsOpen || hubSessionsRail}
               thinking={replyRendering}
             >
               <div className={styles.splitBody}>
@@ -1018,6 +1158,16 @@ export function CompactAssistantDemo() {
                   </aside>
                 ) : null}
                 <div className={`${styles.chatColumn} ${splitOpen ? styles.chatColumnSplit : ''}`}>
+                  {hubSessionsRail ? (
+                    <div className={styles.hubSessionsFill}>
+                      <SessionsPanel
+                        variant="fullscreen"
+                        onOpenSession={openSession}
+                        onShareSession={() => setShareOpen(true)}
+                        onClose={closeHubSessionsRail}
+                      />
+                    </div>
+                  ) : (
                   <div className={styles.panelViewStack}>
                     <PanelHeader
                       onClose={closePanel}
@@ -1046,6 +1196,7 @@ export function CompactAssistantDemo() {
                     <div className={styles.separator} />
                     {chatMiddle}
                   </div>
+                  )}
                 </div>
                 {sourcesFloatOpen ? (
                     <SourcesPanel

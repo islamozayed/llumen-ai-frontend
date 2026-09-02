@@ -701,11 +701,14 @@ export type LandingHomeDefaultProps = {
   onOpenStory?: (storyId: string) => void
   /** Add the attention card as a context chip in the landing chatbox. */
   onTellMeMore?: (item: LandingTellMeMorePayload) => void
+  /** Prototype control slot in the top-right nav. */
+  headerEnd?: ReactNode
 }
 
 export default function LandingHomeDefault({
   onOpenStory,
   onTellMeMore,
+  headerEnd,
 }: LandingHomeDefaultProps = {}) {
   const [filter, setFilter] = useState('All')
   const [active, setActive] = useState(0)
@@ -839,6 +842,7 @@ export default function LandingHomeDefault({
             <button type="button" className={styles.iconBtn} aria-label="Account">
               <User size={20} weight="regular" />
             </button>
+            {headerEnd}
           </div>
         </div>
         <div className={styles.filters} aria-label="Workspace filters">

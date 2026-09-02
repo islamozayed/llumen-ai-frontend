@@ -1,16 +1,41 @@
-import { useEffect, useId, useState, type CSSProperties, type FocusEvent, type MouseEvent } from 'react'
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FocusEvent,
+  type MouseEvent,
+} from 'react'
 import { createPortal } from 'react-dom'
+import { ArrowsOut, CaretDown, X } from '@phosphor-icons/react'
 import type { CreatedComponent } from './assistantReplyTypes'
 import {
+  TEMPORAL_GRANULARITIES,
+  TEMPORAL_GRANULARITY_LABELS,
   dataProfileForComponent,
+  formatTemporalBoundLabel,
+  gapsForGranularity,
+  resolveTemporalRangeMs,
+  type ColumnDataType,
   type ColumnProfile,
   type SpatialAvailabilitySeries,
   type TemporalAvailabilitySeries,
+  type TemporalGranularity,
 } from './componentDataProfiles'
 import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
 import styles from './DataProfilePanel.module.css'
 
 const TOOLTIP_OFFSET = 14
+
+const TYPE_LABELS: Record<ColumnDataType, string> = {
+  string: 'String',
+  number: 'Number',
+  boolean: 'Boolean',
+  date: 'Date',
+  location: 'Location',
+}
 
 function Metric({ label, value }: { label: string; value: string }) {
   const isEmpty = value === '—' || value === '-'
@@ -30,41 +55,49 @@ function formatUtcMonthYear(date: Date): string {
 
 /** Interpolate a missing-data range from the series bounds and gap fractions. */
 function formatTemporalGapRange(
-  startLabel: string,
-  endLabel: string,
+  rangeStartMs: number,
+  rangeEndMs: number,
   start: number,
   width: number,
+  granularity: TemporalGranularity,
 ): string {
-  const startYear = Number(startLabel)
-  const endYear = Number(endLabel)
-  if (/^\d{4}$/.test(startLabel) && /^\d{4}$/.test(endLabel) && endYear > startYear) {
-    const rangeStart = Date.UTC(startYear, 0, 1)
-    const rangeEnd = Date.UTC(endYear, 0, 1)
-    const total = rangeEnd - rangeStart
-    const gapStart = new Date(rangeStart + start * total)
-    const gapEnd = new Date(rangeStart + (start + width) * total)
-    return `${formatUtcMonthYear(gapStart)} – ${formatUtcMonthYear(gapEnd)}`
+  const total = rangeEndMs - rangeStartMs
+  if (total > 0) {
+    const gapStart = new Date(rangeStartMs + start * total)
+    const gapEnd = new Date(rangeStartMs + (start + width) * total)
+    if (granularity === 'years' || granularity === 'weeks' || granularity === 'days') {
+      return `${formatUtcMonthYear(gapStart)} – ${formatUtcMonthYear(gapEnd)}`
+    }
+    return `${formatTemporalBoundLabel(gapStart.getTime(), granularity)} – ${formatTemporalBoundLabel(gapEnd.getTime(), granularity)}`
   }
 
   const fromPct = Math.round(start * 100)
   const toPct = Math.round((start + width) * 100)
-  return `${startLabel} → ${endLabel} · ${fromPct}%–${toPct}%`
+  return `${fromPct}%–${toPct}%`
 }
 
 function TimelineGap({
-  startLabel,
-  endLabel,
+  rangeStartMs,
+  rangeEndMs,
   start,
   width,
+  granularity,
 }: {
-  startLabel: string
-  endLabel: string
+  rangeStartMs: number
+  rangeEndMs: number
   start: number
   width: number
+  granularity: TemporalGranularity
 }) {
   const tooltipId = useId()
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
-  const rangeLabel = formatTemporalGapRange(startLabel, endLabel, start, width)
+  const rangeLabel = formatTemporalGapRange(
+    rangeStartMs,
+    rangeEndMs,
+    start,
+    width,
+    granularity,
+  )
   const tooltipText = `Missing data · ${rangeLabel}`
 
   const placeTooltip = (clientX: number, clientY: number) => {
@@ -229,18 +262,169 @@ function DistributionChart({ column }: { column: ColumnProfile }) {
   )
 }
 
+type DistributionSort = 'as_profiled' | 'asc' | 'desc'
+
+type DistributionRow = {
+  key: string
+  label: string
+  count: number
+  index: number
+}
+
+function buildDistributionRows(column: ColumnProfile): DistributionRow[] {
+  const distribution = column.distribution
+  if (!distribution) return []
+  return distribution.xLabels.map((label, index) => ({
+    key: `${column.name}-h-${index}`,
+    label: label || `Bin ${index + 1}`,
+    count: distribution.counts[index] ?? 0,
+    index,
+  }))
+}
+
+function sortDistributionRows(rows: DistributionRow[], sort: DistributionSort): DistributionRow[] {
+  if (sort === 'as_profiled') return rows
+  const sorted = [...rows]
+  sorted.sort((a, b) => {
+    const byCount = sort === 'asc' ? a.count - b.count : b.count - a.count
+    if (byCount !== 0) return byCount
+    return a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' })
+  })
+  return sorted
+}
+
+function HorizontalDistributionChart({
+  column,
+  sort,
+}: {
+  column: ColumnProfile
+  sort: DistributionSort
+}) {
+  const distribution = column.distribution
+  const rows = useMemo(() => {
+    const built = buildDistributionRows(column)
+    return sortDistributionRows(built, sort)
+  }, [column, sort])
+
+  if (!distribution || rows.length === 0) return null
+  const maxCount = Math.max(...rows.map((row) => row.count), 1)
+
+  return (
+    <div className={styles.hChart} role="list" aria-label={`${column.name} distribution`}>
+      {rows.map((row) => {
+        const width = Math.max(0.04, row.count / maxCount)
+        return (
+          <div key={row.key} className={styles.hRow} role="listitem">
+            <span className={styles.hLabel} title={row.label}>
+              {row.label}
+            </span>
+            <div className={styles.hTrack}>
+              <span className={styles.hBar} style={{ width: `${Math.round(width * 100)}%` }} />
+            </div>
+            <span className={styles.hCount}>{row.count.toLocaleString('en-US')}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ColumnExpandModal({
+  column,
+  onClose,
+}: {
+  column: ColumnProfile
+  onClose: () => void
+}) {
+  const [sort, setSort] = useState<DistributionSort>('as_profiled')
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return createPortal(
+    <div className={styles.modalRoot} role="presentation">
+      <button type="button" className={styles.modalBackdrop} aria-label="Close" onClick={onClose} />
+      <div
+        className={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${column.name} distribution`}
+      >
+        <header className={styles.modalHeader}>
+          <h3 className={styles.modalTitle}>{column.name}</h3>
+          <div className={styles.modalHeaderActions}>
+            <span className={styles.typeBadge}>{TYPE_LABELS[column.dataType]}</span>
+            <button type="button" className={styles.modalClose} aria-label="Close" onClick={onClose}>
+              <X size={18} weight="bold" aria-hidden />
+            </button>
+          </div>
+        </header>
+        <div className={styles.modalToolbar}>
+          <div className={styles.sortGroup} role="group" aria-label="Sort distribution">
+            {(
+              [
+                { id: 'as_profiled', label: 'As profiled' },
+                { id: 'asc', label: 'Ascending' },
+                { id: 'desc', label: 'Descending' },
+              ] as const
+            ).map((option) => {
+              const active = sort === option.id
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`${styles.sortBtn}${active ? ` ${styles.sortBtnActive}` : ''}`}
+                  aria-pressed={active}
+                  onClick={() => setSort(option.id)}
+                >
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <div className={styles.modalBody}>
+          <HorizontalDistributionChart column={column} sort={sort} />
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 function ColumnProfileCard({ column }: { column: ColumnProfile }) {
+  const [expanded, setExpanded] = useState(false)
+  const emptyOrZeroesLabel = column.dataType === 'number' ? 'Zeroes' : 'Empty'
+  const canExpand = Boolean(column.distribution && column.distribution.bars.length > 0)
+
   return (
     <article className={styles.columnCard}>
       <header className={styles.columnHeader}>
         <h4 className={styles.columnName}>{column.name}</h4>
-        <span className={styles.typeBadge}>{column.dataType}</span>
+        <div className={styles.columnHeaderActions}>
+          <span className={styles.typeBadge}>{TYPE_LABELS[column.dataType]}</span>
+          {canExpand ? (
+            <button
+              type="button"
+              className={styles.expandBtn}
+              aria-label={`Expand ${column.name} chart`}
+              onClick={() => setExpanded(true)}
+            >
+              <ArrowsOut size={16} weight="regular" aria-hidden />
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <div className={styles.metricRow}>
         <Metric label="Count" value={column.count} />
-        <Metric label="Missing" value={column.missing} />
-        <Metric label="Zeroes" value={column.zeroes} />
+        <Metric label="Nulls" value={column.missing} />
+        <Metric label={emptyOrZeroesLabel} value={column.zeroes} />
       </div>
 
       <div className={styles.metricRow}>
@@ -250,6 +434,8 @@ function ColumnProfileCard({ column }: { column: ColumnProfile }) {
       </div>
 
       <DistributionChart column={column} />
+
+      {expanded ? <ColumnExpandModal column={column} onClose={() => setExpanded(false)} /> : null}
     </article>
   )
 }
@@ -288,44 +474,129 @@ function SeriesTabs({
   )
 }
 
+function GranularitySelect({
+  value,
+  onChange,
+}: {
+  value: TemporalGranularity
+  onChange: (next: TemporalGranularity) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const labelId = useId()
+  const listId = useId()
+
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (event: PointerEvent) => {
+      if (rootRef.current?.contains(event.target as Node)) return
+      setOpen(false)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointer)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div className={styles.granularity} ref={rootRef}>
+      <span className={styles.granularityLabel} id={labelId}>
+        Granularity
+      </span>
+      <button
+        type="button"
+        className={`${styles.granularityTrigger}${open ? ` ${styles.granularityTriggerOpen}` : ''}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-label={`Granularity: ${TEMPORAL_GRANULARITY_LABELS[value]}`}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>{TEMPORAL_GRANULARITY_LABELS[value]}</span>
+        <CaretDown className={styles.granularityCaret} size={12} weight="bold" aria-hidden />
+      </button>
+      {open ? (
+        <div className={styles.granularityMenu} id={listId} role="listbox" aria-labelledby={labelId}>
+          {TEMPORAL_GRANULARITIES.map((item) => (
+            <button
+              key={item}
+              type="button"
+              role="option"
+              aria-selected={item === value}
+              className={`${styles.granularityOption}${item === value ? ` ${styles.granularityOptionActive}` : ''}`}
+              onClick={() => {
+                onChange(item)
+                setOpen(false)
+              }}
+            >
+              {TEMPORAL_GRANULARITY_LABELS[item]}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function TemporalAvailability({ series }: { series: TemporalAvailabilitySeries[] }) {
   const seriesKey = series.map((item) => item.id).join('|')
   const firstId = series[0]?.id ?? ''
   const [activeId, setActiveId] = useState(firstId)
+  const [granularity, setGranularity] = useState<TemporalGranularity>('years')
   const active = series.find((item) => item.id === activeId) ?? series[0]
 
   useEffect(() => {
     setActiveId(firstId)
   }, [seriesKey, firstId])
 
-  if (!active) return null
+  const view = useMemo(() => {
+    if (!active) return null
+    const range = resolveTemporalRangeMs(active)
+    return {
+      gaps: gapsForGranularity(active, granularity),
+      range,
+      startLabel: formatTemporalBoundLabel(range.startMs, granularity),
+      endLabel: formatTemporalBoundLabel(range.endMs, granularity),
+    }
+  }, [active, granularity])
+
+  if (!active || !view) return null
 
   return (
     <section className={styles.availabilitySection}>
       <div className={styles.availabilityHeader}>
         <h3 className={styles.sectionTitle}>Temporal availability</h3>
-        <SeriesTabs
-          label="Temporal columns"
-          series={series}
-          activeId={active.id}
-          onChange={setActiveId}
-        />
+        <div className={styles.availabilityControls}>
+          <SeriesTabs
+            label="Temporal columns"
+            series={series}
+            activeId={active.id}
+            onChange={setActiveId}
+          />
+          <GranularitySelect value={granularity} onChange={setGranularity} />
+        </div>
       </div>
       <div className={styles.timelineTrack}>
         <div className={styles.timelineFill} aria-hidden />
-        {active.gaps.map((gap, index) => (
+        {view.gaps.map((gap, index) => (
           <TimelineGap
-            key={`${active.id}-gap-${index}`}
-            startLabel={active.startLabel}
-            endLabel={active.endLabel}
+            key={`${active.id}-${granularity}-gap-${index}`}
+            rangeStartMs={view.range.startMs}
+            rangeEndMs={view.range.endMs}
             start={gap.start}
             width={gap.width}
+            granularity={granularity}
           />
         ))}
       </div>
       <div className={styles.timelineLabels}>
-        <span>{active.startLabel}</span>
-        <span>{active.endLabel}</span>
+        <span>{view.startLabel}</span>
+        <span>{view.endLabel}</span>
       </div>
     </section>
   )
@@ -373,7 +644,6 @@ export function DataProfilePanel({ component }: { component: CreatedComponent })
           <div className={styles.overview}>
             <Metric label="Rows" value={profile.overview.rows} />
             <Metric label="Columns" value={profile.overview.columns} />
-            <Metric label="Completeness" value={profile.overview.completeness} />
             <Metric label="Numeric" value={profile.overview.numericColumns} />
           </div>
         </section>

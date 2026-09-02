@@ -39,6 +39,16 @@
   gap: 16px;
 }
 
+.headerEnd {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.headerEnd {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .backBtn {
   display: inline-flex;
   align-items: center;
@@ -64,6 +74,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  flex: 1;
 }
 
 .storyTitle {
@@ -72,6 +84,9 @@
   font-weight: 600;
   line-height: 24px;
   text-shadow: 0 4px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .infoIcon {
@@ -307,6 +322,11 @@
   font-size: 10px;
   line-height: 1.1;
   text-align: left;
+}
+
+.pollutant .statusPillNormal,
+.pollutant .statusPillCritical {
+  align-self: center;
 }
 
 .mapData {

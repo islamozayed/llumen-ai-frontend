@@ -6,6 +6,7 @@ import {
   PencilSimple,
   Trash,
   User,
+  X,
 } from '@phosphor-icons/react'
 import styles from './SessionsPanel.module.css'
 
@@ -87,6 +88,7 @@ export type SessionsPanelProps = {
   onOpenSession: (id: string) => void
   onShareSession?: (id: string) => void
   variant?: 'dropdown' | 'fullscreen'
+  onClose?: () => void
 }
 
 const SESSION_MENU_ITEMS = [
@@ -231,6 +233,7 @@ export function SessionsPanel({
   onOpenSession,
   onShareSession,
   variant = 'dropdown',
+  onClose,
 }: SessionsPanelProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -308,6 +311,16 @@ export function SessionsPanel({
               </div>
             ) : null}
           </div>
+          {onClose ? (
+            <button
+              type="button"
+              className={styles.headerIconBtn}
+              onClick={onClose}
+              aria-label="Close conversations"
+            >
+              <X size={20} weight="regular" aria-hidden />
+            </button>
+          ) : null}
         </div>
       </div>
 

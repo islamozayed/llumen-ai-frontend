@@ -203,6 +203,12 @@
   padding: var(--space-md) var(--lc-transcript-gutter) var(--lc-transcript-gutter);
 }
 
+.fabColumnDocked .panelBackdrop {
+  border-radius: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
 .fabColumnDocked .requestBoxSplit {
   /* Beat `.requestBoxSplit { padding: 0 }` so the rail doesn't jump */
   padding: var(--space-md) var(--lc-transcript-gutter) var(--lc-transcript-gutter);
@@ -346,6 +352,14 @@
   min-width: 0;
   width: 100%;
   align-self: stretch;
+}
+
+.hubSessionsFill {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }
 
 /* Fullscreen + no subcontext: header spans full width; chat body stays 900px centered */
@@ -760,7 +774,8 @@
   z-index: 3;
   display: flex;
   flex-direction: column;
-  padding: calc(var(--space-3xl) + 148px) var(--space-4xl) var(--space-3xl);
+  /* No bottom padding — Data / Source panels fill to the viewport edge */
+  padding: calc(var(--space-3xl) + 148px) var(--space-4xl) 0;
   overflow: hidden;
   min-height: 0;
   background: var(--lc-surface-0);
@@ -2279,16 +2294,23 @@
   .launcherIcon {
     animation: none;
   }
+
+  .composerOrb,
+  .composerInput,
+  .composerToolbar,
+  .composerEditorEmpty:before {
+    transition: none;
+  }
 }
 
-/* ChatComposer / ChatBox — matches reference LlumenChatInput .inputContainer */
+/* ChatComposer / ChatBox — Hub parity layout with surface tokens */
 .chatBox {
   width: 100%;
   max-width: none;
   align-self: stretch;
   flex-shrink: 0;
   box-sizing: border-box;
-  padding: var(--space-xl);
+  padding: 12px;
   border-radius: var(--radius-3xl);
   border: 1px solid var(--lc-border-default);
   background: var(--lc-surface-2);
@@ -2298,14 +2320,174 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-end;
-  gap: var(--space-md);
-  max-height: 200px;
+  gap: 0;
+  max-height: 220px;
   overflow: hidden;
 }
 
-.chatBoxWithContexts {
-  max-height: 320px;
+.chatBoxExpanded {
+  max-height: 240px;
 }
+
+.chatBoxWithContexts {
+  max-height: 340px;
+}
+
+.composeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.composerOrb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 1;
+  transition:
+    width 220ms var(--lc-ease),
+    opacity 180ms var(--lc-ease),
+    margin 220ms var(--lc-ease);
+}
+
+.composerOrbCollapsed {
+  width: 0;
+  margin: 0;
+  opacity: 0;
+}
+
+.composerOrb .launcherIcon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.composerInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 96px;
+  margin: 0;
+  padding: 7px 0;
+  border: none;
+  background: transparent;
+  color: var(--lc-text-primary);
+  font: inherit;
+  font-size: 15px;
+  line-height: 22px;
+  outline: none;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  transition: transform 220ms var(--lc-ease);
+}
+
+.composerInputEngaged.composerEditorEmpty:before {
+  transform: translateX(-2px);
+}
+
+.composerIconAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--lc-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.composerIconAction:hover:not(:disabled) {
+  color: var(--lc-text-primary);
+}
+
+.composerIconAction:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.composerIconAction:focus-visible {
+  outline: 2px solid rgba(132, 177, 245, 0.8);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.composerLabelAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin: 0;
+  padding: 0 2px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--lc-text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.composerLabelAction:hover:not(:disabled),
+.composerLabelActionActive:not(:disabled) {
+  color: var(--lc-text-primary);
+}
+
+.composerLabelAction:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.composerLabelAction:focus-visible {
+  outline: 2px solid rgba(132, 177, 245, 0.8);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.composerToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-height: 0;
+  max-height: 44px;
+  margin-top: 8px;
+  overflow: hidden;
+  opacity: 1;
+}
+
+.composerToolbarLeft,
+.composerToolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.composerToolbarRight {
+  margin-left: auto;
+}
+
 
 .contextChipRow {
   display: flex;
@@ -2478,10 +2660,12 @@
 
 .composerEditorEmpty:before {
   content: attr(data-placeholder);
-  color: var(--lc-text-secondary);
+  color: var(--lc-text-placeholder);
   pointer-events: none;
   float: left;
   height: 0;
+  transform: translateX(0);
+  transition: transform 220ms var(--lc-ease);
 }
 
 .inlineMention {
@@ -2972,7 +3156,7 @@
   white-space: nowrap;
 }
 
-/* Send control — Figma ChatBox Send (678:7024): ArrowRight; inactive vs Active/Stop */
+/* Send control — match HubChatbox .send (inactive / active / stop) */
 .sendRotate {
   display: flex;
   align-items: center;
@@ -2980,61 +3164,51 @@
 }
 
 .sendBtn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
+  margin: 0;
   padding: 0;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--lc-border-subtle);
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
   cursor: pointer;
   flex-shrink: 0;
-  transition:
-    background var(--lc-duration) var(--lc-ease),
-    border-color var(--lc-duration) var(--lc-ease);
+  transition: background var(--lc-duration) var(--lc-ease);
+}
+
+.sendBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .sendBtn:focus-visible {
-  outline: 2px solid rgba(132, 177, 245, 0.8);
+  outline: 2px solid rgba(109, 233, 225, 0.7);
   outline-offset: 2px;
 }
 
-.sendInactive {
-  background: var(--lc-bg-control);
-}
-
 .sendInactive:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.35;
+  cursor: default;
 }
 
-.sendActive {
-  background: rgba(132, 177, 245, 0.8);
-  border-color: #ffffff;
-}
-
+.sendActive,
 .sendStop {
-  background: rgba(132, 177, 245, 0.8);
-  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 
 .sendStopInner {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   background: #fff;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 .sendArrow {
   flex-shrink: 0;
   display: block;
-}
-
-.sendInactive .sendArrow {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.sendActive .sendArrow {
-  color: #ffffff;
+  color: #fff;
 }

@@ -388,12 +388,14 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   const chatBoxRef = useRef<HTMLDivElement>(null)
   const composerHeightRef = useRef<number | null>(null)
   const mentionMenuRef = useRef<HTMLDivElement>(null)
+  const mentionBtnRef = useRef<HTMLButtonElement>(null)
   const fileCounterRef = useRef(0)
   const uid = useId()
   const [contexts, setContexts] = useState<ComposerContext[]>([])
   const [mentionMenu, setMentionMenu] = useState<MentionMenuState | null>(null)
   const [editorEmpty, setEditorEmpty] = useState(true)
   const chatScrollRef = useRevealScrollbarOnScroll()
+  const hasContexts = contexts.length > 0
 
   const filteredCategories = useMemo(
     () => filterCategories(mentionMenu?.query ?? ''),
@@ -603,8 +605,9 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     const el = chatBoxRef.current
     if (!el) return
 
+    const maxHeight = contexts.length > 0 ? 340 : 240
     gsap.killTweensOf(el)
-    gsap.set(el, { height: 'auto', maxHeight: contexts.length > 0 ? 320 : 200 })
+    gsap.set(el, { height: 'auto', maxHeight })
     const nextHeight = el.offsetHeight
     const prevHeight = composerHeightRef.current
 
@@ -617,7 +620,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
 
     gsap.set(el, {
       height: prevHeight,
-      maxHeight: Math.max(prevHeight, nextHeight, 320),
+      maxHeight: Math.max(prevHeight, nextHeight, maxHeight),
       overflow: 'hidden',
     })
     syncComposerReserve(prevHeight)
@@ -751,13 +754,15 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     setContexts((prev) => prev.filter((item) => item.id !== id))
   }
 
-  const hasContexts = contexts.length > 0
-  const placeholder = hasThreadMessages ? 'Reply...' : 'Ask about anything'
+  const showPlaceholder = editorEmpty
+  const placeholder = hasThreadMessages ? 'Reply…' : 'Ask Llumen anything…'
 
   return (
     <div
       ref={chatBoxRef}
-      className={`${styles.chatBox}${hasContexts ? ` ${styles.chatBoxWithContexts}` : ''}`}
+      className={`${styles.chatBox} ${styles.chatBoxExpanded}${
+        hasContexts ? ` ${styles.chatBoxWithContexts}` : ''
+      }`}
       data-lc-composer=""
     >
       {hasContexts ? (
@@ -767,21 +772,22 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           ))}
         </div>
       ) : null}
-      <div className={styles.textAreaWrap}>
+
+      <div className={styles.composeRow}>
         <div
           ref={(el) => {
             editorRef.current = el
             chatScrollRef(el)
           }}
-          className={`${styles.textArea} ${styles.composerEditor}${
-            editorEmpty ? ` ${styles.composerEditorEmpty}` : ''
+          className={`${styles.composerInput} ${styles.composerEditor}${
+            showPlaceholder ? ` ${styles.composerEditorEmpty}` : ''
           }`}
           contentEditable={!editorDisabled}
           role="textbox"
           aria-multiline="true"
-          aria-label={hasThreadMessages ? 'Reply' : 'Message'}
-          aria-placeholder={placeholder}
-          data-placeholder={placeholder}
+          aria-label={hasThreadMessages ? 'Reply' : 'Ask Llumen'}
+          aria-placeholder={showPlaceholder ? placeholder : undefined}
+          data-placeholder={showPlaceholder ? placeholder : undefined}
           data-lc-composer-editor=""
           suppressContentEditableWarning
           onInput={onEditorInput}
@@ -794,67 +800,43 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           }}
         />
       </div>
-      <div className={styles.paramsCol}>
-        <div className={styles.rowPrimary}>
-          <div className={styles.rowPrimaryLeft}>
-            {showParameters && (
-              <>
-                {mentionMenu &&
-                  createPortal(
-                    <InlineContextMenu
-                      menuRef={mentionMenuRef}
-                      position={mentionMenu.position}
-                      stage={mentionMenu.stage}
-                      categoryId={mentionMenu.categoryId}
-                      categories={filteredCategories}
-                      items={filteredItems}
-                      activeIndex={mentionMenu.activeIndex}
-                      query={mentionMenu.query}
-                      onHoverIndex={(index) =>
-                        setMentionMenu((prev) => (prev ? { ...prev, activeIndex: index } : prev))
-                      }
-                      onSelectCategory={selectCategory}
-                      onSelectItem={insertMention}
-                      onBack={() =>
-                        setMentionMenu((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                stage: 'categories',
-                                categoryId: null,
-                                activeIndex: 0,
-                              }
-                            : prev,
-                        )
-                      }
-                    />,
-                    document.body,
-                  )}
-                <button
-                  type="button"
-                  className={styles.contextBtn}
-                  aria-label="Attach file"
-                  onClick={addFileAttachment}
-                  disabled={editorDisabled}
-                >
-                  <Paperclip className={styles.contextBtnIcon} size={18} weight="regular" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.contextBtn}${mentionMenu ? ` ${styles.contextBtnActive}` : ''}`}
-                  aria-label="Add context mention"
-                  aria-expanded={Boolean(mentionMenu)}
-                  aria-haspopup="listbox"
-                  onClick={openContextMentionPicker}
-                  disabled={editorDisabled}
-                >
-                  <At className={styles.contextBtnIcon} size={18} weight="regular" aria-hidden />
-                </button>
-              </>
-            )}
-          </div>
-          <button type="button" className={styles.iconBtn} aria-label="Voice input">
-            <Microphone className={styles.iconBtnImg} size={20} weight="regular" aria-hidden />
+
+      <div className={styles.composerToolbar}>
+        <div className={styles.composerToolbarLeft}>
+          {showParameters ? (
+            <>
+              <button
+                type="button"
+                className={styles.composerIconAction}
+                aria-label="Attach file"
+                disabled={editorDisabled}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={addFileAttachment}
+              >
+                <Paperclip size={18} weight="regular" aria-hidden />
+              </button>
+              <button
+                ref={mentionBtnRef}
+                type="button"
+                className={`${styles.composerLabelAction}${
+                  mentionMenu ? ` ${styles.composerLabelActionActive}` : ''
+                }`}
+                aria-label="Add context"
+                aria-expanded={Boolean(mentionMenu)}
+                aria-haspopup="listbox"
+                disabled={editorDisabled}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={openContextMentionPicker}
+              >
+                <At size={16} weight="regular" aria-hidden />
+                Add context
+              </button>
+            </>
+          ) : null}
+        </div>
+        <div className={styles.composerToolbarRight}>
+          <button type="button" className={styles.composerIconAction} aria-label="Voice input">
+            <Microphone size={18} weight="regular" aria-hidden />
           </button>
           <SendButton
             state={sendState}
@@ -865,6 +847,39 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           />
         </div>
       </div>
+
+      {mentionMenu
+        ? createPortal(
+            <InlineContextMenu
+              menuRef={mentionMenuRef}
+              position={mentionMenu.position}
+              stage={mentionMenu.stage}
+              categoryId={mentionMenu.categoryId}
+              categories={filteredCategories}
+              items={filteredItems}
+              activeIndex={mentionMenu.activeIndex}
+              query={mentionMenu.query}
+              onHoverIndex={(index) =>
+                setMentionMenu((prev) => (prev ? { ...prev, activeIndex: index } : prev))
+              }
+              onSelectCategory={selectCategory}
+              onSelectItem={insertMention}
+              onBack={() =>
+                setMentionMenu((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        stage: 'categories',
+                        categoryId: null,
+                        activeIndex: 0,
+                      }
+                    : prev,
+                )
+              }
+            />,
+            document.body,
+          )
+        : null}
     </div>
   )
 })

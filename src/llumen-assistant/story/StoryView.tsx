@@ -2,7 +2,7 @@
  * Landing Story content type — Figma slide-landing-screen-map (3359:3802).
  * Full-page main content (not agent subcontext). Map from llumen-map-legend layers.
  */
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -27,9 +27,11 @@ export type StoryViewProps = {
   storyId: string
   onBack: () => void
   /** Opens left agent rail with current story/slide context. */
-  onAsk?: (context: { story: LandingStory; slideIndex: number }) => void
+  onAsk?: (context: { story: LandingStory; slideIndex: number; sourceRect: DOMRect }) => void
   /** When the agent rail is open, hide the Ask icon. */
   agentOpen?: boolean
+  /** Prototype control slot in the top-right header. */
+  headerEnd?: ReactNode
 }
 
 function Chem({ name }: { name: string }) {
@@ -62,7 +64,7 @@ function filterIcon(id: string) {
   }
 }
 
-export function StoryView({ storyId, onBack, onAsk, agentOpen = false }: StoryViewProps) {
+export function StoryView({ storyId, onBack, onAsk, agentOpen = false, headerEnd }: StoryViewProps) {
   const story = useMemo(() => getLandingStory(storyId), [storyId])
   const [slideIndex, setSlideIndex] = useState(0)
   const [legendOpen, setLegendOpen] = useState(true)
@@ -92,6 +94,7 @@ export function StoryView({ storyId, onBack, onAsk, agentOpen = false }: StoryVi
               <h1 className={styles.storyTitle}>{story.storyTitle}</h1>
               <Info size={18} weight="regular" className={styles.infoIcon} aria-hidden />
             </div>
+            {headerEnd ? <div className={styles.headerEnd}>{headerEnd}</div> : null}
           </div>
           <div className={styles.filters}>
             {story.filters.map((f) => (
@@ -236,7 +239,9 @@ export function StoryView({ storyId, onBack, onAsk, agentOpen = false }: StoryVi
               type="button"
               className={styles.askBtn}
               aria-label="Ask about this story"
-              onClick={() => onAsk({ story, slideIndex })}
+              onClick={(event) =>
+                onAsk({ story, slideIndex, sourceRect: event.currentTarget.getBoundingClientRect() })
+              }
             >
               <img className={styles.askIcon} src={llumenAssets.launcherOrb} alt="" width={24} height={24} />
             </button>
