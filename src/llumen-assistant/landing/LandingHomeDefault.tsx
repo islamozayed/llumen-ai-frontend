@@ -703,12 +703,15 @@ export type LandingHomeDefaultProps = {
   onTellMeMore?: (item: LandingTellMeMorePayload) => void
   /** Prototype control slot in the top-right nav. */
   headerEnd?: ReactNode
+  /** Extra bottom inset so stories clear a center composer (Hub). Current uses the FAB only. */
+  reserveComposer?: boolean
 }
 
 export default function LandingHomeDefault({
   onOpenStory,
   onTellMeMore,
   headerEnd,
+  reserveComposer = true,
 }: LandingHomeDefaultProps = {}) {
   const [filter, setFilter] = useState('All')
   const [active, setActive] = useState(0)
@@ -979,7 +982,10 @@ export default function LandingHomeDefault({
           </div>
         </section>
 
-        <section className={styles.section} aria-labelledby="recommended">
+        <section
+          className={`${styles.section}${reserveComposer ? '' : ` ${styles.sectionCompact}`}`}
+          aria-labelledby="recommended"
+        >
           <h2 id="recommended" className={styles.sectionEyebrow}>
             Recommended For you
           </h2>

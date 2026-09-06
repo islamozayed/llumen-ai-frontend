@@ -686,6 +686,10 @@
   padding: 12px var(--space-2xl) 120px;
 }
 
+.sectionCompact {
+  padding-bottom: var(--space-3xl);
+}
+
 .sectionEyebrow {
   margin: 0;
   font-family: var(--lc-font-mono);

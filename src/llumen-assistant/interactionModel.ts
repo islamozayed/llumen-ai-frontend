@@ -12,7 +12,7 @@ export const CHAT_INTERACTION_MODELS: ChatInteractionModelOption[] = [
   {
     id: 'classic',
     label: 'Current',
-    description: 'FAB + center chatbox',
+    description: 'Bottom-left FAB',
   },
   {
     id: 'hub',

@@ -8,8 +8,15 @@ import { MeshGradient } from '@paper-design/shaders-react'
 import gsap from 'gsap'
 import styles from './compact-assistant.module.css'
 import LandingHomeDefault from './landing/LandingHomeDefault'
-import { LandingChatbox, type LandingContextChip } from './landing/LandingChatbox'
+import { type LandingContextChip } from './landing/LandingChatbox'
 import { HubChatbox } from './landing/HubChatbox'
+import { FindingToastStack } from './landing/FindingToastStack'
+import {
+  FINDING_TOAST_SEED_COUNT,
+  isFindingSlashCommand,
+  nextFindingFromPool,
+  type FindingToastInstance,
+} from './landing/findingDemoData'
 import type { LandingTellMeMorePayload } from './landing/LandingHomeDefault'
 import { InteractionModelSwitcher } from './InteractionModelSwitcher'
 import {
@@ -269,6 +276,9 @@ export function CompactAssistantDemo() {
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null)
   const [landingChips, setLandingChips] = useState<LandingContextChip[]>([])
   const [landingFocusToken, setLandingFocusToken] = useState(0)
+  const [findingToasts, setFindingToasts] = useState<FindingToastInstance[]>([])
+  const [findingToastIndex, setFindingToastIndex] = useState(0)
+  const findingPoolIndexRef = useRef(0)
   const [hubStoryOpen, setHubStoryOpen] = useState(false)
   const [hubMorphFrom, setHubMorphFrom] = useState<DOMRect | null>(null)
   const [hubRailMode, setHubRailMode] = useState<'thread' | 'sessions'>('thread')
@@ -563,10 +573,33 @@ export function CompactAssistantDemo() {
     }, thinkingMs)
   }, [])
 
+  const pushFindingToast = useCallback(() => {
+    // First `/finding` seeds a Z-stack; later calls add one more on top.
+    const count = findingToasts.length === 0 ? FINDING_TOAST_SEED_COUNT : 1
+    const batch: FindingToastInstance[] = []
+    for (let i = 0; i < count; i++) {
+      const template = nextFindingFromPool(findingPoolIndexRef.current)
+      findingPoolIndexRef.current += 1
+      batch.push({ ...template, instanceId: uid() })
+    }
+    setFindingToasts((prev) => [...prev, ...batch].slice(-6))
+    setFindingToastIndex(Math.min(findingToasts.length + batch.length - 1, 5))
+  }, [findingToasts.length])
+
+  const dismissFindingToasts = useCallback(() => {
+    setFindingToasts([])
+    setFindingToastIndex(0)
+  }, [])
+
   const sendText = useCallback(
     (raw: string) => {
       const t = raw.trim()
       if (!t || streaming) return
+      if (isFindingSlashCommand(t)) {
+        setDraft('')
+        pushFindingToast()
+        return
+      }
       setDraft('')
       const priorAssistant = messages.filter((msg) => msg.role === 'assistant').length
       const turn = detectConversationTurn(t, priorAssistant)
@@ -581,7 +614,7 @@ export function CompactAssistantDemo() {
       setMessages((m) => [...m, { id: uid(), role: 'user', text: t }])
       startAssistantReply(reply)
     },
-    [streaming, messages, startAssistantReply],
+    [streaming, messages, startAssistantReply, pushFindingToast],
   )
 
   const send = useCallback(() => {
@@ -865,6 +898,11 @@ export function CompactAssistantDemo() {
 
   const submitLandingAsk = useCallback(
     (text: string, chips: LandingContextChip[]) => {
+      if (isFindingSlashCommand(text)) {
+        setLandingChips([])
+        pushFindingToast()
+        return
+      }
       const chipLine =
         chips.length > 0
           ? `Context: ${chips.map((c) => (c.domain ? `${c.domain} — ${c.label}` : c.label)).join('; ')}`
@@ -884,7 +922,7 @@ export function CompactAssistantDemo() {
       setExpanded(false)
       sendText(composed || fallback)
     },
-    [sendText],
+    [sendText, pushFindingToast],
   )
 
   const onTellMeMore = useCallback(
@@ -904,6 +942,11 @@ export function CompactAssistantDemo() {
         if (prev.some((c) => c.id === item.id)) return prev
         return [...prev, chip]
       })
+      if (!isHub) {
+        setOpen(true)
+        setExpanded(false)
+        return
+      }
       setLandingFocusToken((n) => n + 1)
     },
     [open, landingChipToMention, isHub, hubRailMode],
@@ -1032,7 +1075,7 @@ export function CompactAssistantDemo() {
   )
 
   const storyActive = activeStoryId != null
-  const showLauncher = !isHub && !open && !storyActive
+  const showLauncher = !isHub && !open
   const hubSessionsRail = isHub && open && hubRailMode === 'sessions'
   const hubThreadRail = isHub && open && hubRailMode === 'thread'
   // Keep hub for sessions browsing; hide on landing once the thread rail owns the composer.
@@ -1076,7 +1119,7 @@ export function CompactAssistantDemo() {
               // Landing hub should reopen idle (orb + placeholder), not focused/engaged.
               setLandingFocusToken(0)
             }}
-            onAsk={openStoryAsk}
+            onAsk={isHub ? openStoryAsk : undefined}
             agentOpen={open || hubStoryOpen}
             headerEnd={uxSwitcher}
           />
@@ -1085,18 +1128,10 @@ export function CompactAssistantDemo() {
             onOpenStory={setActiveStoryId}
             onTellMeMore={onTellMeMore}
             headerEnd={uxSwitcher}
+            reserveComposer={isHub}
           />
         )}
       </div>
-      {!isHub && !storyActive ? (
-        <LandingChatbox
-          onSubmit={submitLandingAsk}
-          chips={landingChips}
-          onRemoveChip={(id) => setLandingChips((prev) => prev.filter((c) => c.id !== id))}
-          focusToken={landingFocusToken}
-          exiting={open}
-        />
-      ) : null}
       {showHub ? (
         <HubChatbox
           // Remount when leaving a story so draft/focus/files don't carry over engaged.
@@ -1254,6 +1289,17 @@ export function CompactAssistantDemo() {
         title={`Share “${chatTitle}”`}
         onClose={() => setShareOpen(false)}
       />
+      {findingToasts.length > 0 ? (
+        <FindingToastStack
+          items={findingToasts}
+          activeIndex={findingToastIndex}
+          onActiveIndexChange={setFindingToastIndex}
+          onDismiss={dismissFindingToasts}
+          onTellMeMore={onTellMeMore}
+          placement={storyActive ? 'story' : 'landing'}
+          railOpen={hubSessionsRail}
+        />
+      ) : null}
     </div>
   )
 }

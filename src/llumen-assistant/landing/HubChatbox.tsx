@@ -151,8 +151,11 @@ export function HubChatbox({
   const morphOriginRef = useRef<DOMRect | null>(null)
   const [morphingOut, setMorphingOut] = useState(false)
 
-  const expanded = focused || !editorEmpty || files.length > 0 || mentionOpen
-  const idle = !focused && editorEmpty && files.length === 0 && !mentionOpen
+  // Story hub stays engaged while mounted; only the X (onCollapse) dismisses it.
+  // Landing still collapses to the idle orb row on blur when empty.
+  const stayOpen = placement === 'story'
+  const expanded = stayOpen || focused || !editorEmpty || files.length > 0 || mentionOpen
+  const idle = !stayOpen && !focused && editorEmpty && files.length === 0 && !mentionOpen
   const canSend = !editorEmpty || files.length > 0
   const interactionLocked = exiting || morphingOut
   const categories = useMemo(() => filterCategories(''), [])
