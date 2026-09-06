@@ -38,7 +38,7 @@ export const AIR_QUALITY_MAP_COLUMNS = [
 ] as const
 
 /**
- * 21 stations × 21 locations. Baseline readings drive generated sample rows.
+ * 50 stations × 50 locations. Baseline readings drive generated sample rows.
  */
 export const AIR_QUALITY_MAP_STATIONS: AirQualityMapStation[] = [
   { id: 'AQ-01', location: 'Yas Island west', locationShort: 'Yas W', corridor: 'Island coastal', coordinates: '24.490, 54.607', aqi: 42, no2: 24, pm25: 8, status: 'Good', weight: 48 },
@@ -62,6 +62,35 @@ export const AIR_QUALITY_MAP_STATIONS: AirQualityMapStation[] = [
   { id: 'AQ-19', location: 'Saadiyat South', locationShort: 'Saad. S', corridor: 'Island coastal', coordinates: '24.531, 54.428', aqi: 61, no2: 38, pm25: 13, status: 'Moderate', weight: 60 },
   { id: 'AQ-20', location: 'Al Maryah Island', locationShort: 'Maryah', corridor: 'Central urban', coordinates: '24.501, 54.389', aqi: 69, no2: 46, pm25: 15, status: 'Moderate', weight: 66 },
   { id: 'AQ-21', location: 'Saadiyat coastal', locationShort: 'Saad. C', corridor: 'Island coastal', coordinates: '24.538, 54.421', aqi: 78, no2: 62, pm25: 18, status: 'Moderate', weight: 90 },
+  { id: 'AQ-22', location: 'Al Maqta', locationShort: 'Maqta', corridor: 'Eastern suburbs', coordinates: '24.403, 54.508', aqi: 91, no2: 88, pm25: 26, status: 'Moderate', weight: 72 },
+  { id: 'AQ-23', location: 'Al Wathba', locationShort: 'Wathba', corridor: 'Eastern suburbs', coordinates: '24.248, 54.713', aqi: 104, no2: 126, pm25: 34, status: 'USG', weight: 61 },
+  { id: 'AQ-24', location: 'Airport north', locationShort: 'Air. N', corridor: 'Airport', coordinates: '24.453, 54.651', aqi: 87, no2: 74, pm25: 21, status: 'Moderate', weight: 69 },
+  { id: 'AQ-25', location: 'Airport south', locationShort: 'Air. S', corridor: 'Airport', coordinates: '24.418, 54.658', aqi: 93, no2: 81, pm25: 24, status: 'Moderate', weight: 63 },
+  { id: 'AQ-26', location: 'Masdar City', locationShort: 'Masdar', corridor: 'Eastern suburbs', coordinates: '24.428, 54.616', aqi: 59, no2: 34, pm25: 12, status: 'Moderate', weight: 71 },
+  { id: 'AQ-27', location: 'Al Reef', locationShort: 'Reef', corridor: 'Eastern suburbs', coordinates: '24.459, 54.671', aqi: 72, no2: 49, pm25: 16, status: 'Moderate', weight: 58 },
+  { id: 'AQ-28', location: 'Al Shamkha', locationShort: 'Shamkha', corridor: 'Eastern suburbs', coordinates: '24.392, 54.712', aqi: 81, no2: 63, pm25: 19, status: 'Moderate', weight: 55 },
+  { id: 'AQ-29', location: 'Baniyas', locationShort: 'Baniyas', corridor: 'Eastern suburbs', coordinates: '24.310, 54.635', aqi: 97, no2: 102, pm25: 29, status: 'Moderate', weight: 67 },
+  { id: 'AQ-30', location: 'Al Rahba', locationShort: 'Rahba', corridor: 'Northern suburbs', coordinates: '24.604, 54.705', aqi: 66, no2: 44, pm25: 14, status: 'Moderate', weight: 53 },
+  { id: 'AQ-31', location: 'Al Samha', locationShort: 'Samha', corridor: 'Northern suburbs', coordinates: '24.628, 54.732', aqi: 71, no2: 51, pm25: 16, status: 'Moderate', weight: 49 },
+  { id: 'AQ-32', location: 'Al Falah', locationShort: 'Falah', corridor: 'Northern suburbs', coordinates: '24.541, 54.721', aqi: 84, no2: 68, pm25: 20, status: 'Moderate', weight: 57 },
+  { id: 'AQ-33', location: 'Al Mushrif', locationShort: 'Mushrif', corridor: 'Central urban', coordinates: '24.453, 54.370', aqi: 68, no2: 47, pm25: 15, status: 'Moderate', weight: 73 },
+  { id: 'AQ-34', location: 'Al Karama', locationShort: 'Karama', corridor: 'Central urban', coordinates: '24.466, 54.366', aqi: 74, no2: 55, pm25: 17, status: 'Moderate', weight: 65 },
+  { id: 'AQ-35', location: 'Tourist Club', locationShort: 'T. Club', corridor: 'Central urban', coordinates: '24.488, 54.371', aqi: 79, no2: 61, pm25: 18, status: 'Moderate', weight: 70 },
+  { id: 'AQ-36', location: 'Al Zahiyah', locationShort: 'Zahiyah', corridor: 'Central urban', coordinates: '24.493, 54.377', aqi: 83, no2: 67, pm25: 20, status: 'Moderate', weight: 62 },
+  { id: 'AQ-37', location: 'Al Markaziyah', locationShort: 'Markaz', corridor: 'Central urban', coordinates: '24.482, 54.355', aqi: 77, no2: 59, pm25: 17, status: 'Moderate', weight: 68 },
+  { id: 'AQ-38', location: 'Al Danah', locationShort: 'Danah', corridor: 'Central urban', coordinates: '24.476, 54.348', aqi: 73, no2: 54, pm25: 16, status: 'Moderate', weight: 60 },
+  { id: 'AQ-39', location: 'Al Khalidiyah', locationShort: 'Khalid.', corridor: 'Central urban', coordinates: '24.469, 54.341', aqi: 70, no2: 50, pm25: 15, status: 'Moderate', weight: 64 },
+  { id: 'AQ-40', location: 'Al Hudayriat', locationShort: 'Huday.', corridor: 'Island coastal', coordinates: '24.425, 54.341', aqi: 51, no2: 28, pm25: 10, status: 'Moderate', weight: 52 },
+  { id: 'AQ-41', location: 'Al Jubail Island', locationShort: 'Jubail', corridor: 'Island coastal', coordinates: '24.507, 54.485', aqi: 46, no2: 21, pm25: 8, status: 'Good', weight: 50 },
+  { id: 'AQ-42', location: 'Yas East', locationShort: 'Yas E', corridor: 'Island coastal', coordinates: '24.498, 54.641', aqi: 55, no2: 33, pm25: 11, status: 'Moderate', weight: 59 },
+  { id: 'AQ-43', location: 'Al Raha Gardens', locationShort: 'Raha G', corridor: 'Island coastal', coordinates: '24.452, 54.548', aqi: 62, no2: 39, pm25: 13, status: 'Moderate', weight: 56 },
+  { id: 'AQ-44', location: 'ICAD East', locationShort: 'ICAD E', corridor: 'Mussafah–ICAD', coordinates: '24.344, 54.512', aqi: 147, no2: 298, pm25: 61, status: 'USG', weight: 89 },
+  { id: 'AQ-45', location: 'ICAD South', locationShort: 'ICAD S', corridor: 'Mussafah–ICAD', coordinates: '24.322, 54.478', aqi: 139, no2: 268, pm25: 54, status: 'USG', weight: 77 },
+  { id: 'AQ-46', location: 'Mussafah West', locationShort: 'Muss. W', corridor: 'Mussafah–ICAD', coordinates: '24.361, 54.449', aqi: 151, no2: 332, pm25: 66, status: 'Unhealthy', weight: 81 },
+  { id: 'AQ-47', location: 'Al Mafraq', locationShort: 'Mafraq', corridor: 'Eastern suburbs', coordinates: '24.370, 54.562', aqi: 112, no2: 164, pm25: 38, status: 'USG', weight: 74 },
+  { id: 'AQ-48', location: 'Al Ain Road', locationShort: 'Ain Rd', corridor: 'Eastern suburbs', coordinates: '24.301, 54.598', aqi: 118, no2: 176, pm25: 41, status: 'USG', weight: 66 },
+  { id: 'AQ-49', location: 'Al Taf', locationShort: 'Taf', corridor: 'Northern suburbs', coordinates: '24.612, 54.641', aqi: 63, no2: 40, pm25: 13, status: 'Moderate', weight: 51 },
+  { id: 'AQ-50', location: 'Al Sila approach', locationShort: 'Sila', corridor: 'Northern suburbs', coordinates: '24.641, 54.689', aqi: 57, no2: 31, pm25: 11, status: 'Moderate', weight: 47 },
 ]
 
 const TARGET_ROWS = 1560

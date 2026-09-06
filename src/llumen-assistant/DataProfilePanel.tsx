@@ -9,7 +9,7 @@ import {
   type MouseEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowsOut, CaretDown, X } from '@phosphor-icons/react'
+import { ArrowsOut, CaretDown, MagnifyingGlass, X } from '@phosphor-icons/react'
 import type { CreatedComponent } from './assistantReplyTypes'
 import {
   TEMPORAL_GRANULARITIES,
@@ -264,6 +264,16 @@ function DistributionChart({ column }: { column: ColumnProfile }) {
 
 type DistributionSort = 'as_profiled' | 'asc' | 'desc'
 
+const SORT_OPTIONS = [
+  { id: 'as_profiled', label: 'Default' },
+  { id: 'asc', label: 'Ascending' },
+  { id: 'desc', label: 'Descending' },
+] as const
+
+function sortLabel(sort: DistributionSort) {
+  return SORT_OPTIONS.find((option) => option.id === sort)?.label ?? 'Default'
+}
+
 type DistributionRow = {
   key: string
   label: string
@@ -296,35 +306,120 @@ function sortDistributionRows(rows: DistributionRow[], sort: DistributionSort): 
 function HorizontalDistributionChart({
   column,
   sort,
+  query,
 }: {
   column: ColumnProfile
   sort: DistributionSort
+  query: string
 }) {
+  const scrollRef = useRevealScrollbarOnScroll()
   const distribution = column.distribution
-  const rows = useMemo(() => {
+  const allRows = useMemo(() => {
     const built = buildDistributionRows(column)
     return sortDistributionRows(built, sort)
   }, [column, sort])
+  const rows = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (!needle) return allRows
+    return allRows.filter((row) => row.label.toLowerCase().includes(needle))
+  }, [allRows, query])
 
-  if (!distribution || rows.length === 0) return null
-  const maxCount = Math.max(...rows.map((row) => row.count), 1)
+  if (!distribution || allRows.length === 0) return null
+  const maxCount = Math.max(...allRows.map((row) => row.count), 1)
 
   return (
-    <div className={styles.hChart} role="list" aria-label={`${column.name} distribution`}>
-      {rows.map((row) => {
-        const width = Math.max(0.04, row.count / maxCount)
-        return (
-          <div key={row.key} className={styles.hRow} role="listitem">
-            <span className={styles.hLabel} title={row.label}>
-              {row.label}
-            </span>
-            <div className={styles.hTrack}>
-              <span className={styles.hBar} style={{ width: `${Math.round(width * 100)}%` }} />
+    <div
+      ref={scrollRef}
+      className={styles.hChart}
+      role="list"
+      aria-label={`${column.name} distribution`}
+    >
+      {rows.length === 0 ? (
+        <p className={styles.hEmpty}>No matching values</p>
+      ) : (
+        rows.map((row) => {
+          const width = Math.max(0.04, row.count / maxCount)
+          return (
+            <div key={row.key} className={styles.hRow} role="listitem">
+              <span className={styles.hLabel} title={row.label}>
+                {row.label}
+              </span>
+              <div className={styles.hTrack}>
+                <span className={styles.hBar} style={{ width: `${Math.round(width * 100)}%` }} />
+              </div>
+              <span className={styles.hCount}>{row.count.toLocaleString('en-US')}</span>
             </div>
-            <span className={styles.hCount}>{row.count.toLocaleString('en-US')}</span>
-          </div>
-        )
-      })}
+          )
+        })
+      )}
+    </div>
+  )
+}
+
+function SortMenu({
+  value,
+  onChange,
+  open,
+  onOpenChange,
+}: {
+  value: DistributionSort
+  onChange: (next: DistributionSort) => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const listId = useId()
+
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (event: PointerEvent) => {
+      if (rootRef.current?.contains(event.target as Node)) return
+      onOpenChange(false)
+    }
+    document.addEventListener('pointerdown', onPointer)
+    return () => document.removeEventListener('pointerdown', onPointer)
+  }, [open, onOpenChange])
+
+  return (
+    <div className={styles.sortMenu} ref={rootRef}>
+      <button
+        type="button"
+        className={`${styles.sortTrigger}${open ? ` ${styles.sortTriggerOpen}` : ''}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => onOpenChange(!open)}
+      >
+        <span className={styles.sortTriggerLabel}>{sortLabel(value)}</span>
+        <CaretDown className={styles.sortCaret} size={16} weight="regular" aria-hidden />
+      </button>
+      {open ? (
+        <div
+          className={styles.sortPopover}
+          id={listId}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sort distribution"
+        >
+          {SORT_OPTIONS.map((option) => {
+            const active = option.id === value
+            return (
+              <button
+                key={option.id}
+                type="button"
+                className={`${styles.sortOption}${active ? ` ${styles.sortOptionActive}` : ''}`}
+                aria-pressed={active}
+                onClick={() => {
+                  onChange(option.id)
+                  onOpenChange(false)
+                }}
+              >
+                {option.label}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -337,14 +432,21 @@ function ColumnExpandModal({
   onClose: () => void
 }) {
   const [sort, setSort] = useState<DistributionSort>('as_profiled')
+  const [sortOpen, setSortOpen] = useState(false)
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key !== 'Escape') return
+      if (sortOpen) {
+        setSortOpen(false)
+        return
+      }
+      onClose()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, sortOpen])
 
   return createPortal(
     <div className={styles.modalRoot} role="presentation">
@@ -356,40 +458,29 @@ function ColumnExpandModal({
         aria-label={`${column.name} distribution`}
       >
         <header className={styles.modalHeader}>
-          <h3 className={styles.modalTitle}>{column.name}</h3>
-          <div className={styles.modalHeaderActions}>
+          <div className={styles.headingWithType}>
+            <h3 className={styles.modalTitle}>{column.name}</h3>
             <span className={styles.typeBadge}>{TYPE_LABELS[column.dataType]}</span>
-            <button type="button" className={styles.modalClose} aria-label="Close" onClick={onClose}>
-              <X size={18} weight="bold" aria-hidden />
-            </button>
           </div>
+          <button type="button" className={styles.modalClose} aria-label="Close" onClick={onClose}>
+            <X size={16} weight="regular" aria-hidden />
+          </button>
         </header>
-        <div className={styles.modalToolbar}>
-          <div className={styles.sortGroup} role="group" aria-label="Sort distribution">
-            {(
-              [
-                { id: 'as_profiled', label: 'As profiled' },
-                { id: 'asc', label: 'Ascending' },
-                { id: 'desc', label: 'Descending' },
-              ] as const
-            ).map((option) => {
-              const active = sort === option.id
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={`${styles.sortBtn}${active ? ` ${styles.sortBtnActive}` : ''}`}
-                  aria-pressed={active}
-                  onClick={() => setSort(option.id)}
-                >
-                  {option.label}
-                </button>
-              )
-            })}
-          </div>
+        <div className={styles.modalHeaderToolbar}>
+          <SortMenu value={sort} onChange={setSort} open={sortOpen} onOpenChange={setSortOpen} />
+          <label className={styles.modalSearch}>
+            <MagnifyingGlass size={20} weight="regular" aria-hidden />
+            <input
+              type="search"
+              placeholder="Search..."
+              value={query}
+              aria-label={`Search ${column.name}`}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
         </div>
         <div className={styles.modalBody}>
-          <HorizontalDistributionChart column={column} sort={sort} />
+          <HorizontalDistributionChart column={column} sort={sort} query={query} />
         </div>
       </div>
     </div>,
@@ -405,20 +496,20 @@ function ColumnProfileCard({ column }: { column: ColumnProfile }) {
   return (
     <article className={styles.columnCard}>
       <header className={styles.columnHeader}>
-        <h4 className={styles.columnName}>{column.name}</h4>
-        <div className={styles.columnHeaderActions}>
+        <div className={styles.headingWithType}>
+          <h4 className={styles.columnName}>{column.name}</h4>
           <span className={styles.typeBadge}>{TYPE_LABELS[column.dataType]}</span>
-          {canExpand ? (
-            <button
-              type="button"
-              className={styles.expandBtn}
-              aria-label={`Expand ${column.name} chart`}
-              onClick={() => setExpanded(true)}
-            >
-              <ArrowsOut size={16} weight="regular" aria-hidden />
-            </button>
-          ) : null}
         </div>
+        {canExpand ? (
+          <button
+            type="button"
+            className={styles.expandBtn}
+            aria-label={`Expand ${column.name} chart`}
+            onClick={() => setExpanded(true)}
+          >
+            <ArrowsOut size={16} weight="regular" aria-hidden />
+          </button>
+        ) : null}
       </header>
 
       <div className={styles.metricRow}>

@@ -218,7 +218,7 @@
   --lc-panel-width: 34vw;
   --lc-panel-min-width: 600px;
   /* Docked left agent rail (pushes landing / story content) */
-  --lc-rail-width: min(420px, 38vw);
+  --lc-rail-width: min(520px, 40vw);
   --lc-rail-enter-duration: 320ms;
   --lc-panel-detail-width: 55vw;
   /* Responsive split rail: track viewport changes without retaining the compact panel's 600px minimum. */

@@ -2005,6 +2005,12 @@
   width: calc(100% - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
 }
 
+.fabColumnDocked .middleEmpty .chatBox,
+.fabColumnDocked .middle:not(.middleEmpty) > .chatBox {
+  margin-left: var(--space-xl);
+  width: calc(100% - var(--space-xl) - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
+}
+
 .middle:not(.middleEmpty) > .transcript {
   align-self: stretch;
   justify-self: stretch;
@@ -2048,6 +2054,11 @@
   max-width: none;
 }
 
+.fabColumnDocked .chatColumnSplit .middle:not(.middleEmpty) > .chatBox {
+  margin-left: var(--space-xl);
+  width: calc(100% - var(--space-xl) - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
+}
+
 @supports (overflow: overlay) {
   .transcript,
   .middle:not(.middleEmpty) > .transcript {
@@ -2086,11 +2097,6 @@
   /* Match composer: stop 12px before the scrollbar track */
   padding-right: calc(var(--lc-transcript-gutter) + var(--lc-transcript-scrollbar-inset));
   box-sizing: border-box;
-}
-
-/* Docked rail: full content width aligned with composer (no extra left inset) */
-.fabColumnDocked .msgTurn {
-  padding-left: 0;
 }
 
 .msgUserRow {

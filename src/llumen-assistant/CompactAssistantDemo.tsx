@@ -2,7 +2,14 @@
  * Llumen compact assistant demo — air-quality conversation flow.
  * Integration: theme tokens in src/styles/tokens.css; icons in public/llumen-assets/*.svg.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { CaretDown } from '@phosphor-icons/react'
 import { MeshGradient } from '@paper-design/shaders-react'
 import gsap from 'gsap'
@@ -312,7 +319,6 @@ export function CompactAssistantDemo() {
   const assistantMsgId = useRef<string | null>(null)
   const assistantPanelRef = useRef<HTMLDivElement>(null)
   const subcontextCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const fabColumnRef = useRef<HTMLDivElement>(null)
   const chatMiddleRef = useRef<HTMLDivElement>(null)
   const pendingPanelAnimRef = useRef<{ width: number; height: number; top: number; left: number } | null>(
     null,
@@ -1161,7 +1167,6 @@ export function CompactAssistantDemo() {
         />
       ) : null}
       <div
-        ref={fabColumnRef}
         className={`${styles.fabColumn}${open ? ` ${styles.fabColumnDocked}` : ''}${
           !showLauncher && !open ? ` ${styles.fabColumnHidden}` : ''
         }`}
