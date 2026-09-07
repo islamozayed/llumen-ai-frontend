@@ -17,6 +17,7 @@ import styles from './compact-assistant.module.css'
 import LandingHomeDefault from './landing/LandingHomeDefault'
 import { type LandingContextChip } from './landing/LandingChatbox'
 import { HubChatbox } from './landing/HubChatbox'
+import { FindingReveal } from './landing/FindingReveal'
 import { FindingToastStack } from './landing/FindingToastStack'
 import {
   FINDING_TOAST_SEED_COUNT,
@@ -292,6 +293,7 @@ export function CompactAssistantDemo() {
   const [landingFocusToken, setLandingFocusToken] = useState(0)
   const [findingToasts, setFindingToasts] = useState<FindingToastInstance[]>([])
   const [findingToastIndex, setFindingToastIndex] = useState(0)
+  const [findingStackVisible, setFindingStackVisible] = useState(false)
   const findingPoolIndexRef = useRef(0)
   const [hubWorkToast, setHubWorkToast] = useState<HubWorkToast | null>(null)
   const hubWorkUserTextRef = useRef('')
@@ -590,7 +592,8 @@ export function CompactAssistantDemo() {
 
   const pushFindingToast = useCallback(() => {
     // First `/finding` seeds a Z-stack; later calls add one more on top.
-    const count = findingToasts.length === 0 ? FINDING_TOAST_SEED_COUNT : 1
+    const seeding = findingToasts.length === 0
+    const count = seeding ? FINDING_TOAST_SEED_COUNT : 1
     const batch: FindingToastInstance[] = []
     for (let i = 0; i < count; i++) {
       const template = nextFindingFromPool(findingPoolIndexRef.current)
@@ -599,11 +602,17 @@ export function CompactAssistantDemo() {
     }
     setFindingToasts((prev) => [...prev, ...batch].slice(-6))
     setFindingToastIndex(Math.min(findingToasts.length + batch.length - 1, 5))
+    if (seeding) setFindingStackVisible(false)
   }, [findingToasts.length])
+
+  const onFindingRevealReady = useCallback(() => {
+    setFindingStackVisible(true)
+  }, [])
 
   const dismissFindingToasts = useCallback(() => {
     setFindingToasts([])
     setFindingToastIndex(0)
+    setFindingStackVisible(false)
   }, [])
 
   const sendText = useCallback(
@@ -1183,36 +1192,55 @@ export function CompactAssistantDemo() {
           />
         )}
       </div>
-      {showHub ? (
-        <HubChatbox
-          // Remount when leaving a story so draft/focus/files don't carry over engaged.
-          key={storyActive ? `story-${activeStoryId}` : 'landing'}
-          onSubmit={submitLandingAsk}
-          chips={landingChips}
-          onRemoveChip={(id) => setLandingChips((prev) => prev.filter((c) => c.id !== id))}
-          onOpenSessions={openHubSessions}
-          focusToken={landingFocusToken}
-          exiting={hubThreadRail}
-          placement={storyActive ? 'story' : 'landing'}
-          railOpen={hubSessionsRail}
-          morphFrom={storyActive ? hubMorphFrom : null}
-          onCollapse={
-            storyActive
-              ? () => {
-                  setHubStoryOpen(false)
-                  setHubMorphFrom(null)
-                  if (hubSessionsRail) {
-                    setOpen(false)
-                    setSessionsOpen(false)
-                    setHubRailMode('thread')
-                  }
-                }
-              : undefined
-          }
-          workToast={hubWorkToast}
-          onViewWorkInChat={viewHubWorkInChat}
-          onDismissWork={dismissHubWork}
-        />
+      {(showHub || findingToasts.length > 0) ? (
+        <div
+          className={`${styles.composerDock}${storyActive ? ` ${styles.composerDockStory}` : ''}${
+            hubSessionsRail ? ` ${styles.composerDockShifted}` : ''
+          }`}
+        >
+          {findingStackVisible && findingToasts.length > 0 ? (
+            <FindingToastStack
+              items={findingToasts}
+              activeIndex={findingToastIndex}
+              onActiveIndexChange={setFindingToastIndex}
+              onDismiss={dismissFindingToasts}
+              onTellMeMore={onTellMeMore}
+            />
+          ) : null}
+          {findingToasts.length > 0 && !findingStackVisible ? (
+            <FindingReveal count={findingToasts.length} onReady={onFindingRevealReady} />
+          ) : null}
+          {showHub ? (
+            <HubChatbox
+              // Remount when leaving a story so draft/focus/files don't carry over engaged.
+              key={storyActive ? `story-${activeStoryId}` : 'landing'}
+              onSubmit={submitLandingAsk}
+              chips={landingChips}
+              onRemoveChip={(id) => setLandingChips((prev) => prev.filter((c) => c.id !== id))}
+              onOpenSessions={openHubSessions}
+              focusToken={landingFocusToken}
+              exiting={hubThreadRail}
+              placement={storyActive ? 'story' : 'landing'}
+              morphFrom={storyActive ? hubMorphFrom : null}
+              onCollapse={
+                storyActive
+                  ? () => {
+                      setHubStoryOpen(false)
+                      setHubMorphFrom(null)
+                      if (hubSessionsRail) {
+                        setOpen(false)
+                        setSessionsOpen(false)
+                        setHubRailMode('thread')
+                      }
+                    }
+                  : undefined
+              }
+              workToast={hubWorkToast}
+              onViewWorkInChat={viewHubWorkInChat}
+              onDismissWork={dismissHubWork}
+            />
+          ) : null}
+        </div>
       ) : null}
       <div
         className={`${styles.fabColumn}${open ? ` ${styles.fabColumnDocked}` : ''}${
@@ -1342,17 +1370,6 @@ export function CompactAssistantDemo() {
         title={`Share “${chatTitle}”`}
         onClose={() => setShareOpen(false)}
       />
-      {findingToasts.length > 0 ? (
-        <FindingToastStack
-          items={findingToasts}
-          activeIndex={findingToastIndex}
-          onActiveIndexChange={setFindingToastIndex}
-          onDismiss={dismissFindingToasts}
-          onTellMeMore={onTellMeMore}
-          placement={storyActive ? 'story' : 'landing'}
-          railOpen={hubSessionsRail}
-        />
-      ) : null}
     </div>
   )
 }

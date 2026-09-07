@@ -181,8 +181,6 @@ export type HubChatboxProps = {
   focusToken?: number
   exiting?: boolean
   placement?: 'landing' | 'story'
-  /** Shift horizontally when the sessions rail is open beside the landing. */
-  railOpen?: boolean
   morphFrom?: DOMRect | null
   /** When set, shows an X to collapse the hub (e.g. back to the Story ask orb). */
   onCollapse?: () => void
@@ -200,7 +198,6 @@ export function HubChatbox({
   focusToken = 0,
   exiting = false,
   placement = 'landing',
-  railOpen = false,
   morphFrom = null,
   onCollapse,
   workToast = null,
@@ -805,9 +802,9 @@ export function HubChatbox({
 
   return (
     <div
-      className={`${styles.root}${placement === 'story' ? ` ${styles.rootStory}` : ''}${
-        railOpen ? ` ${styles.rootShifted}` : ''
-      }${exiting ? ` ${styles.rootExiting}` : ''}${morphingOut ? ` ${styles.rootMorphingOut}` : ''}`}
+      className={`${styles.root}${exiting ? ` ${styles.rootExiting}` : ''}${
+        morphingOut ? ` ${styles.rootMorphingOut}` : ''
+      }`}
       aria-hidden={exiting || morphingOut}
     >
       {toasting ? (

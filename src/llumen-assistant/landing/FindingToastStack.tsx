@@ -14,6 +14,7 @@ import styles from './FindingToastStack.module.css'
 
 /** Cards behind the front in the preview stack. Front + this = 3 visible. */
 const MAX_VISIBLE_BEHIND = 2
+const STACK_CARD_HEIGHT = 200
 
 export type FindingToastStackProps = {
   items: FindingToastInstance[]
@@ -22,8 +23,6 @@ export type FindingToastStackProps = {
   /** Clears the entire finding stack (not just the front card). */
   onDismiss: () => void
   onTellMeMore?: (item: LandingTellMeMorePayload) => void
-  placement?: 'landing' | 'story'
-  railOpen?: boolean
 }
 
 export function FindingToastStack({
@@ -32,8 +31,6 @@ export function FindingToastStack({
   onActiveIndexChange,
   onDismiss,
   onTellMeMore,
-  placement = 'landing',
-  railOpen = false,
 }: FindingToastStackProps) {
   const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({})
 
@@ -66,13 +63,7 @@ export function FindingToastStack({
   const vote = votes[active.instanceId] ?? null
 
   return (
-    <div
-      className={`${styles.root}${placement === 'story' ? ` ${styles.rootStory}` : ''}${
-        railOpen ? ` ${styles.rootShifted}` : ''
-      }`}
-      role="region"
-      aria-label="Finding notifications"
-    >
+    <div className={styles.root} role="region" aria-label="Finding notifications">
       <button
         type="button"
         className={styles.navBtn}
@@ -90,15 +81,20 @@ export function FindingToastStack({
           .map(({ item, depth }) => {
             const isFront = depth === 0
             // Stack upward away from the chatbox: behind cards rise + shrink.
+            // Box geometry (not transform) so peek backdrop-filter can sample the landing.
             const scale = 1 - depth * 0.06
-            const y = -depth * 28
+            const lift = depth * 28
+            const insetPct = ((1 - scale) / 2) * 100
             return (
               <article
                 key={item.instanceId}
                 className={`${styles.card}${isFront ? ` ${styles.cardFront}` : ` ${styles.cardBehind}`}`}
                 style={{
                   zIndex: MAX_VISIBLE_BEHIND - depth + 1,
-                  transform: `translateY(${y}px) scale(${scale})`,
+                  bottom: lift,
+                  height: scale * STACK_CARD_HEIGHT,
+                  left: `${insetPct}%`,
+                  right: `${insetPct}%`,
                   // Front AI cards keep their gradient; behind peeks use frosted glass instead.
                   ...(isFront && item.type === 'ai' && item.gradient
                     ? { background: item.gradient }
@@ -195,24 +191,15 @@ export function FindingToastStack({
                     </div>
                   </>
                 ) : (
-                  <>
-                    {/* Dedicated frost layer: backdrop-filter must not share a node with filter/opacity. */}
-                    <div className={styles.cardFrost} aria-hidden />
-                    <div
-                      className={styles.cardBehindScrim}
-                      aria-hidden
-                      style={{ background: `rgba(0, 0, 0, ${0.1 + depth * 0.12})` }}
-                    />
-                  </>
+                  <div
+                    className={styles.cardBehindScrim}
+                    aria-hidden
+                    style={{ background: `rgba(0, 0, 0, ${0.1 + depth * 0.12})` }}
+                  />
                 )}
               </article>
             )
           })}
-        {items.length > 1 ? (
-          <div className={styles.pager} aria-live="polite">
-            {safeIndex + 1} / {items.length}
-          </div>
-        ) : null}
       </div>
 
       <button

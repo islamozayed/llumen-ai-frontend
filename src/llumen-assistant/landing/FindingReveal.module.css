@@ -1,0 +1,118 @@
+/* Aurora pinned to the chatbox base, matching the composer width. */
+.aurora {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  width: 100%;
+  pointer-events: none;
+}
+
+.beam {
+  display: block;
+  width: 100%;
+  pointer-events: none;
+}
+
+/* Library line-beam clips to the track; let the aurora bloom above the chatbox. */
+.beam[data-beam] {
+  overflow: visible !important;
+}
+
+.track {
+  width: 100%;
+  height: 64px;
+  pointer-events: none;
+}
+
+/*
+  Bloom upward from the chatbox base; keep X close to 1 so the ellipse
+  still reads as a left-to-right sweep along the full composer width.
+*/
+.beam[data-beam][data-active]::after,
+.beam[data-beam][data-fading]::after {
+  transform: scale(1.35, 2.8);
+  transform-origin: 50% 100%;
+}
+
+.beam[data-beam][data-active]::before,
+.beam[data-beam][data-fading]::before {
+  transform: scale(1.5, 3.2);
+  transform-origin: 50% 100%;
+}
+
+.beam[data-beam] [data-beam-bloom] {
+  transform: scale(1.7, 3.6);
+  transform-origin: 50% 100%;
+}
+
+.copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0 12px;
+  pointer-events: none;
+  animation: copyIn 420ms var(--lc-ease, cubic-bezier(0.2, 0, 0, 1)) both;
+}
+
+.copyOrb {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.copyText {
+  margin: 0;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+}
+
+.wordReveal {
+  display: inline-block;
+  opacity: 0;
+  animation: wordRevealIn 0.44s var(--lc-ease, cubic-bezier(0.2, 0, 0, 1)) forwards;
+}
+
+@keyframes copyIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wordRevealIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy,
+  .wordReveal {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .beam[data-beam][data-active]::after,
+  .beam[data-beam][data-fading]::after,
+  .beam[data-beam][data-active]::before,
+  .beam[data-beam][data-fading]::before,
+  .beam[data-beam] [data-beam-bloom] {
+    transform: none;
+  }
+}

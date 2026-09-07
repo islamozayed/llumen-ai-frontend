@@ -87,6 +87,44 @@
   /* No width/left morph — docked rail slides in instead of growing from the FAB */
 }
 
+/* Hub composer + finding toasts share one bottom dock so the stack rides the
+   chatbox height (idle orb vs expanded toolbar/chips/multiline).
+   Center with inset/margin (not transform) so card backdrop-filter can sample
+   the landing behind the dock. */
+.composerDock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--space-3xl);
+  z-index: 3;
+  width: min(640px, calc(100vw - 48px));
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-lg);
+  pointer-events: none;
+  overflow: visible;
+  transition:
+    left var(--lc-rail-enter-duration, 320ms) var(--lc-ease),
+    right var(--lc-rail-enter-duration, 320ms) var(--lc-ease),
+    bottom var(--lc-rail-enter-duration, 320ms) var(--lc-ease);
+}
+
+.composerDockStory {
+  bottom: 88px;
+}
+
+.composerDockShifted {
+  left: var(--lc-rail-width, 400px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composerDock {
+    transition: none;
+  }
+}
+
 /* Full-height left agent rail — pushes page via demoPageRailOpen padding */
 .fabColumnDocked {
   top: 0;

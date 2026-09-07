@@ -1,27 +1,12 @@
 .root {
-  position: fixed;
-  left: 50%;
-  /* Sit just above the landing/hub chatbox (chatbox bottom + ~chat height + gap). */
-  bottom: calc(var(--space-3xl) + 92px);
-  z-index: 3;
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  width: min(640px, calc(100vw - 48px));
-  transform: translateX(-50%);
+  width: 100%;
   pointer-events: none;
-  transition:
-    left var(--lc-rail-enter-duration, 320ms) var(--lc-ease, cubic-bezier(0.2, 0, 0, 1)),
-    bottom var(--lc-rail-enter-duration, 320ms) var(--lc-ease, cubic-bezier(0.2, 0, 0, 1));
-}
-
-.rootStory {
-  bottom: calc(88px + 92px);
-}
-
-.rootShifted {
-  left: calc(50% + (var(--lc-rail-width, 400px) / 2));
 }
 
 .navBtn {
@@ -69,12 +54,15 @@
   height: 200px;
   /* Z-stack peeks may extend above without shifting flex alignment. */
   overflow: visible;
-  perspective: 1200px;
 }
 
 .card {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  height: 200px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -83,37 +71,26 @@
   background: rgba(14, 16, 20, 0.82);
   color: #fff;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
-  transform-origin: center bottom;
-  transition: transform 320ms var(--lc-ease, cubic-bezier(0.2, 0, 0, 1));
+  /* Peek offset via box geometry — transform/perspective ancestors kill frost. */
+  transition:
+    left 320ms var(--lc-ease, cubic-bezier(0.2, 0, 0, 1)),
+    right 320ms var(--lc-ease, cubic-bezier(0.2, 0, 0, 1)),
+    bottom 320ms var(--lc-ease, cubic-bezier(0.2, 0, 0, 1)),
+    height 320ms var(--lc-ease, cubic-bezier(0.2, 0, 0, 1));
   pointer-events: none;
-  will-change: transform;
-  /* Keep cards isolation-free so child backdrop-filter can sample page content. */
-  isolation: auto;
 }
 
 .cardFront {
   pointer-events: auto;
 }
 
-/* Preview cards: transparent shell; frost lives on .cardFrost (not this node). */
+/* Frost on this node (not a child of a transformed card). */
 .cardBehind {
-  background: transparent;
+  background: rgba(18, 22, 30, 0.36);
   border-color: rgba(255, 255, 255, 0.16);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
-}
-
-/*
-  Frosted glass for stack peeks. Kept on a child so transform/filter/opacity on
-  the card never disable backdrop-filter (common Chromium bug).
-*/
-.cardFrost {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: rgba(18, 22, 30, 0.36);
   backdrop-filter: blur(20px) saturate(1.25);
   -webkit-backdrop-filter: blur(20px) saturate(1.25);
-  pointer-events: none;
 }
 
 /* Depth dimming via scrim instead of CSS filter: brightness() on the card. */
@@ -306,20 +283,7 @@
   gap: 6px;
 }
 
-.pager {
-  position: absolute;
-  left: 50%;
-  bottom: -26px;
-  transform: translateX(-50%);
-  font-size: 11px;
-  line-height: 14px;
-  color: rgba(255, 255, 255, 0.6);
-  pointer-events: none;
-  white-space: nowrap;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .root,
   .card {
     transition: none;
   }
