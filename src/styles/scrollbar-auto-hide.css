@@ -1,4 +1,7 @@
 /**
+ * Overlay scrollbars hug the scrollport border (no inset from padding).
+ * Pad children, not the scroller, on the scrollbar side.
+ *
  * Elements with data-ll-scrollbar (set by useRevealScrollbarOnScroll):
  * - no arrow buttons (WebKit)
  * - thumb hidden until data-ll-scrollbar-active is set during scroll

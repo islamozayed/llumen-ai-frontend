@@ -244,7 +244,7 @@
   --lc-scrollbar-size: 4px;
   --lc-scrollbar-thumb: rgba(132, 177, 245, 0.14);
   --lc-scrollbar-thumb-hover: rgba(132, 177, 245, 0.24);
-  /* Equal right-rail gaps: content ↔ scrollbar ↔ rail edge (matches left rail pad) */
+  /* Content inset from the overlay scrollbar (scrollbar itself sits on the rail edge) */
   --lc-transcript-gutter: var(--space-lg);
 
   /* Chart accents used by KPI widgets */

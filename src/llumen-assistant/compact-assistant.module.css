@@ -182,7 +182,7 @@
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: var(--space-xl) var(--space-xl) var(--space-xl) var(--space-3xl);
+  padding: var(--space-xl) 0 var(--space-xl) var(--space-3xl);
   border-radius: var(--lc-radius-panel-shell);
   border: 1px solid color-mix(in srgb, var(--lc-surface-3) 40%, transparent);
   display: flex;
@@ -199,8 +199,8 @@
   border-radius: 0;
   border: none;
   box-shadow: none;
-  /* Sides + bottom = 12px gutter; top stays tighter under the header */
-  padding: var(--space-md) var(--lc-transcript-gutter) var(--lc-transcript-gutter);
+  /* Left + bottom gutter; no right pad so the transcript scrollbar hugs the rail edge */
+  padding: var(--space-md) 0 var(--lc-transcript-gutter) var(--lc-transcript-gutter);
 }
 
 .fabColumnDocked .panelBackdrop {
@@ -211,7 +211,7 @@
 
 .fabColumnDocked .requestBoxSplit {
   /* Beat `.requestBoxSplit { padding: 0 }` so the rail doesn't jump */
-  padding: var(--space-md) var(--lc-transcript-gutter) var(--lc-transcript-gutter);
+  padding: var(--space-md) 0 var(--lc-transcript-gutter) var(--lc-transcript-gutter);
 }
 
 .requestBoxAllowOverflow,
@@ -247,7 +247,7 @@
 }
 
 .panelExpanded:has(.sessionsSidebar) .chatColumn {
-  padding: var(--space-xl) var(--space-xl) var(--space-xl) var(--space-3xl);
+  padding: var(--space-xl) 0 var(--space-xl) var(--space-3xl);
 }
 
 .panelExpanded:has(.sessionsSidebar) .separator {
@@ -1141,10 +1141,22 @@
   width: 100%;
   min-height: 0;
   overflow: auto;
-  border-radius: 14px;
+  overflow-y: overlay;
+  padding: 0;
+  /* Square the scrollbar side so the overlay thumb is not inset by the radius */
+  border-radius: 14px 0 0 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.18);
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: auto;
+}
+
+@supports (overflow: overlay) {
+  .componentDetailDataTableWrap {
+    overflow-y: overlay;
+  }
 }
 
 .dataTabRoot {
@@ -1351,6 +1363,12 @@
   gap: var(--space-md);
   width: 100%;
   flex-shrink: 0;
+  padding-right: var(--space-xl);
+  box-sizing: border-box;
+}
+
+.fabColumnDocked .headerRow {
+  padding-right: var(--lc-transcript-gutter);
 }
 
 .headerActions {
@@ -1996,9 +2014,8 @@
 
 /*
  * Right-rail rhythm (docked + floating):
- *   content/chatbox | gutter (12) | scrollbar (4) | gutter (12) | rail edge
- * Scrollbar stays on the transcript’s right edge; composer + turns end 12px left of it.
- * Outer 12px is requestBox padding-right (--lc-transcript-gutter).
+ *   content/chatbox | gutter (12) | scrollbar (4) | rail edge
+ * Overlay scrollbar hugs the panel edge; composer + turns stop 12px before the thumb.
  */
 .middleEmpty .chatBox,
 .middle:not(.middleEmpty) > .chatBox {
@@ -2094,7 +2111,7 @@
   gap: var(--space-lg);
   width: 100%;
   padding-left: var(--space-xl);
-  /* Match composer: stop 12px before the scrollbar track */
+  /* Match composer: stop 12px before the overlay scrollbar on the rail edge */
   padding-right: calc(var(--lc-transcript-gutter) + var(--lc-transcript-scrollbar-inset));
   box-sizing: border-box;
 }

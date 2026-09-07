@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
 import { ChatTeardropText, Check, FloppyDisk, Info, SidebarSimple } from '@phosphor-icons/react'
 import { AiGeneratedBadge } from './AiGeneratedBadge'
 import type { CreatedComponent } from './assistantReplyTypes'
@@ -125,13 +126,15 @@ function ComponentPreview({ component }: { component: CreatedComponent }) {
 }
 
 function QueryResultsContent({ component }: { component: CreatedComponent }) {
+  const scrollRef = useRevealScrollbarOnScroll()
+
   if (component.id === 'air-quality-index') {
     return <ApiResponseTerminal />
   }
 
   const table = queryResultsForComponent(component)
   return (
-    <div className={styles.componentDetailDataTableWrap}>
+    <div ref={scrollRef} className={styles.componentDetailDataTableWrap}>
       <table className={styles.componentDetailDataTable}>
         <thead>
           <tr>
