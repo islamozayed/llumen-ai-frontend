@@ -779,6 +779,7 @@ export function CompactAssistantDemo() {
       if (target instanceof Element && target.closest('[data-lc-sources-menu]')) return
       if (target instanceof Element && target.closest('[data-lc-sources-panel]')) return
       if (target instanceof Element && target.closest('[data-lc-share-modal]')) return
+      if (target instanceof Element && target.closest('[data-lc-data-card-modal]')) return
       closePanel()
     }
     document.addEventListener('pointerdown', onPointerDown)

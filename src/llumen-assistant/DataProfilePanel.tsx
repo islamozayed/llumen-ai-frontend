@@ -438,18 +438,21 @@ function ColumnExpandModal({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
       if (sortOpen) {
         setSortOpen(false)
         return
       }
       onClose()
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    // Capture so Escape closes this modal without dismissing the assistant.
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
   }, [onClose, sortOpen])
 
   return createPortal(
-    <div className={styles.modalRoot} role="presentation">
+    <div className={styles.modalRoot} role="presentation" data-lc-data-card-modal>
       <button type="button" className={styles.modalBackdrop} aria-label="Close" onClick={onClose} />
       <div
         className={styles.modal}
