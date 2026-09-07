@@ -3,7 +3,7 @@ import { airQualityMapQueryTable } from './airQualityMapDemoData'
 import { llumenAssets } from './assets'
 import { queryResultsForComponent, type QueryResultTable } from './componentQueryResults'
 
-export type ColumnDataType = 'int' | 'float' | 'string' | 'datetime' | 'bool'
+export type ColumnDataType = 'string' | 'number' | 'boolean' | 'date' | 'location'
 
 export type ColumnDistribution = {
   yMaxLabel: string
@@ -26,13 +26,225 @@ export type ColumnProfile = {
   distribution?: ColumnDistribution
 }
 
+export const TEMPORAL_GRANULARITIES = [
+  'seconds',
+  'minutes',
+  'hours',
+  'days',
+  'weeks',
+  'years',
+] as const
+
+export type TemporalGranularity = (typeof TEMPORAL_GRANULARITIES)[number]
+
+export const TEMPORAL_GRANULARITY_LABELS: Record<TemporalGranularity, string> = {
+  seconds: 'Seconds',
+  minutes: 'Minutes',
+  hours: 'Hours',
+  days: 'Days',
+  weeks: 'Weeks',
+  years: 'Years',
+}
+
 export type TemporalAvailabilitySeries = {
   id: string
   label: string
   startLabel: string
   endLabel: string
-  /** Gap segments as fractions of the full range (0–1) */
+  /** Gap segments as fractions of the full range (0–1); used when timestamps are unavailable */
   gaps: { start: number; width: number }[]
+  /** Absolute range for label formatting and gap rebucketing */
+  rangeStartMs?: number
+  rangeEndMs?: number
+  /** Observation timestamps for granularity-aware gap detection */
+  timestamps?: number[]
+}
+
+export function temporalUnitMs(granularity: TemporalGranularity): number {
+  switch (granularity) {
+    case 'seconds':
+      return 1000
+    case 'minutes':
+      return 60_000
+    case 'hours':
+      return 3_600_000
+    case 'days':
+      return 86_400_000
+    case 'weeks':
+      return 7 * 86_400_000
+    case 'years':
+      return 365.25 * 86_400_000
+  }
+}
+
+export function resolveTemporalRangeMs(series: TemporalAvailabilitySeries): {
+  startMs: number
+  endMs: number
+} {
+  if (
+    series.rangeStartMs != null &&
+    series.rangeEndMs != null &&
+    series.rangeEndMs > series.rangeStartMs
+  ) {
+    return { startMs: series.rangeStartMs, endMs: series.rangeEndMs }
+  }
+  if (series.timestamps && series.timestamps.length > 0) {
+    return {
+      startMs: Math.min(...series.timestamps),
+      endMs: Math.max(...series.timestamps),
+    }
+  }
+  const startYear = Number(series.startLabel)
+  const endYear = Number(series.endLabel)
+  if (
+    /^\d{4}$/.test(series.startLabel) &&
+    /^\d{4}$/.test(series.endLabel) &&
+    endYear > startYear
+  ) {
+    return { startMs: Date.UTC(startYear, 0, 1), endMs: Date.UTC(endYear, 0, 1) }
+  }
+  return { startMs: Date.UTC(2020, 0, 1), endMs: Date.UTC(2026, 0, 1) }
+}
+
+export function formatTemporalBoundLabel(
+  ms: number,
+  granularity: TemporalGranularity,
+): string {
+  const date = new Date(ms)
+  switch (granularity) {
+    case 'years':
+      return String(date.getUTCFullYear())
+    case 'weeks':
+    case 'days':
+      return date.toISOString().slice(0, 10)
+    case 'hours':
+      return `${date.toISOString().slice(0, 13).replace('T', ' ')}:00`
+    case 'minutes':
+      return date.toISOString().slice(0, 16).replace('T', ' ')
+    case 'seconds':
+      return date.toISOString().slice(0, 19).replace('T', ' ')
+  }
+}
+
+function mergeGapSegments(
+  gaps: { start: number; width: number }[],
+): { start: number; width: number }[] {
+  if (gaps.length === 0) return []
+  const sorted = [...gaps].sort((a, b) => a.start - b.start)
+  const out: { start: number; width: number }[] = []
+  for (const gap of sorted) {
+    const last = out[out.length - 1]
+    const gapEnd = gap.start + gap.width
+    if (!last || gap.start > last.start + last.width + 1e-9) {
+      out.push({ start: gap.start, width: gap.width })
+      continue
+    }
+    last.width = Math.max(last.start + last.width, gapEnd) - last.start
+  }
+  return out
+}
+
+function clampGap(
+  start: number,
+  width: number,
+): { start: number; width: number } | null {
+  const clampedStart = Math.max(0, Math.min(1, start))
+  const clampedWidth = Math.max(0, Math.min(1 - clampedStart, width))
+  if (clampedWidth < 0.004) return null
+  return { start: clampedStart, width: clampedWidth }
+}
+
+function gapsFromTimestampsAtGranularity(
+  timestamps: number[],
+  granularity: TemporalGranularity,
+): { start: number; width: number }[] {
+  if (timestamps.length < 2) return []
+  const startMs = Math.min(...timestamps)
+  const endMs = Math.max(...timestamps)
+  const span = endMs - startMs || 1
+  const unit = temporalUnitMs(granularity)
+  const filled = new Set<number>()
+  for (const t of timestamps) {
+    filled.add(Math.floor((t - startMs) / unit))
+  }
+  const sorted = [...filled].sort((a, b) => a - b)
+  const lastBin = Math.floor(span / unit)
+  const gaps: { start: number; width: number }[] = []
+
+  const pushRange = (fromBin: number, toBinExclusive: number) => {
+    if (toBinExclusive <= fromBin) return
+    const next = clampGap((fromBin * unit) / span, ((toBinExclusive - fromBin) * unit) / span)
+    if (next) gaps.push(next)
+  }
+
+  if (sorted[0]! > 0) pushRange(0, sorted[0]!)
+  for (let i = 0; i < sorted.length - 1; i += 1) {
+    pushRange(sorted[i]! + 1, sorted[i + 1]!)
+  }
+  if (sorted[sorted.length - 1]! < lastBin) {
+    pushRange(sorted[sorted.length - 1]! + 1, lastBin + 1)
+  }
+
+  return mergeGapSegments(gaps).slice(0, 16)
+}
+
+function gapsFromBaseAtGranularity(
+  baseGaps: { start: number; width: number }[],
+  spanMs: number,
+  granularity: TemporalGranularity,
+): { start: number; width: number }[] {
+  const unit = temporalUnitMs(granularity)
+  const totalBins = Math.max(2, Math.round(spanMs / unit))
+  const BASE = 96
+
+  // Finer than the authored resolution: keep authored gaps (no invented detail).
+  if (totalBins >= BASE) {
+    return mergeGapSegments(baseGaps).slice(0, 16)
+  }
+
+  const filled = Array.from({ length: BASE }, () => true)
+  for (const gap of baseGaps) {
+    const from = Math.max(0, Math.floor(gap.start * BASE))
+    const to = Math.min(BASE, Math.ceil((gap.start + gap.width) * BASE))
+    for (let i = from; i < to; i += 1) filled[i] = false
+  }
+
+  const targetFilled = Array.from({ length: totalBins }, () => true)
+  for (let bin = 0; bin < totalBins; bin += 1) {
+    const from = Math.floor((bin / totalBins) * BASE)
+    const to = Math.max(from + 1, Math.ceil(((bin + 1) / totalBins) * BASE))
+    let empty = 0
+    for (let i = from; i < to; i += 1) {
+      if (!filled[i]) empty += 1
+    }
+    targetFilled[bin] = empty / (to - from) < 0.5
+  }
+
+  const gaps: { start: number; width: number }[] = []
+  let i = 0
+  while (i < totalBins) {
+    if (!targetFilled[i]) {
+      let j = i
+      while (j < totalBins && !targetFilled[j]) j += 1
+      const next = clampGap(i / totalBins, (j - i) / totalBins)
+      if (next) gaps.push(next)
+      i = j
+    } else {
+      i += 1
+    }
+  }
+  return mergeGapSegments(gaps).slice(0, 16)
+}
+
+export function gapsForGranularity(
+  series: TemporalAvailabilitySeries,
+  granularity: TemporalGranularity,
+): { start: number; width: number }[] {
+  const { startMs, endMs } = resolveTemporalRangeMs(series)
+  if (series.timestamps && series.timestamps.length >= 2) {
+    return gapsFromTimestampsAtGranularity(series.timestamps, granularity)
+  }
+  return gapsFromBaseAtGranularity(series.gaps, endMs - startMs || 1, granularity)
 }
 
 export type SpatialAvailabilitySeries = {
@@ -45,7 +257,6 @@ export type SpatialAvailabilitySeries = {
 export type DataProfileOverview = {
   rows: string
   columns: string
-  completeness: string
   numericColumns: string
 }
 
@@ -111,13 +322,12 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
     overview: {
       rows: '48.6K',
       columns: '7',
-      completeness: '99.1%',
       numericColumns: '1',
     },
     columns: [
       {
         name: 'Timestamp',
-        dataType: 'datetime',
+        dataType: 'date',
         count: '48.6K',
         missing: '0%',
         zeroes: '—',
@@ -149,7 +359,7 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
       },
       {
         name: 'AQI',
-        dataType: 'int',
+        dataType: 'number',
         count: '48.6K',
         missing: '0.3%',
         zeroes: '0%',
@@ -223,7 +433,6 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
     overview: {
       rows: '126.4K',
       columns: '9',
-      completeness: '98.8%',
       numericColumns: '2',
     },
     columns: [
@@ -248,7 +457,7 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
       },
       {
         name: 'Value',
-        dataType: 'float',
+        dataType: 'number',
         count: '126.4K',
         missing: '0.5%',
         zeroes: '0.3%',
@@ -280,7 +489,7 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
       },
       {
         name: 'Threshold',
-        dataType: 'float',
+        dataType: 'number',
         count: '126.4K',
         missing: '0%',
         zeroes: '0%',
@@ -352,7 +561,6 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
     overview: {
       rows: '2.8K',
       columns: '6',
-      completeness: '100%',
       numericColumns: '1',
     },
     columns: [
@@ -368,7 +576,7 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
       },
       {
         name: 'Population',
-        dataType: 'int',
+        dataType: 'number',
         count: '2.8K',
         missing: '0%',
         zeroes: '0%',
@@ -387,7 +595,7 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
       },
       {
         name: 'Share',
-        dataType: 'float',
+        dataType: 'number',
         count: '2.8K',
         missing: '1.2%',
         zeroes: '0%',
@@ -429,7 +637,6 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
     overview: {
       rows: '4.1K',
       columns: '7',
-      completeness: '99.7%',
       numericColumns: '1',
     },
     columns: [
@@ -452,7 +659,7 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
       },
       {
         name: 'Area share',
-        dataType: 'float',
+        dataType: 'number',
         count: '4.1K',
         missing: '0%',
         zeroes: '0%',
@@ -512,13 +719,12 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
     overview: {
       rows: '18.9K',
       columns: '6',
-      completeness: '99.6%',
       numericColumns: '1',
     },
     columns: [
       {
         name: 'Hour',
-        dataType: 'datetime',
+        dataType: 'date',
         count: '18.9K',
         missing: '0%',
         zeroes: '—',
@@ -549,7 +755,7 @@ const PROFILES_BY_ID: Record<string, DataProfile> = {
       },
       {
         name: 'Speed (m/s)',
-        dataType: 'float',
+        dataType: 'number',
         count: '18.9K',
         missing: '0.2%',
         zeroes: '0.4%',
@@ -615,17 +821,16 @@ function parseDateMs(raw: string): number | null {
   return Number.isFinite(ms) ? ms : null
 }
 
-function inferDataType(values: string[]): ColumnDataType {
+function inferDataType(name: string, values: string[]): ColumnDataType {
+  if (isSpatialColumn(name)) return 'location'
   const nonEmpty = values.filter((v) => v && v !== '—')
   if (nonEmpty.length === 0) return 'string'
-  if (nonEmpty.every((v) => /^(yes|no|true|false)$/i.test(v.trim()))) return 'bool'
+  if (nonEmpty.every((v) => /^(yes|no|true|false)$/i.test(v.trim()))) return 'boolean'
   if (nonEmpty.every((v) => /^\d{4}-\d{2}-\d{2}/.test(v.trim()) || /^\d{1,2}:\d{2}/.test(v.trim()))) {
-    return 'datetime'
+    return 'date'
   }
   const nums = nonEmpty.map(parseNumeric)
-  if (nums.every((n) => n != null)) {
-    return nums.every((n) => Number.isInteger(n as number)) ? 'int' : 'float'
-  }
+  if (nums.every((n) => n != null)) return 'number'
   return 'string'
 }
 
@@ -733,37 +938,39 @@ function isSpatialColumn(name: string): boolean {
 }
 
 function isTemporalColumn(name: string, dataType: ColumnDataType): boolean {
-  if (dataType === 'datetime') return true
+  if (dataType === 'date') return true
   return /time|date|calibrat|observ/i.test(name)
 }
 
+function percentOf(count: number, total: number): string {
+  if (total <= 0) return '0%'
+  return `${((count / total) * 100).toFixed(1).replace(/\.0$/, '')}%`
+}
+
 function profileColumn(name: string, values: string[]): ColumnProfile {
-  const dataType = inferDataType(values)
-  const missingCount = values.filter((v) => !v || v === '—').length
+  const dataType = inferDataType(name, values)
+  const nullCount = values.filter((v) => !v || v === '—').length
+  const emptyCount = values.filter((v) => v === '').length
   const nums = values.map(parseNumeric).filter((n): n is number => n != null)
   const dates = values.map(parseDateMs).filter((n): n is number => n != null)
   const zeroCount = nums.filter((n) => n === 0).length
-  const isNumeric = dataType === 'int' || dataType === 'float'
+  const isNumeric = dataType === 'number'
   const showAgg = isNumeric && nums.length > 0
-  const showDateAgg = dataType === 'datetime' && dates.length > 0
+  const showDateAgg = dataType === 'date' && dates.length > 0
 
   let distribution: ColumnDistribution | undefined
   if (showAgg) distribution = numericDistribution(nums)
   else if (showDateAgg) distribution = datetimeDistribution(values)
-  else if (dataType === 'string' || dataType === 'bool') distribution = categoricalDistribution(values)
+  else if (dataType === 'string' || dataType === 'boolean' || dataType === 'location') {
+    distribution = categoricalDistribution(values)
+  }
 
   return {
     name,
     dataType,
     count: formatCompact(values.length),
-    missing: values.length
-      ? `${((missingCount / values.length) * 100).toFixed(1).replace(/\.0$/, '')}%`
-      : '0%',
-    zeroes: isNumeric
-      ? values.length
-        ? `${((zeroCount / values.length) * 100).toFixed(1).replace(/\.0$/, '')}%`
-        : '0%'
-      : '—',
+    missing: percentOf(nullCount, values.length),
+    zeroes: isNumeric ? percentOf(zeroCount, values.length) : percentOf(emptyCount, values.length),
     min: showAgg
       ? formatCompact(Math.min(...nums))
       : showDateAgg
@@ -785,18 +992,7 @@ function profileFromTable(table: QueryResultTable): DataProfile {
     return profileColumn(name, values)
   })
 
-  const numericColumns = columns.filter((c) => c.dataType === 'int' || c.dataType === 'float').length
-  const missingCells = table.columns.reduce((sum, _name, colIndex) => {
-    return (
-      sum +
-      table.rows.filter((row) => {
-        const v = row[colIndex] ?? ''
-        return !v || v === '—'
-      }).length
-    )
-  }, 0)
-  const totalCells = Math.max(1, table.rows.length * table.columns.length)
-  const completeness = `${(((totalCells - missingCells) / totalCells) * 100).toFixed(1).replace(/\.0$/, '')}%`
+  const numericColumns = columns.filter((c) => c.dataType === 'number').length
 
   const temporal: TemporalAvailabilitySeries[] = columns
     .filter((column) => isTemporalColumn(column.name, column.dataType))
@@ -805,15 +1001,19 @@ function profileFromTable(table: QueryResultTable): DataProfile {
       const timestamps = table.rows
         .map((row) => parseDateMs(row[colIndex] ?? ''))
         .filter((n): n is number => n != null)
+      const rangeStartMs = timestamps.length > 0 ? Math.min(...timestamps) : undefined
+      const rangeEndMs = timestamps.length > 0 ? Math.max(...timestamps) : undefined
       const startYear =
-        timestamps.length > 0 ? String(new Date(Math.min(...timestamps)).getUTCFullYear()) : '—'
-      const endYear =
-        timestamps.length > 0 ? String(new Date(Math.max(...timestamps)).getUTCFullYear()) : '—'
+        rangeStartMs != null ? String(new Date(rangeStartMs).getUTCFullYear()) : '—'
+      const endYear = rangeEndMs != null ? String(new Date(rangeEndMs).getUTCFullYear()) : '—'
       return {
         id: column.name.toLowerCase().replace(/\s+/g, '-'),
         label: column.name,
         startLabel: startYear,
         endLabel: endYear,
+        rangeStartMs,
+        rangeEndMs,
+        timestamps,
         gaps: gapsFromTimestamps(timestamps),
       }
     })
@@ -831,7 +1031,6 @@ function profileFromTable(table: QueryResultTable): DataProfile {
     overview: {
       rows: formatCompact(table.rows.length),
       columns: String(table.columns.length),
-      completeness,
       numericColumns: String(numericColumns),
     },
     columns,
