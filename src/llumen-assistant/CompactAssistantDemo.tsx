@@ -24,6 +24,13 @@ import {
   nextFindingFromPool,
   type FindingToastInstance,
 } from './landing/findingDemoData'
+import {
+  parseSlashCommand,
+  slashChatTitle,
+  underwayMessage,
+  workUnderwayReply,
+} from './slashCommands'
+import type { HubWorkToast } from './landing/HubChatbox'
 import type { LandingTellMeMorePayload } from './landing/LandingHomeDefault'
 import { InteractionModelSwitcher } from './InteractionModelSwitcher'
 import {
@@ -286,6 +293,8 @@ export function CompactAssistantDemo() {
   const [findingToasts, setFindingToasts] = useState<FindingToastInstance[]>([])
   const [findingToastIndex, setFindingToastIndex] = useState(0)
   const findingPoolIndexRef = useRef(0)
+  const [hubWorkToast, setHubWorkToast] = useState<HubWorkToast | null>(null)
+  const hubWorkUserTextRef = useRef('')
   const [hubStoryOpen, setHubStoryOpen] = useState(false)
   const [hubMorphFrom, setHubMorphFrom] = useState<DOMRect | null>(null)
   const [hubRailMode, setHubRailMode] = useState<'thread' | 'sessions'>('thread')
@@ -606,6 +615,17 @@ export function CompactAssistantDemo() {
         pushFindingToast()
         return
       }
+      const slash = parseSlashCommand(t)
+      if (slash) {
+        setDraft('')
+        const priorAssistant = messages.filter((msg) => msg.role === 'assistant').length
+        if (!titleEditedRef.current && priorAssistant === 0) {
+          setChatTitle(truncateTitle(slashChatTitle(slash)))
+        }
+        setMessages((m) => [...m, { id: uid(), role: 'user', text: t }])
+        startAssistantReply(workUnderwayReply(slash))
+        return
+      }
       setDraft('')
       const priorAssistant = messages.filter((msg) => msg.role === 'assistant').length
       const turn = detectConversationTurn(t, priorAssistant)
@@ -626,6 +646,22 @@ export function CompactAssistantDemo() {
   const send = useCallback(() => {
     sendText(draft)
   }, [draft, sendText])
+
+  const viewHubWorkInChat = useCallback(() => {
+    const text = hubWorkUserTextRef.current
+    setHubWorkToast(null)
+    hubWorkUserTextRef.current = ''
+    setHubRailMode('thread')
+    setSessionsOpen(false)
+    setOpen(true)
+    setExpanded(false)
+    if (text) sendText(text)
+  }, [sendText])
+
+  const dismissHubWork = useCallback(() => {
+    setHubWorkToast(null)
+    hubWorkUserTextRef.current = ''
+  }, [])
 
   const questionIndex = useMemo((): ChatQuestionIndexItem[] => {
     const items: ChatQuestionIndexItem[] = []
@@ -850,6 +886,8 @@ export function CompactAssistantDemo() {
       setHubStoryOpen(false)
       setHubMorphFrom(null)
       setLandingChips([])
+      setHubWorkToast(null)
+      hubWorkUserTextRef.current = ''
     },
     [closePanel],
   )
@@ -909,6 +947,13 @@ export function CompactAssistantDemo() {
         pushFindingToast()
         return
       }
+      const slash = parseSlashCommand(text)
+      if (slash && isHub) {
+        setLandingChips([])
+        hubWorkUserTextRef.current = slash.userText
+        setHubWorkToast({ message: underwayMessage(slash) })
+        return
+      }
       const chipLine =
         chips.length > 0
           ? `Context: ${chips.map((c) => (c.domain ? `${c.domain} — ${c.label}` : c.label)).join('; ')}`
@@ -928,7 +973,7 @@ export function CompactAssistantDemo() {
       setExpanded(false)
       sendText(composed || fallback)
     },
-    [sendText, pushFindingToast],
+    [sendText, pushFindingToast, isHub],
   )
 
   const onTellMeMore = useCallback(
@@ -1164,6 +1209,9 @@ export function CompactAssistantDemo() {
                 }
               : undefined
           }
+          workToast={hubWorkToast}
+          onViewWorkInChat={viewHubWorkInChat}
+          onDismissWork={dismissHubWork}
         />
       ) : null}
       <div

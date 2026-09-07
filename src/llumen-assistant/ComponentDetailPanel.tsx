@@ -321,6 +321,7 @@ export function ComponentDetailPanel({ component, onClose, onShowInConversation 
             ref={mapRef}
             className={styles.componentDetailInteractiveMap}
             showControls={false}
+            buildingMinZoom={10}
           />
         </div>
 

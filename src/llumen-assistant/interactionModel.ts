@@ -10,21 +10,21 @@ export type ChatInteractionModelOption = {
 
 export const CHAT_INTERACTION_MODELS: ChatInteractionModelOption[] = [
   {
-    id: 'classic',
-    label: 'Current',
-    description: 'Bottom-left FAB',
-  },
-  {
     id: 'hub',
     label: 'Hub',
     description: 'Orb in chatbox',
+  },
+  {
+    id: 'classic',
+    label: 'Classic',
+    description: 'Bottom-left FAB',
   },
 ]
 
 const STORAGE_KEY = 'llumen.chatInteractionModel'
 
 export function readChatInteractionModel(previewLocked = false): ChatInteractionModel {
-  if (typeof window === 'undefined') return 'classic'
+  if (typeof window === 'undefined') return 'hub'
   const params = new URLSearchParams(window.location.search)
   const fromUrl = params.get('ux')
   if (fromUrl === 'hub' || fromUrl === 'classic') return fromUrl
@@ -35,7 +35,7 @@ export function readChatInteractionModel(previewLocked = false): ChatInteraction
   } catch {
     /* private mode */
   }
-  return 'classic'
+  return 'hub'
 }
 
 export function persistChatInteractionModel(model: ChatInteractionModel) {
@@ -46,7 +46,7 @@ export function persistChatInteractionModel(model: ChatInteractionModel) {
     /* private mode */
   }
   const url = new URL(window.location.href)
-  if (model === 'classic') url.searchParams.delete('ux')
+  if (model === 'hub') url.searchParams.delete('ux')
   else url.searchParams.set('ux', model)
   window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
 }

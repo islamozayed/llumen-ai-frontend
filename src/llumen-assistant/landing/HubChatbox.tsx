@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { ArrowUp, At, ClockCounterClockwise, File, Paperclip, X } from '@phosphor-icons/react'
+import { ArrowUp, At, ChatText, ClockCounterClockwise, File, Paperclip, X } from '@phosphor-icons/react'
+import { BorderBeam } from 'border-beam'
 import gsap from 'gsap'
 import { llumenAssets } from '../assets'
 import { InlineContextMenu } from '../InlineContextMenu'
@@ -12,6 +13,15 @@ import {
   type InlineContextCategoryId,
   type InlineContextItem,
 } from '../inlineContextData'
+import { SlashCommandMenu } from '../SlashCommandMenu'
+import {
+  filterSlashCommands,
+  getSlashMenuPosition,
+  getSlashTrigger,
+  insertSlashCommand,
+  type SlashCommand,
+  type SlashCommandId,
+} from '../slashCommands'
 import panelStyles from '../compact-assistant.module.css'
 import type { LandingContextChip } from './LandingChatbox'
 import styles from './HubChatbox.module.css'
@@ -62,6 +72,53 @@ function editorIsEmpty(root: HTMLElement): boolean {
   return text.length === 0 && !root.querySelector('[data-inline-mention]')
 }
 
+/** Same stagger as transcript answer copy (`AssistantTimelineReply`). */
+const WORD_REVEAL_STAGGER_MS = 48
+
+function splitWordSpaceSegments(text: string): { text: string; isWord: boolean }[] {
+  const segments: { text: string; isWord: boolean }[] = []
+  const re = /\S+|\s+/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    segments.push({ text: m[0], isWord: /\S/.test(m[0]) })
+  }
+  return segments
+}
+
+function ToastMessage({ text, reduceMotion }: { text: string; reduceMotion: boolean }) {
+  if (reduceMotion || !text) {
+    return (
+      <p className={styles.toastMessage} aria-live="polite">
+        {text}
+      </p>
+    )
+  }
+
+  const segments = splitWordSpaceSegments(text)
+  let wordIndex = 0
+
+  return (
+    <p className={styles.toastMessage} aria-live="polite">
+      {segments.map((seg, idx) => {
+        if (!seg.isWord) {
+          return <span key={`sp-${idx}`}>{seg.text}</span>
+        }
+        const delay = wordIndex * WORD_REVEAL_STAGGER_MS
+        wordIndex += 1
+        return (
+          <span
+            key={`w-${idx}-${seg.text.slice(0, 24)}`}
+            className={styles.wordReveal}
+            style={{ animationDelay: `${delay}ms` }}
+          >
+            {seg.text}
+          </span>
+        )
+      })}
+    </p>
+  )
+}
+
 function createInlineMentionChip(item: InlineContextItem): HTMLSpanElement {
   const Icon = getCategoryIcon(item.categoryId)
   const chip = document.createElement('span')
@@ -105,6 +162,17 @@ function ensureCaretInEditor(editor: HTMLElement) {
   sel.addRange(range)
 }
 
+export type HubWorkToast = {
+  message: string
+}
+
+type SlashMenuState = {
+  query: string
+  activeIndex: number
+  triggerLength: number
+  position: { left: number; bottom: number }
+}
+
 export type HubChatboxProps = {
   onSubmit: (text: string, chips: LandingContextChip[]) => void
   chips?: LandingContextChip[]
@@ -118,6 +186,10 @@ export type HubChatboxProps = {
   morphFrom?: DOMRect | null
   /** When set, shows an X to collapse the hub (e.g. back to the Story ask orb). */
   onCollapse?: () => void
+  /** Slash-command work toast — replaces the composer until viewed or dismissed. */
+  workToast?: HubWorkToast | null
+  onViewWorkInChat?: () => void
+  onDismissWork?: () => void
 }
 
 export function HubChatbox({
@@ -131,6 +203,9 @@ export function HubChatbox({
   railOpen = false,
   morphFrom = null,
   onCollapse,
+  workToast = null,
+  onViewWorkInChat,
+  onDismissWork,
 }: HubChatboxProps) {
   const [focused, setFocused] = useState(false)
   const [editorEmpty, setEditorEmpty] = useState(true)
@@ -141,23 +216,35 @@ export function HubChatbox({
   const [mentionCategory, setMentionCategory] = useState<InlineContextCategoryId | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
   const [mentionPos, setMentionPos] = useState({ left: 0, bottom: 0 })
+  const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null)
   const fileCounterRef = useRef(0)
   const uid = useId()
   const editorRef = useRef<HTMLDivElement>(null)
   const boxRef = useRef<HTMLFormElement>(null)
   const mentionBtnRef = useRef<HTMLButtonElement>(null)
   const mentionMenuRef = useRef<HTMLDivElement>(null)
+  const slashMenuRef = useRef<HTMLDivElement>(null)
   const insertedChipIdsRef = useRef<Set<string>>(new Set())
   const morphOriginRef = useRef<DOMRect | null>(null)
   const [morphingOut, setMorphingOut] = useState(false)
 
+  const toasting = Boolean(workToast)
   // Story hub stays engaged while mounted; only the X (onCollapse) dismisses it.
   // Landing still collapses to the idle orb row on blur when empty.
   const stayOpen = placement === 'story'
-  const expanded = stayOpen || focused || !editorEmpty || files.length > 0 || mentionOpen
-  const idle = !stayOpen && !focused && editorEmpty && files.length === 0 && !mentionOpen
-  const canSend = !editorEmpty || files.length > 0
-  const interactionLocked = exiting || morphingOut
+  const expanded =
+    stayOpen || focused || !editorEmpty || files.length > 0 || mentionOpen || Boolean(slashMenu) || toasting
+  const idle =
+    !stayOpen &&
+    !focused &&
+    editorEmpty &&
+    files.length === 0 &&
+    !mentionOpen &&
+    !slashMenu &&
+    !toasting
+  const canSend = !toasting && (!editorEmpty || files.length > 0)
+  const interactionLocked = exiting || morphingOut || toasting
+  const slashCommands = useMemo(() => filterSlashCommands(slashMenu?.query ?? ''), [slashMenu?.query])
   const categories = useMemo(() => filterCategories(''), [])
   const items = useMemo(
     () => (mentionCategory ? filterItems(mentionCategory, '') : []),
@@ -179,6 +266,62 @@ export function HubChatbox({
     setMentionCategory(null)
     setMentionIndex(0)
   }, [])
+
+  const closeSlash = useCallback(() => {
+    setSlashMenu(null)
+  }, [])
+
+  const refreshSlashMenu = useCallback(() => {
+    const editor = editorRef.current
+    const box = boxRef.current
+    if (!editor || !box || interactionLocked) {
+      setSlashMenu(null)
+      return
+    }
+    const trigger = getSlashTrigger(editor)
+    if (!trigger) {
+      setSlashMenu(null)
+      return
+    }
+    closeMention()
+    const listLength = filterSlashCommands(trigger.query).length
+    setSlashMenu((prev) => ({
+      query: trigger.query,
+      triggerLength: trigger.triggerLength,
+      activeIndex: Math.min(prev?.activeIndex ?? 0, Math.max(0, listLength - 1)),
+      position: getSlashMenuPosition(box),
+    }))
+  }, [closeMention, interactionLocked])
+
+  useLayoutEffect(() => {
+    if (!slashMenu) return
+    const sync = () => {
+      const box = boxRef.current
+      if (!box) return
+      const next = getSlashMenuPosition(box)
+      setSlashMenu((prev) => {
+        if (!prev) return prev
+        const p = prev.position
+        if (p.left === next.left && p.bottom === next.bottom && p.width === next.width) return prev
+        return { ...prev, position: next }
+      })
+    }
+    sync()
+    window.addEventListener('resize', sync)
+    return () => window.removeEventListener('resize', sync)
+  }, [slashMenu, expanded])
+
+  const selectSlashCommand = useCallback(
+    (command: SlashCommand | SlashCommandId) => {
+      const editor = editorRef.current
+      if (!editor || interactionLocked) return
+      const id = typeof command === 'string' ? command : command.id
+      insertSlashCommand(editor, id, slashMenu?.triggerLength ?? 1)
+      closeSlash()
+      syncEditor()
+    },
+    [closeSlash, interactionLocked, slashMenu?.triggerLength, syncEditor],
+  )
 
   const insertInlineMention = useCallback(
     (item: InlineContextItem) => {
@@ -279,16 +422,19 @@ export function HubChatbox({
   }, [morphFrom, exiting])
 
   useEffect(() => {
-    if (!mentionOpen) return
+    if (!mentionOpen && !slashMenu) return
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Node
       if (mentionMenuRef.current?.contains(target)) return
       if (mentionBtnRef.current?.contains(target)) return
+      if (slashMenuRef.current?.contains(target)) return
+      if (editorRef.current?.contains(target)) return
       closeMention()
+      closeSlash()
     }
     document.addEventListener('pointerdown', onPointer)
     return () => document.removeEventListener('pointerdown', onPointer)
-  }, [mentionOpen, closeMention])
+  }, [mentionOpen, slashMenu, closeMention, closeSlash])
 
   const placeMentionMenu = () => {
     const btn = mentionBtnRef.current
@@ -302,6 +448,7 @@ export function HubChatbox({
 
   const openMention = () => {
     if (interactionLocked) return
+    closeSlash()
     placeMentionMenu()
     setMentionOpen(true)
     setMentionStage('categories')
@@ -332,6 +479,7 @@ export function HubChatbox({
   const collapse = useCallback(() => {
     if (interactionLocked || !onCollapse) return
     closeMention()
+    closeSlash()
 
     const el = boxRef.current
     const origin = morphOriginRef.current
@@ -358,7 +506,7 @@ export function HubChatbox({
         onCollapse()
       },
     })
-  }, [closeMention, interactionLocked, onCollapse])
+  }, [closeMention, closeSlash, interactionLocked, onCollapse])
 
   const send = () => {
     if (interactionLocked || !canSend) return
@@ -376,28 +524,26 @@ export function HubChatbox({
     }
     setFiles([])
     closeMention()
+    closeSlash()
     syncEditor()
   }
 
-  const showPlaceholder = editorEmpty && files.length === 0
+  const showPlaceholder = !toasting && editorEmpty && files.length === 0
   const placeholder = showPlaceholder ? 'Ask Llumen anything…' : ''
+  const orbIdle = idle || toasting
+  const reduceBeamMotion =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-  return (
-    <div
-      className={`${styles.root}${placement === 'story' ? ` ${styles.rootStory}` : ''}${
-        railOpen ? ` ${styles.rootShifted}` : ''
-      }${exiting ? ` ${styles.rootExiting}` : ''}${morphingOut ? ` ${styles.rootMorphingOut}` : ''}`}
-      aria-hidden={exiting || morphingOut}
-    >
+  const form = (
       <form
         ref={boxRef}
-        className={styles.box}
+        className={`${styles.box}${toasting ? ` ${styles.boxToast}` : ''}`}
         onSubmit={(e) => {
           e.preventDefault()
-          send()
+          if (!toasting) send()
         }}
       >
-        {files.length > 0 ? (
+        {!toasting && files.length > 0 ? (
           <div
             className={`${panelStyles.contextChipRow} ${styles.chipRow}`}
             aria-label="Attached files"
@@ -450,39 +596,95 @@ export function HubChatbox({
 
         <div className={styles.composeRow}>
           <span
-            className={`${styles.orb}${idle ? '' : ` ${styles.orbCollapsed}`}`}
+            className={`${styles.orb}${orbIdle ? '' : ` ${styles.orbCollapsed}`}`}
             aria-hidden
           >
             <img className={panelStyles.launcherIcon} src={llumenAssets.launcherOrb} alt="" />
           </span>
-          <div
-            ref={editorRef}
-            className={`${styles.input} ${styles.composerEditor}${
-              showPlaceholder ? ` ${styles.composerEditorEmpty}` : ''
-            }${idle ? '' : ` ${styles.inputEngaged}`}`}
-            contentEditable={!interactionLocked}
-            role="textbox"
-            aria-multiline="true"
-            aria-label="Ask Llumen"
-            aria-placeholder={showPlaceholder ? 'Ask Llumen anything…' : undefined}
-            data-placeholder={placeholder || undefined}
-            suppressContentEditableWarning
-            onInput={syncEditor}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape' && onCollapse && !mentionOpen) {
-                e.preventDefault()
-                collapse()
-                return
-              }
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                send()
-              }
-            }}
-          />
-          {onCollapse ? (
+          {toasting && workToast ? (
+            <ToastMessage text={workToast.message} reduceMotion={reduceBeamMotion} />
+          ) : (
+            <div
+              ref={editorRef}
+              className={`${styles.input} ${styles.composerEditor}${
+                showPlaceholder ? ` ${styles.composerEditorEmpty}` : ''
+              }${idle ? '' : ` ${styles.inputEngaged}`}`}
+              contentEditable={!interactionLocked}
+              role="textbox"
+              aria-multiline="true"
+              aria-label="Ask Llumen"
+              aria-placeholder={showPlaceholder ? 'Ask Llumen anything…' : undefined}
+              data-placeholder={placeholder || undefined}
+              suppressContentEditableWarning
+              onInput={() => {
+                syncEditor()
+                refreshSlashMenu()
+              }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onClick={() => {
+                requestAnimationFrame(refreshSlashMenu)
+              }}
+              onKeyUp={() => {
+                if (!slashMenu) requestAnimationFrame(refreshSlashMenu)
+              }}
+              onKeyDown={(e) => {
+                if (slashMenu) {
+                  const listLength = slashCommands.length
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    if (listLength === 0) return
+                    setSlashMenu((prev) =>
+                      prev ? { ...prev, activeIndex: (prev.activeIndex + 1) % listLength } : prev,
+                    )
+                    return
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    if (listLength === 0) return
+                    setSlashMenu((prev) =>
+                      prev
+                        ? { ...prev, activeIndex: (prev.activeIndex - 1 + listLength) % listLength }
+                        : prev,
+                    )
+                    return
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    closeSlash()
+                    return
+                  }
+                  if (e.key === 'Enter' || e.key === 'Tab') {
+                    e.preventDefault()
+                    if (listLength === 0) {
+                      closeSlash()
+                      if (e.key === 'Enter' && !e.shiftKey) send()
+                      return
+                    }
+                    const item = slashCommands[slashMenu.activeIndex]
+                    if (item) selectSlashCommand(item)
+                    return
+                  }
+                }
+                if (e.key === 'Escape' && toasting) {
+                  e.preventDefault()
+                  onDismissWork?.()
+                  return
+                }
+                if (e.key === 'Escape' && onCollapse && !mentionOpen) {
+                  e.preventDefault()
+                  collapse()
+                  return
+                }
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  send()
+                }
+              }}
+            />
+          )}
+          {onCollapse && !toasting ? (
             <button
               type="button"
               className={`${styles.collapseBtn}${idle ? '' : ` ${styles.collapseBtnOpposite}`}`}
@@ -522,59 +724,122 @@ export function HubChatbox({
           className={`${styles.toolbar}${expanded ? '' : ` ${styles.toolbarCollapsed}`}`}
           aria-hidden={!expanded}
         >
-          <div className={styles.toolbarLeft}>
-            <button
-              type="button"
-              className={styles.iconAction}
-              aria-label="Attach file"
-              disabled={interactionLocked || !expanded}
-              tabIndex={expanded ? 0 : -1}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={addFile}
-            >
-              <Paperclip size={18} weight="regular" aria-hidden />
-            </button>
-            <button
-              ref={mentionBtnRef}
-              type="button"
-              className={`${styles.labelAction}${mentionOpen ? ` ${styles.labelActionActive}` : ''}`}
-              aria-expanded={mentionOpen}
-              aria-haspopup="listbox"
-              disabled={interactionLocked || !expanded}
-              tabIndex={expanded ? 0 : -1}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={openMention}
-            >
-              <At size={16} weight="regular" aria-hidden />
-              Add context
-            </button>
-          </div>
-          {expanded ? (
+          {toasting ? (
             <div className={styles.toolbarRight}>
               <button
                 type="button"
-                className={styles.iconAction}
-                aria-label="Past sessions"
-                disabled={interactionLocked}
-                tabIndex={expanded ? 0 : -1}
+                className={styles.toastActionPrimary}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={onOpenSessions}
+                onClick={onViewWorkInChat}
               >
-                <ClockCounterClockwise size={18} weight="regular" aria-hidden />
+                <ChatText size={16} weight="regular" aria-hidden />
+                View in chat
               </button>
               <button
-                type="submit"
-                className={styles.send}
-                disabled={interactionLocked || !canSend}
-                tabIndex={expanded ? 0 : -1}
-                aria-label="Send"
+                type="button"
+                className={styles.toastAction}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={onDismissWork}
               >
-                <ArrowUp size={18} weight="regular" aria-hidden />
+                Dismiss
               </button>
             </div>
-          ) : null}
+          ) : (
+            <>
+              <div className={styles.toolbarLeft}>
+                <button
+                  type="button"
+                  className={styles.iconAction}
+                  aria-label="Attach file"
+                  disabled={interactionLocked || !expanded}
+                  tabIndex={expanded ? 0 : -1}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={addFile}
+                >
+                  <Paperclip size={18} weight="regular" aria-hidden />
+                </button>
+                <button
+                  ref={mentionBtnRef}
+                  type="button"
+                  className={`${styles.labelAction}${mentionOpen ? ` ${styles.labelActionActive}` : ''}`}
+                  aria-expanded={mentionOpen}
+                  aria-haspopup="listbox"
+                  disabled={interactionLocked || !expanded}
+                  tabIndex={expanded ? 0 : -1}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={openMention}
+                >
+                  <At size={16} weight="regular" aria-hidden />
+                  Add context
+                </button>
+              </div>
+              {expanded ? (
+                <div className={styles.toolbarRight}>
+                  <button
+                    type="button"
+                    className={styles.iconAction}
+                    aria-label="Past sessions"
+                    disabled={interactionLocked}
+                    tabIndex={expanded ? 0 : -1}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={onOpenSessions}
+                  >
+                    <ClockCounterClockwise size={18} weight="regular" aria-hidden />
+                  </button>
+                  <button
+                    type="submit"
+                    className={styles.send}
+                    disabled={interactionLocked || !canSend}
+                    tabIndex={expanded ? 0 : -1}
+                    aria-label="Send"
+                  >
+                    <ArrowUp size={18} weight="regular" aria-hidden />
+                  </button>
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       </form>
+  )
+
+  return (
+    <div
+      className={`${styles.root}${placement === 'story' ? ` ${styles.rootStory}` : ''}${
+        railOpen ? ` ${styles.rootShifted}` : ''
+      }${exiting ? ` ${styles.rootExiting}` : ''}${morphingOut ? ` ${styles.rootMorphingOut}` : ''}`}
+      aria-hidden={exiting || morphingOut}
+    >
+      {toasting ? (
+        <BorderBeam
+          size="line"
+          theme="dark"
+          colorVariant="colorful"
+          brightness={1.85}
+          active={!reduceBeamMotion}
+          className={styles.beamWrap}
+        >
+          {form}
+        </BorderBeam>
+      ) : (
+        form
+      )}
+      {slashMenu
+        ? createPortal(
+            <SlashCommandMenu
+              menuRef={slashMenuRef}
+              position={slashMenu.position}
+              commands={slashCommands}
+              activeIndex={slashMenu.activeIndex}
+              query={slashMenu.query}
+              onHoverIndex={(index) =>
+                setSlashMenu((prev) => (prev ? { ...prev, activeIndex: index } : prev))
+              }
+              onSelect={selectSlashCommand}
+            />,
+            document.body,
+          )
+        : null}
       {mentionOpen
         ? createPortal(
             <InlineContextMenu

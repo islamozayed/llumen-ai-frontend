@@ -31,6 +31,14 @@ import {
   type InlineContextItem,
 } from './inlineContextData'
 import { InlineContextMenu, type InlineContextMenuStage } from './InlineContextMenu'
+import { SlashCommandMenu } from './SlashCommandMenu'
+import {
+  filterSlashCommands,
+  getSlashMenuPosition,
+  getSlashTrigger,
+  insertSlashCommand,
+  type SlashCommand,
+} from './slashCommands'
 import type { SendVisualState } from './SendButton'
 import { SendButton } from './SendButton'
 import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
@@ -68,6 +76,13 @@ type MentionMenuPosition = {
 type MentionMenuState = {
   stage: InlineContextMenuStage
   categoryId: InlineContextCategoryId | null
+  query: string
+  activeIndex: number
+  triggerLength: number
+  position: MentionMenuPosition
+}
+
+type SlashMenuState = {
   query: string
   activeIndex: number
   triggerLength: number
@@ -388,11 +403,13 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   const chatBoxRef = useRef<HTMLDivElement>(null)
   const composerHeightRef = useRef<number | null>(null)
   const mentionMenuRef = useRef<HTMLDivElement>(null)
+  const slashMenuRef = useRef<HTMLDivElement>(null)
   const mentionBtnRef = useRef<HTMLButtonElement>(null)
   const fileCounterRef = useRef(0)
   const uid = useId()
   const [contexts, setContexts] = useState<ComposerContext[]>([])
   const [mentionMenu, setMentionMenu] = useState<MentionMenuState | null>(null)
+  const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null)
   const [editorEmpty, setEditorEmpty] = useState(true)
   const chatScrollRef = useRevealScrollbarOnScroll()
   const hasContexts = contexts.length > 0
@@ -405,6 +422,10 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     if (!mentionMenu?.categoryId) return []
     return filterItems(mentionMenu.categoryId, mentionMenu.query)
   }, [mentionMenu?.categoryId, mentionMenu?.query])
+  const filteredSlashCommands = useMemo(
+    () => filterSlashCommands(slashMenu?.query ?? ''),
+    [slashMenu?.query],
+  )
 
   const syncComposerReserve = useCallback((heightPx: number) => {
     const el = chatBoxRef.current
@@ -430,6 +451,10 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
 
   const closeMentionMenu = useCallback(() => {
     setMentionMenu(null)
+  }, [])
+
+  const closeSlashMenu = useCallback(() => {
+    setSlashMenu(null)
   }, [])
 
   const editorDisabled = disabled || sendState === 'stop'
@@ -462,6 +487,57 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
       }
     })
   }, [])
+
+  const refreshSlashMenu = useCallback(() => {
+    const editor = editorRef.current
+    const box = chatBoxRef.current
+    if (!editor || editorDisabled) {
+      setSlashMenu(null)
+      return
+    }
+    const trigger = getSlashTrigger(editor)
+    if (!trigger) {
+      setSlashMenu(null)
+      return
+    }
+    closeMentionMenu()
+    const listLength = filterSlashCommands(trigger.query).length
+    setSlashMenu((prev) => ({
+      query: trigger.query,
+      triggerLength: trigger.triggerLength,
+      activeIndex: Math.min(prev?.activeIndex ?? 0, Math.max(0, listLength - 1)),
+      position: getSlashMenuPosition(box ?? editor),
+    }))
+  }, [closeMentionMenu, editorDisabled])
+
+  useLayoutEffect(() => {
+    if (!slashMenu) return
+    const sync = () => {
+      const box = chatBoxRef.current
+      if (!box) return
+      const next = getSlashMenuPosition(box)
+      setSlashMenu((prev) => {
+        if (!prev) return prev
+        const p = prev.position
+        if (p.left === next.left && p.bottom === next.bottom && p.width === next.width) return prev
+        return { ...prev, position: next }
+      })
+    }
+    sync()
+    window.addEventListener('resize', sync)
+    return () => window.removeEventListener('resize', sync)
+  }, [slashMenu, value, contexts.length])
+
+  const selectSlashCommand = useCallback(
+    (command: SlashCommand) => {
+      const editor = editorRef.current
+      if (!editor || editorDisabled) return
+      insertSlashCommand(editor, command.id, slashMenu?.triggerLength ?? 1)
+      closeSlashMenu()
+      emitChange()
+    },
+    [closeSlashMenu, editorDisabled, emitChange, slashMenu?.triggerLength],
+  )
 
   const insertMentionChip = useCallback(
     (item: InlineContextItem, options?: { replaceTriggerLength?: number }) => {
@@ -577,6 +653,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     if (editorDisabled) return
     const editor = editorRef.current
     if (!editor) return
+    closeSlashMenu()
     ensureCaretInEditor(editor)
     const existing = getMentionTrigger(editor)
     if (!existing) {
@@ -584,7 +661,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
       emitChange()
     }
     requestAnimationFrame(refreshMentionMenu)
-  }, [editorDisabled, emitChange, refreshMentionMenu])
+  }, [closeSlashMenu, editorDisabled, emitChange, refreshMentionMenu])
 
   useEffect(() => {
     const el = editorRef.current
@@ -593,9 +670,10 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
       el.innerHTML = ''
       setEditorEmpty(true)
       closeMentionMenu()
+      closeSlashMenu()
       syncEditorHeight()
     }
-  }, [value, closeMentionMenu, syncEditorHeight])
+  }, [value, closeMentionMenu, closeSlashMenu, syncEditorHeight])
 
   useEffect(() => {
     syncEditorHeight()
@@ -647,18 +725,26 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   }, [contexts, value, syncComposerReserve])
 
   useEffect(() => {
-    if (!mentionMenu) return
+    if (!mentionMenu && !slashMenu) return
     const onDoc = (e: MouseEvent) => {
       const target = e.target as Node
       if (editorRef.current?.contains(target) || mentionMenuRef.current?.contains(target)) return
+      if (slashMenuRef.current?.contains(target)) return
       closeMentionMenu()
+      closeSlashMenu()
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
-  }, [mentionMenu, closeMentionMenu])
+  }, [mentionMenu, slashMenu, closeMentionMenu, closeSlashMenu])
 
   const onEditorInput = (_e: FormEvent<HTMLDivElement>) => {
     emitChange()
+    const editor = editorRef.current
+    if (editor && getSlashTrigger(editor)) {
+      refreshSlashMenu()
+      return
+    }
+    setSlashMenu(null)
     refreshMentionMenu()
   }
 
@@ -669,6 +755,45 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         e.preventDefault()
         emitChange()
         refreshMentionMenu()
+        return
+      }
+    }
+
+    if (slashMenu) {
+      const listLength = filteredSlashCommands.length
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        if (listLength === 0) return
+        setSlashMenu((prev) =>
+          prev ? { ...prev, activeIndex: (prev.activeIndex + 1) % listLength } : prev,
+        )
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        if (listLength === 0) return
+        setSlashMenu((prev) =>
+          prev
+            ? { ...prev, activeIndex: (prev.activeIndex - 1 + listLength) % listLength }
+            : prev,
+        )
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        closeSlashMenu()
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        if (listLength === 0) {
+          closeSlashMenu()
+          if (e.key === 'Enter' && !e.shiftKey && sendState === 'active') onSend()
+          return
+        }
+        const item = filteredSlashCommands[slashMenu.activeIndex]
+        if (item) selectSlashCommand(item)
         return
       }
     }
@@ -793,10 +918,19 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           onInput={onEditorInput}
           onKeyDown={onKeyDown}
           onClick={() => {
-            requestAnimationFrame(refreshMentionMenu)
+            requestAnimationFrame(() => {
+              const editor = editorRef.current
+              if (editor && getSlashTrigger(editor)) refreshSlashMenu()
+              else refreshMentionMenu()
+            })
           }}
           onKeyUp={() => {
-            if (!mentionMenu) requestAnimationFrame(refreshMentionMenu)
+            if (slashMenu || mentionMenu) return
+            requestAnimationFrame(() => {
+              const editor = editorRef.current
+              if (editor && getSlashTrigger(editor)) refreshSlashMenu()
+              else refreshMentionMenu()
+            })
           }}
         />
       </div>
@@ -847,6 +981,23 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           />
         </div>
       </div>
+
+      {slashMenu
+        ? createPortal(
+            <SlashCommandMenu
+              menuRef={slashMenuRef}
+              position={slashMenu.position}
+              commands={filteredSlashCommands}
+              activeIndex={slashMenu.activeIndex}
+              query={slashMenu.query}
+              onHoverIndex={(index) =>
+                setSlashMenu((prev) => (prev ? { ...prev, activeIndex: index } : prev))
+              }
+              onSelect={selectSlashCommand}
+            />,
+            document.body,
+          )
+        : null}
 
       {mentionMenu
         ? createPortal(

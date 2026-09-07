@@ -2899,6 +2899,32 @@
   text-overflow: ellipsis;
 }
 
+.slashCommandMenu {
+  width: auto;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  border-radius: var(--radius-3xl, 24px);
+}
+
+.slashCommandMenu .inlineContextMenuItemText {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-md);
+  flex: 1;
+}
+
+.slashCommandMenu .inlineContextMenuItemLabel {
+  flex-shrink: 0;
+}
+
+.slashCommandMenu .inlineContextMenuItemDesc {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .paramsCol {
   position: relative;
   z-index: 2;

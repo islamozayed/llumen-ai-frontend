@@ -27,6 +27,8 @@ export type InteractiveMapProps = {
   controlsClassName?: string
   /** Scroll wheel zoom. Disable in scrollable hosts (e.g. chat transcript). */
   scrollZoom?: boolean
+  /** Override the style's building-extrusion minzoom (default 15). */
+  buildingMinZoom?: number
 }
 
 export function MapControls({
@@ -90,6 +92,7 @@ export const InteractiveMap = forwardRef<InteractiveMapHandle, InteractiveMapPro
     showControls = true,
     controlsClassName,
     scrollZoom = true,
+    buildingMinZoom,
   },
   ref,
 ) {
@@ -130,6 +133,9 @@ export const InteractiveMap = forwardRef<InteractiveMapHandle, InteractiveMapPro
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right')
 
     map.on('load', () => {
+      if (buildingMinZoom != null && map.getLayer('building-extrusion')) {
+        map.setLayerZoomRange('building-extrusion', buildingMinZoom, 24)
+      }
       map.resize()
       setReady(true)
     })
@@ -147,7 +153,7 @@ export const InteractiveMap = forwardRef<InteractiveMapHandle, InteractiveMapPro
       mapRef.current = null
       setReady(false)
     }
-  }, [center, zoom, scrollZoom])
+  }, [center, zoom, scrollZoom, buildingMinZoom])
 
   return (
     <div className={[styles.root, className].filter(Boolean).join(' ')}>
