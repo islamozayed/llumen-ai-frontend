@@ -15,36 +15,72 @@
   pointer-events: none;
 }
 
-/* Library line-beam clips to the track; let the aurora bloom above the chatbox. */
+/*
+  Same width as the hub chatbox. Bottom corners match --radius-3xl;
+  top corners stay 0 so upward bloom is not masked into a rounded lid.
+*/
 .beam[data-beam] {
   overflow: visible !important;
+  border-radius: 0 0 var(--radius-3xl) var(--radius-3xl) !important;
 }
 
 .track {
   width: 100%;
-  height: 64px;
+  height: var(--aurora-track-h, 83px);
   pointer-events: none;
+  border-radius: 0 0 var(--radius-3xl) var(--radius-3xl);
 }
 
 /*
-  Bloom upward from the chatbox base; keep X close to 1 so the ellipse
-  still reads as a left-to-right sweep along the full composer width.
+  Scale the glow, not the rounded shell. Library clip-path + scale was
+  turning 20px corners into huge ellipses. Radius 0 on layers; path
+  inset keeps the travel off the chatbox fillets.
 */
 .beam[data-beam][data-active]::after,
-.beam[data-beam][data-fading]::after {
-  transform: scale(1.35, 2.8);
+.beam[data-beam][data-fading]::after,
+.beam[data-beam][data-active]::before,
+.beam[data-beam][data-fading]::before,
+.beam[data-beam] [data-beam-bloom] {
+  border-radius: 0 !important;
+  clip-path: none !important;
+  left: var(--aurora-path-left, 52px) !important;
+  right: var(--aurora-path-right, 52px) !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: auto !important;
   transform-origin: 50% 100%;
+}
+
+.beam[data-beam][data-active]::after,
+.beam[data-beam][data-fading]::after {
+  transform: scale(var(--aurora-after-x, 1.35), var(--aurora-after-y, 2.8));
 }
 
 .beam[data-beam][data-active]::before,
 .beam[data-beam][data-fading]::before {
-  transform: scale(1.5, 3.2);
-  transform-origin: 50% 100%;
+  transform: scale(var(--aurora-before-x, 1.5), var(--aurora-before-y, 6));
 }
 
 .beam[data-beam] [data-beam-bloom] {
-  transform: scale(1.7, 3.6);
-  transform-origin: 50% 100%;
+  transform: scale(var(--aurora-bloom-x, 1.7), var(--aurora-bloom-y, 6.1));
+}
+
+/* Last animation in the library list is fade in/out — keep that normal. */
+.beam[data-travel='reverse'][data-beam][data-active],
+.beam[data-travel='reverse'][data-beam][data-fading] {
+  animation-direction: reverse, reverse, reverse, reverse, reverse, normal !important;
+}
+
+.beam[data-travel='alternate'][data-beam][data-active],
+.beam[data-travel='alternate'][data-beam][data-fading] {
+  animation-direction: alternate, alternate, alternate, alternate, alternate, normal !important;
+}
+
+/* Intro plays a single travel pass, then FindingReveal unmounts. */
+.beam[data-play='once'][data-beam][data-active],
+.beam[data-play='once'][data-beam][data-fading] {
+  animation-iteration-count: 1, 1, 1, 1, 1, 1 !important;
+  animation-fill-mode: forwards, forwards, forwards, forwards, forwards, forwards !important;
 }
 
 .copy {

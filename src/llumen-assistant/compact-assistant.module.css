@@ -50,6 +50,13 @@
   overflow: hidden;
 }
 
+.headerTools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
 .demoLandingLayer > * {
   width: 100%;
   max-width: none;
@@ -1941,7 +1948,7 @@
 }
 
 .middle:not(.middleEmpty) > .transcript,
-.middle:not(.middleEmpty) > .chatBox {
+.middle:not(.middleEmpty) > .composerFindingDock {
   grid-area: chat-stack;
 }
 
@@ -1951,7 +1958,7 @@
   padding-top: 8px;
 }
 
-.middleEmpty .chatBox {
+.middleEmpty .composerFindingDock {
   margin-top: auto;
   align-self: flex-start;
   box-sizing: border-box;
@@ -2055,13 +2062,13 @@
  *   content/chatbox | gutter (12) | scrollbar (4) | rail edge
  * Overlay scrollbar hugs the panel edge; composer + turns stop 12px before the thumb.
  */
-.middleEmpty .chatBox,
-.middle:not(.middleEmpty) > .chatBox {
+.middleEmpty .composerFindingDock,
+.middle:not(.middleEmpty) > .composerFindingDock {
   width: calc(100% - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
 }
 
-.fabColumnDocked .middleEmpty .chatBox,
-.fabColumnDocked .middle:not(.middleEmpty) > .chatBox {
+.fabColumnDocked .middleEmpty .composerFindingDock,
+.fabColumnDocked .middle:not(.middleEmpty) > .composerFindingDock {
   margin-left: var(--space-xl);
   width: calc(100% - var(--space-xl) - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
 }
@@ -2084,7 +2091,7 @@
   mask-image: none;
 }
 
-.middle:not(.middleEmpty) > .chatBox {
+.middle:not(.middleEmpty) > .composerFindingDock {
   align-self: end;
   justify-self: start;
   z-index: 5;
@@ -2094,7 +2101,7 @@
 }
 
 .chatColumnSplit .middle:not(.middleEmpty) > .transcript,
-.chatColumnSplit .middle:not(.middleEmpty) > .chatBox {
+.chatColumnSplit .middle:not(.middleEmpty) > .composerFindingDock {
   margin-left: 0;
   margin-right: 0;
 }
@@ -2104,12 +2111,12 @@
   max-width: none;
 }
 
-.chatColumnSplit .middle:not(.middleEmpty) > .chatBox {
+.chatColumnSplit .middle:not(.middleEmpty) > .composerFindingDock {
   width: calc(100% - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
   max-width: none;
 }
 
-.fabColumnDocked .chatColumnSplit .middle:not(.middleEmpty) > .chatBox {
+.fabColumnDocked .chatColumnSplit .middle:not(.middleEmpty) > .composerFindingDock {
   margin-left: var(--space-xl);
   width: calc(100% - var(--space-xl) - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
 }
@@ -2365,6 +2372,27 @@
 }
 
 /* ChatComposer / ChatBox — Hub parity layout with surface tokens */
+.composerFindingDock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-lg);
+  overflow: visible;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.composerFindingDock > .chatBox {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  align-self: stretch;
+}
+
 .chatBox {
   width: 100%;
   max-width: none;
@@ -2388,6 +2416,7 @@
 
 .chatBoxExpanded {
   max-height: 240px;
+  min-height: 96px;
 }
 
 .chatBoxWithContexts {
@@ -2400,6 +2429,8 @@
   gap: 8px;
   width: 100%;
   min-width: 0;
+  min-height: 36px;
+  flex-shrink: 0;
 }
 
 .composerOrb {
@@ -2434,6 +2465,7 @@
 .composerInput {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 36px;
   max-height: 96px;
   margin: 0;
   padding: 7px 0;
@@ -2529,11 +2561,12 @@
   justify-content: space-between;
   gap: 6px;
   width: 100%;
-  min-height: 0;
+  min-height: 28px;
   max-height: 44px;
   margin-top: 8px;
   overflow: hidden;
   opacity: 1;
+  flex-shrink: 0;
 }
 
 .composerToolbarLeft,

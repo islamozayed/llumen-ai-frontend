@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { BorderBeam } from 'border-beam'
 import { llumenAssets } from '../assets'
+import {
+  DEFAULT_FINDING_AURORA,
+  findingAuroraCssVars,
+  type FindingAuroraSettings,
+} from './findingAuroraSettings'
 import styles from './FindingReveal.module.css'
-
-const COPY_DELAY_MS = 200
-const STACK_DELAY_MS = 2000
-const WORD_REVEAL_STAGGER_MS = 48
 
 function splitWordSpaceSegments(text: string): { text: string; isWord: boolean }[] {
   const segments: { text: string; isWord: boolean }[] = []
@@ -17,7 +18,15 @@ function splitWordSpaceSegments(text: string): { text: string; isWord: boolean }
   return segments
 }
 
-function FindingCopyText({ text, reduceMotion }: { text: string; reduceMotion: boolean }) {
+function FindingCopyText({
+  text,
+  reduceMotion,
+  staggerMs,
+}: {
+  text: string
+  reduceMotion: boolean
+  staggerMs: number
+}) {
   if (reduceMotion || !text) {
     return <p className={styles.copyText}>{text}</p>
   }
@@ -31,7 +40,7 @@ function FindingCopyText({ text, reduceMotion }: { text: string; reduceMotion: b
         if (!seg.isWord) {
           return <span key={`sp-${idx}`}>{seg.text}</span>
         }
-        const delay = wordIndex * WORD_REVEAL_STAGGER_MS
+        const delay = wordIndex * staggerMs
         wordIndex += 1
         return (
           <span
@@ -51,32 +60,50 @@ export type FindingRevealProps = {
   count: number
   /** Fires once the intro (aurora + copy) has finished and the stack should appear. */
   onReady: () => void
+  settings?: FindingAuroraSettings
+  /** Keep the aurora looping and skip advancing to the toast stack. */
+  hold?: boolean
 }
 
 /**
  * Finding notification intro: line-beam aurora behind the chatbox with Llumen copy.
  * Unmounted when the finding stack appears.
  */
-export function FindingReveal({ count, onReady }: FindingRevealProps) {
+export function FindingReveal({
+  count,
+  onReady,
+  settings = DEFAULT_FINDING_AURORA,
+  hold = false,
+}: FindingRevealProps) {
   const [copyVisible, setCopyVisible] = useState(false)
+  const [beamVisible, setBeamVisible] = useState(hold)
   const [reduceMotion, setReduceMotion] = useState(false)
   const onReadyRef = useRef(onReady)
   onReadyRef.current = onReady
+  const holdRef = useRef(hold)
+  holdRef.current = hold
 
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     setReduceMotion(reduce)
-    if (reduce) {
+    if (reduce && !holdRef.current) {
       onReadyRef.current()
       return
     }
-    const copyTimer = window.setTimeout(() => setCopyVisible(true), COPY_DELAY_MS)
-    const readyTimer = window.setTimeout(() => onReadyRef.current(), STACK_DELAY_MS)
+    if (holdRef.current) setBeamVisible(true)
+    const copyTimer = window.setTimeout(() => {
+      setCopyVisible(true)
+      setBeamVisible(true)
+    }, settings.copyDelayMs)
+    const cycleMs = Math.max(0, settings.duration) * 1000
+    const readyTimer = hold
+      ? undefined
+      : window.setTimeout(() => onReadyRef.current(), settings.copyDelayMs + cycleMs)
     return () => {
       window.clearTimeout(copyTimer)
-      window.clearTimeout(readyTimer)
+      if (readyTimer != null) window.clearTimeout(readyTimer)
     }
-  }, [])
+  }, [hold, settings.copyDelayMs, settings.duration])
 
   const message =
     count === 1
@@ -85,26 +112,37 @@ export function FindingReveal({ count, onReady }: FindingRevealProps) {
 
   return (
     <>
-      {copyVisible ? (
+      {beamVisible ? (
         <div className={styles.aurora} aria-hidden>
           <BorderBeam
-            size="line"
-            theme="dark"
-            colorVariant="colorful"
-            brightness={2.2}
-            saturation={1.4}
-            duration={1.7}
-            active
+            size={settings.size}
+            theme={settings.theme}
+            colorVariant={settings.colorVariant}
+            brightness={settings.brightness}
+            saturation={settings.saturation}
+            duration={settings.duration}
+            hueRange={settings.hueRange}
+            strength={settings.strength}
+            staticColors={settings.staticColors}
+            active={settings.active}
+            borderRadius={0}
             className={styles.beam}
+            data-travel={settings.travel}
+            data-play={hold ? 'loop' : 'once'}
+            style={findingAuroraCssVars(settings)}
           >
             <div className={styles.track} />
           </BorderBeam>
         </div>
       ) : null}
-      {copyVisible ? (
+      {copyVisible && settings.showCopy ? (
         <div className={styles.copy} aria-live="polite">
           <img className={styles.copyOrb} src={llumenAssets.launcherOrb} alt="" />
-          <FindingCopyText text={message} reduceMotion={reduceMotion} />
+          <FindingCopyText
+            text={message}
+            reduceMotion={reduceMotion}
+            staggerMs={settings.wordStaggerMs}
+          />
         </div>
       ) : null}
     </>

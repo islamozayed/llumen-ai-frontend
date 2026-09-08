@@ -18,6 +18,7 @@ import {
   forwardRef,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -45,6 +46,8 @@ import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
 
 /** Matches reference LlumenChatInput textarea max-height */
 const MAX_COMPOSER_PX = 120
+/** One line + vertical padding on `.composerInput` (7 + 22 + 7). */
+const MIN_EDITOR_PX = 36
 const COMPOSER_HEIGHT_DURATION = 0.38
 const COMPOSER_HEIGHT_EASE = 'power2.inOut'
 
@@ -378,6 +381,8 @@ export type ChatComposerProps = {
   onAttachClick?: () => void
   disabled?: boolean
   hasThreadMessages?: boolean
+  /** Finding intro + toast stack, rendered above the composer (hub parity). */
+  findingSlot?: ReactNode
 }
 
 export type ChatComposerHandle = {
@@ -396,11 +401,13 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     onAttachClick,
     disabled = false,
     hasThreadMessages = false,
+    findingSlot = null,
   },
   ref,
 ) {
   const editorRef = useRef<HTMLDivElement>(null)
   const chatBoxRef = useRef<HTMLDivElement>(null)
+  const dockRef = useRef<HTMLDivElement>(null)
   const composerHeightRef = useRef<number | null>(null)
   const mentionMenuRef = useRef<HTMLDivElement>(null)
   const slashMenuRef = useRef<HTMLDivElement>(null)
@@ -427,19 +434,25 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     [slashMenu?.query],
   )
 
-  const syncComposerReserve = useCallback((heightPx: number) => {
-    const el = chatBoxRef.current
-    const middle = el?.parentElement
-    if (!middle) return
-    middle.style.setProperty('--lc-composer-reserve', `${Math.ceil(heightPx)}px`)
+  const syncComposerReserve = useCallback((heightPx?: number) => {
+    const dock = dockRef.current
+    const middle = dock?.parentElement
+    if (!dock || !middle) return
+    const px = heightPx ?? dock.offsetHeight
+    middle.style.setProperty('--lc-composer-reserve', `${Math.ceil(px)}px`)
   }, [])
 
   const syncEditorHeight = useCallback(() => {
     const el = editorRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, MAX_COMPOSER_PX)}px`
-  }, [])
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, MIN_EDITOR_PX), MAX_COMPOSER_PX)}px`
+    const box = chatBoxRef.current
+    if (!box) return
+    const heightPx = box.offsetHeight
+    composerHeightRef.current = heightPx
+    syncComposerReserve()
+  }, [syncComposerReserve])
 
   const emitChange = useCallback(() => {
     const el = editorRef.current
@@ -663,7 +676,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     requestAnimationFrame(refreshMentionMenu)
   }, [closeSlashMenu, editorDisabled, emitChange, refreshMentionMenu])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = editorRef.current
     if (!el) return
     if (value === '' && !editorIsEmpty(el)) {
@@ -674,10 +687,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
       syncEditorHeight()
     }
   }, [value, closeMentionMenu, closeSlashMenu, syncEditorHeight])
-
-  useEffect(() => {
-    syncEditorHeight()
-  }, [value, syncEditorHeight])
 
   useLayoutEffect(() => {
     const el = chatBoxRef.current
@@ -692,7 +701,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     if (prevHeight == null || Math.abs(prevHeight - nextHeight) < 1) {
       composerHeightRef.current = nextHeight
       gsap.set(el, { clearProps: 'height,maxHeight' })
-      syncComposerReserve(nextHeight)
+      syncComposerReserve()
       return
     }
 
@@ -701,19 +710,19 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
       maxHeight: Math.max(prevHeight, nextHeight, maxHeight),
       overflow: 'hidden',
     })
-    syncComposerReserve(prevHeight)
+    syncComposerReserve()
 
     const tween = gsap.to(el, {
       height: nextHeight,
       duration: COMPOSER_HEIGHT_DURATION,
       ease: COMPOSER_HEIGHT_EASE,
       onUpdate: () => {
-        syncComposerReserve(el.offsetHeight)
+        syncComposerReserve()
       },
       onComplete: () => {
         gsap.set(el, { clearProps: 'height,maxHeight,overflow' })
         composerHeightRef.current = el.offsetHeight
-        syncComposerReserve(el.offsetHeight)
+        syncComposerReserve()
       },
     })
 
@@ -722,7 +731,16 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
       tween.kill()
       gsap.set(el, { clearProps: 'height,maxHeight,overflow' })
     }
-  }, [contexts, value, syncComposerReserve])
+  }, [contexts, syncComposerReserve])
+
+  useLayoutEffect(() => {
+    const dock = dockRef.current
+    if (!dock) return
+    syncComposerReserve()
+    const ro = new ResizeObserver(() => syncComposerReserve())
+    ro.observe(dock)
+    return () => ro.disconnect()
+  }, [syncComposerReserve])
 
   useEffect(() => {
     if (!mentionMenu && !slashMenu) return
@@ -883,13 +901,15 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   const placeholder = hasThreadMessages ? 'Reply…' : 'Ask Llumen anything…'
 
   return (
-    <div
-      ref={chatBoxRef}
-      className={`${styles.chatBox} ${styles.chatBoxExpanded}${
-        hasContexts ? ` ${styles.chatBoxWithContexts}` : ''
-      }`}
-      data-lc-composer=""
-    >
+    <div ref={dockRef} className={styles.composerFindingDock} data-lc-composer-dock="">
+      {findingSlot}
+      <div
+        ref={chatBoxRef}
+        className={`${styles.chatBox} ${styles.chatBoxExpanded}${
+          hasContexts ? ` ${styles.chatBoxWithContexts}` : ''
+        }`}
+        data-lc-composer=""
+      >
       {hasContexts ? (
         <div className={styles.contextChipRow} aria-label="Attached files">
           {contexts.map((item) => (
@@ -1031,6 +1051,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
             document.body,
           )
         : null}
+      </div>
     </div>
   )
 })

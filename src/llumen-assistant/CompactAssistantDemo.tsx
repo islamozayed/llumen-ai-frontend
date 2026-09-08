@@ -18,7 +18,9 @@ import LandingHomeDefault from './landing/LandingHomeDefault'
 import { type LandingContextChip } from './landing/LandingChatbox'
 import { HubChatbox } from './landing/HubChatbox'
 import { FindingReveal } from './landing/FindingReveal'
+import { FindingAuroraPanel } from './landing/FindingAuroraPanel'
 import { FindingToastStack } from './landing/FindingToastStack'
+import { DEFAULT_FINDING_AURORA, type FindingAuroraSettings } from './landing/findingAuroraSettings'
 import {
   FINDING_TOAST_SEED_COUNT,
   isFindingSlashCommand,
@@ -266,6 +268,55 @@ function UserMessageBubble({
   )
 }
 
+function FindingNotificationLayer({
+  toasts,
+  toastIndex,
+  stackVisible,
+  auroraPanelOpen,
+  aurora,
+  replayKey,
+  onReady,
+  onIndexChange,
+  onDismiss,
+  onTellMeMore,
+}: {
+  toasts: FindingToastInstance[]
+  toastIndex: number
+  stackVisible: boolean
+  auroraPanelOpen: boolean
+  aurora: FindingAuroraSettings
+  replayKey: number
+  onReady: () => void
+  onIndexChange: (index: number) => void
+  onDismiss: () => void
+  onTellMeMore: (item: LandingTellMeMorePayload) => void
+}) {
+  const showStack = stackVisible && toasts.length > 0 && !auroraPanelOpen
+  const showReveal = auroraPanelOpen || (toasts.length > 0 && !stackVisible)
+  return (
+    <>
+      {showStack ? (
+        <FindingToastStack
+          items={toasts}
+          activeIndex={toastIndex}
+          onActiveIndexChange={onIndexChange}
+          onDismiss={onDismiss}
+          onTellMeMore={onTellMeMore}
+        />
+      ) : null}
+      {showReveal ? (
+        <FindingReveal
+          key={replayKey}
+          count={toasts.length || FINDING_TOAST_SEED_COUNT}
+          settings={aurora}
+          hold={auroraPanelOpen}
+          onReady={onReady}
+        />
+      ) : null}
+    </>
+  )
+}
+
 export function CompactAssistantDemo() {
   const previewMode = useMemo(() => readFigmaPreviewMode(), [])
   const previewForceInstant = previewMode != null
@@ -294,6 +345,9 @@ export function CompactAssistantDemo() {
   const [findingToasts, setFindingToasts] = useState<FindingToastInstance[]>([])
   const [findingToastIndex, setFindingToastIndex] = useState(0)
   const [findingStackVisible, setFindingStackVisible] = useState(false)
+  const [findingAurora, setFindingAurora] = useState<FindingAuroraSettings>(DEFAULT_FINDING_AURORA)
+  const [auroraPanelOpen, setAuroraPanelOpen] = useState(false)
+  const [auroraReplayKey, setAuroraReplayKey] = useState(0)
   const findingPoolIndexRef = useRef(0)
   const [hubWorkToast, setHubWorkToast] = useState<HubWorkToast | null>(null)
   const hubWorkUserTextRef = useRef('')
@@ -1072,6 +1126,35 @@ export function CompactAssistantDemo() {
     return grouped
   }, [messages])
 
+  const storyActive = activeStoryId != null
+  const showLauncher = !isHub && !open
+  const hubSessionsRail = isHub && open && hubRailMode === 'sessions'
+  const hubThreadRail = isHub && open && hubRailMode === 'thread'
+  const railComposerOpen = open && !hubSessionsRail
+  const showHub =
+    isHub &&
+    (hubSessionsRail ||
+      (!open && (!storyActive || hubStoryOpen)) ||
+      (hubThreadRail && storyActive && hubStoryOpen))
+  const showHubFindings =
+    !railComposerOpen && (showHub || findingToasts.length > 0 || auroraPanelOpen)
+  const showRailFindings = railComposerOpen && (findingToasts.length > 0 || auroraPanelOpen)
+
+  const findingChrome = showRailFindings ? (
+    <FindingNotificationLayer
+      toasts={findingToasts}
+      toastIndex={findingToastIndex}
+      stackVisible={findingStackVisible}
+      auroraPanelOpen={auroraPanelOpen}
+      aurora={findingAurora}
+      replayKey={auroraReplayKey}
+      onReady={onFindingRevealReady}
+      onIndexChange={setFindingToastIndex}
+      onDismiss={dismissFindingToasts}
+      onTellMeMore={onTellMeMore}
+    />
+  ) : null
+
   const chatMiddle = (
     <div ref={chatMiddleRef} className={`${styles.middle} ${isNewChat ? styles.middleEmpty : ''}`}>
       {isNewChat ? (
@@ -1130,23 +1213,37 @@ export function CompactAssistantDemo() {
         sendState={sendVisual}
         showParameters
         onAttachClick={() => {}}
+        findingSlot={findingChrome}
       />
     </div>
   )
 
-  const storyActive = activeStoryId != null
-  const showLauncher = !isHub && !open
-  const hubSessionsRail = isHub && open && hubRailMode === 'sessions'
-  const hubThreadRail = isHub && open && hubRailMode === 'thread'
-  // Keep hub for sessions browsing; hide on landing once the thread rail owns the composer.
-  // On story, keep mounted briefly so the orb→hub exit animation can finish.
-  const showHub =
-    isHub &&
-    (hubSessionsRail ||
-      (!open && (!storyActive || hubStoryOpen)) ||
-      (hubThreadRail && storyActive && hubStoryOpen))
+  const replayFindingAurora = useCallback(() => {
+    setFindingStackVisible(false)
+    setAuroraReplayKey((k) => k + 1)
+  }, [])
+
+  const onAuroraPanelOpenChange = useCallback((next: boolean) => {
+    setAuroraPanelOpen(next)
+    if (next) {
+      setFindingStackVisible(false)
+      setAuroraReplayKey((k) => k + 1)
+    } else if (findingToasts.length > 0) {
+      setFindingStackVisible(true)
+    }
+  }, [findingToasts.length])
+
   const uxSwitcher = (
-    <InteractionModelSwitcher value={interactionModel} onChange={onInteractionModelChange} />
+    <div className={styles.headerTools}>
+      <FindingAuroraPanel
+        open={auroraPanelOpen}
+        onOpenChange={onAuroraPanelOpenChange}
+        settings={findingAurora}
+        onChange={setFindingAurora}
+        onReplay={replayFindingAurora}
+      />
+      <InteractionModelSwitcher value={interactionModel} onChange={onInteractionModelChange} />
+    </div>
   )
 
   return (
@@ -1192,23 +1289,25 @@ export function CompactAssistantDemo() {
           />
         )}
       </div>
-      {(showHub || findingToasts.length > 0) ? (
+      {(showHub || showHubFindings) ? (
         <div
           className={`${styles.composerDock}${storyActive ? ` ${styles.composerDockStory}` : ''}${
             hubSessionsRail ? ` ${styles.composerDockShifted}` : ''
           }`}
         >
-          {findingStackVisible && findingToasts.length > 0 ? (
-            <FindingToastStack
-              items={findingToasts}
-              activeIndex={findingToastIndex}
-              onActiveIndexChange={setFindingToastIndex}
+          {showHubFindings ? (
+            <FindingNotificationLayer
+              toasts={findingToasts}
+              toastIndex={findingToastIndex}
+              stackVisible={findingStackVisible}
+              auroraPanelOpen={auroraPanelOpen}
+              aurora={findingAurora}
+              replayKey={auroraReplayKey}
+              onReady={onFindingRevealReady}
+              onIndexChange={setFindingToastIndex}
               onDismiss={dismissFindingToasts}
               onTellMeMore={onTellMeMore}
             />
-          ) : null}
-          {findingToasts.length > 0 && !findingStackVisible ? (
-            <FindingReveal count={findingToasts.length} onReady={onFindingRevealReady} />
           ) : null}
           {showHub ? (
             <HubChatbox
@@ -1256,7 +1355,7 @@ export function CompactAssistantDemo() {
               ref={assistantPanelRef}
               expanded={false}
               splitView={splitOpen}
-              allowOverflow={sessionsOpen || hubSessionsRail}
+              allowOverflow={sessionsOpen || hubSessionsRail || showRailFindings}
               thinking={replyRendering}
             >
               <div className={styles.splitBody}>
