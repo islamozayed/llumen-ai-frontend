@@ -732,7 +732,7 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--lc-text-primary);
+  color: var(--color-primary-500);
   font-family: var(--lc-font-sans);
   font-size: 14px;
   font-weight: var(--lc-weight-regular);
@@ -741,7 +741,7 @@
 }
 
 .saveToAssetsBtn:hover {
-  opacity: 0.72;
+  color: var(--color-primary-300);
 }
 
 .saveToAssetsBtn:focus-visible {
@@ -751,10 +751,12 @@
 }
 
 .saveToAssetsBtnSaved {
+  color: var(--lc-text-primary);
   cursor: default;
 }
 
 .saveToAssetsBtnSaved:hover {
+  color: var(--lc-text-primary);
   opacity: 1;
 }
 
@@ -2194,6 +2196,7 @@
 .msgUserText {
   min-width: 0;
   flex: 1;
+  white-space: pre-wrap;
 }
 
 .msgUserJumpWrap {

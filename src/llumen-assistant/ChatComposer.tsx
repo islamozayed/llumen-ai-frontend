@@ -383,6 +383,8 @@ export type ChatComposerProps = {
   hasThreadMessages?: boolean
   /** Finding intro + toast stack, rendered above the composer (hub parity). */
   findingSlot?: ReactNode
+  /** Agent question attached above the input while one is pending. */
+  questionSlot?: ReactNode
 }
 
 export type ChatComposerHandle = {
@@ -402,6 +404,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     disabled = false,
     hasThreadMessages = false,
     findingSlot = null,
+    questionSlot = null,
   },
   ref,
 ) {
@@ -903,6 +906,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   return (
     <div ref={dockRef} className={styles.composerFindingDock} data-lc-composer-dock="">
       {findingSlot}
+      {questionSlot}
       <div
         ref={chatBoxRef}
         className={`${styles.chatBox} ${styles.chatBoxExpanded}${

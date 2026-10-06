@@ -28,6 +28,16 @@ import {
   type FindingToastInstance,
 } from './landing/findingDemoData'
 import {
+  ENERGY_WORKFLOW_TITLE,
+  ENERGY_WORKFLOW_USER_TEXT,
+  energyWorkflowReply,
+  isEnergyWorkflowExample,
+  workflowChangeReply,
+  workflowFixReply,
+  workflowRunFailedReply,
+  workflowWaitReply,
+} from './energyWorkflowDemo'
+import {
   parseSlashCommand,
   slashChatTitle,
   underwayMessage,
@@ -52,6 +62,7 @@ import { AssistantHero } from './AssistantHero'
 import { AssistantLauncher } from './AssistantLauncher'
 import { AssistantPanel } from './AssistantPanel'
 import { ChatComposer, type ChatComposerHandle } from './ChatComposer'
+import { AgentQuestionPrompt } from './AgentQuestionPrompt'
 import { PanelHeader } from './PanelHeader'
 import type { ChatQuestionIndexItem, ChatSearchState } from './PanelHeader'
 import { useTranscriptSearch } from './useTranscriptSearch'
@@ -65,8 +76,10 @@ import type {
   AssistantReplyPayload,
   CreatedComponent,
   SubcontextState,
+  WorkflowProposal,
 } from './assistantReplyTypes'
 import { AssistantTimelineReply } from './AssistantTimelineReply'
+import { WorkflowDetailPanel } from './WorkflowProposalCard'
 import { ComponentDetailPanel } from './ComponentDetailPanel'
 import { SlidesDetailPanel } from './SlidesDetailPanel'
 import {
@@ -679,6 +692,17 @@ export function CompactAssistantDemo() {
         return
       }
       const slash = parseSlashCommand(t)
+      if (slash?.id === 'workflow' || isEnergyWorkflowExample(t)) {
+        setDraft('')
+        const priorAssistant = messages.filter((msg) => msg.role === 'assistant').length
+        if (!titleEditedRef.current && priorAssistant === 0) {
+          setChatTitle(ENERGY_WORKFLOW_TITLE)
+        }
+        const userText = slash?.id === 'workflow' ? ENERGY_WORKFLOW_USER_TEXT : t
+        setMessages((m) => [...m, { id: uid(), role: 'user', text: userText }])
+        startAssistantReply(energyWorkflowReply())
+        return
+      }
       if (slash) {
         setDraft('')
         const priorAssistant = messages.filter((msg) => msg.role === 'assistant').length
@@ -709,6 +733,74 @@ export function CompactAssistantDemo() {
   const send = useCallback(() => {
     sendText(draft)
   }, [draft, sendText])
+
+  const failedWorkflowByQuestion = useRef(new Map<string, WorkflowProposal>())
+  const answeredQuestions = useRef(new Set<string>())
+
+  const reportWorkflowRunFailed = useCallback(
+    (proposal: WorkflowProposal) => {
+      const reply = workflowRunFailedReply()
+      const question = reply.blocks?.find((block) => block.type === 'question')
+      if (question && question.type === 'question') {
+        failedWorkflowByQuestion.current.set(question.id, proposal)
+      }
+      clearStream()
+      startAssistantReply(reply)
+    },
+    [clearStream, startAssistantReply],
+  )
+
+  const answerWorkflowQuestion = useCallback(
+    (questionId: string, optionId: string, label: string) => {
+      if (answeredQuestions.current.has(questionId)) return
+      answeredQuestions.current.add(questionId)
+      const proposal = failedWorkflowByQuestion.current.get(questionId)
+      const text = label.trim() || 'Wait'
+      clearStream()
+      setMessages((m) => [...m, { id: uid(), role: 'user', text }])
+      if (optionId === 'fix' && proposal) {
+        startAssistantReply(workflowFixReply(proposal))
+        return
+      }
+      if (optionId === 'custom' && proposal && text) {
+        startAssistantReply(workflowChangeReply(text, proposal))
+        return
+      }
+      startAssistantReply(workflowWaitReply())
+    },
+    [clearStream, startAssistantReply],
+  )
+
+  const [dismissedQuestionIds, setDismissedQuestionIds] = useState<ReadonlySet<string>>(() => new Set())
+
+  const dismissComposerQuestion = useCallback((questionId: string) => {
+    setDismissedQuestionIds((prev) => {
+      if (prev.has(questionId)) return prev
+      const next = new Set(prev)
+      next.add(questionId)
+      return next
+    })
+  }, [])
+
+  const composerQuestion = useMemo(() => {
+    for (const msg of messages) {
+      if (msg.role !== 'assistant' || !msg.reply?.blocks) continue
+      const questions = msg.reply.blocks.filter((block) => block.type === 'question')
+      const pendingIndex = questions.findIndex(
+        (block) => !answeredQuestions.current.has(block.id) && !dismissedQuestionIds.has(block.id),
+      )
+      if (pendingIndex < 0) continue
+      const block = questions[pendingIndex]
+      return {
+        id: block.id,
+        prompt: block.prompt,
+        options: block.options,
+        questionIndex: pendingIndex + 1,
+        questionCount: questions.length,
+      }
+    }
+    return null
+  }, [messages, dismissedQuestionIds])
 
   const viewHubWorkInChat = useCallback(() => {
     const text = hubWorkUserTextRef.current
@@ -749,7 +841,7 @@ export function CompactAssistantDemo() {
     }
   }, [releaseStick])
 
-  const showInConversation = useCallback((target: { componentId?: string; reportId?: string }) => {
+  const showInConversation = useCallback((target: { componentId?: string; reportId?: string; workflowId?: string }) => {
     releaseStick()
     const root = chatMiddleRef.current
     if (!root) return
@@ -757,7 +849,9 @@ export function CompactAssistantDemo() {
       ? `[data-component-id="${CSS.escape(target.componentId)}"]`
       : target.reportId
         ? `[data-report-id="${CSS.escape(target.reportId)}"]`
-        : null
+        : target.workflowId
+          ? `[data-workflow-id="${CSS.escape(target.workflowId)}"]`
+          : null
     if (!selector) return
     const el = root.querySelector(selector)
     if (el instanceof HTMLElement) {
@@ -1011,6 +1105,15 @@ export function CompactAssistantDemo() {
         return
       }
       const slash = parseSlashCommand(text)
+      if (slash?.id === 'workflow') {
+        setLandingChips([])
+        setHubRailMode('thread')
+        setSessionsOpen(false)
+        setOpen(true)
+        setExpanded(false)
+        sendText(text)
+        return
+      }
       if (slash && isHub) {
         setLandingChips([])
         hubWorkUserTextRef.current = slash.userText
@@ -1110,11 +1213,15 @@ export function CompactAssistantDemo() {
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i]
       if (msg.role !== 'user') {
-        if (msg.role === 'assistant' && grouped.length === 0) {
-          grouped.push({
-            user: { id: `orphan-${msg.id}`, role: 'user', text: '' },
-            assistant: msg,
-          })
+        if (msg.role === 'assistant') {
+          const last = grouped[grouped.length - 1]
+          if (last && !last.assistant) last.assistant = msg
+          else {
+            grouped.push({
+              user: { id: `agent-${msg.id}`, role: 'user', text: '' },
+              assistant: msg,
+            })
+          }
         }
         continue
       }
@@ -1182,6 +1289,9 @@ export function CompactAssistantDemo() {
                     onReportOpen={onReportOpen}
                     onOpenSubcontext={onOpenSubcontext}
                     onReplyComplete={onReplyComplete}
+                    onWorkflowRunFailed={reportWorkflowRunFailed}
+                    onOpenWorkflow={(proposal) => setSubcontext({ view: 'workflow', proposal })}
+                    activeWorkflowId={subcontext.view === 'workflow' ? subcontext.proposal.id : null}
                     selectedComponentId={
                       subcontext.view === 'map' || subcontext.view === 'chart'
                         ? subcontext.componentId
@@ -1214,6 +1324,19 @@ export function CompactAssistantDemo() {
         showParameters
         onAttachClick={() => {}}
         findingSlot={findingChrome}
+        questionSlot={
+          composerQuestion ? (
+            <AgentQuestionPrompt
+              key={composerQuestion.id}
+              prompt={composerQuestion.prompt}
+              options={composerQuestion.options}
+              questionIndex={composerQuestion.questionIndex}
+              questionCount={composerQuestion.questionCount}
+              onAnswer={(optionId, label) => answerWorkflowQuestion(composerQuestion.id, optionId, label)}
+              onDismiss={() => dismissComposerQuestion(composerQuestion.id)}
+            />
+          ) : null
+        }
       />
     </div>
   )
@@ -1440,6 +1563,20 @@ export function CompactAssistantDemo() {
             onShowInConversation={() =>
               showInConversation({ componentId: selectedComponent.id })
             }
+          />
+        </div>
+      ) : null}
+      {open && subcontext.view === 'workflow' ? (
+        <div
+          className={`${styles.detailOverlay} ${
+            subcontextClosing ? styles.detailColumnExit : styles.detailColumnEnter
+          }`}
+        >
+          <WorkflowDetailPanel
+            proposal={subcontext.proposal}
+            onClose={closeSubcontext}
+            onShowInConversation={() => showInConversation({ workflowId: subcontext.proposal.id })}
+            onRunFailed={reportWorkflowRunFailed}
           />
         </div>
       ) : null}
