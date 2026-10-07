@@ -64,6 +64,47 @@
   transform-origin: center center;
 }
 
+.box[data-finding-cue='true'] {
+  border-color: transparent;
+}
+
+.box[data-finding-cue='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--orb-shimmer-angle, 0deg),
+    var(--orb-shimmer-2, #2a4098) 0deg,
+    var(--orb-shimmer-1, #3c78ff) 70deg,
+    var(--orb-shimmer-3, #6beeff) 120deg,
+    var(--orb-shimmer-1, #3c78ff) 170deg,
+    var(--orb-shimmer-2, #2a4098) 240deg,
+    var(--orb-shimmer-2, #2a4098) 360deg
+  );
+  mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+  mask-clip: content-box, border-box;
+  mask-origin: border-box, border-box;
+  mask-composite: exclude;
+  mask-repeat: no-repeat;
+  animation: findingBorderShimmer 1.15s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes findingBorderShimmer {
+  to {
+    --orb-shimmer-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .box[data-finding-cue='true']::after {
+    animation: none;
+  }
+}
+
 .collapseBtn {
   display: inline-flex;
   align-items: center;

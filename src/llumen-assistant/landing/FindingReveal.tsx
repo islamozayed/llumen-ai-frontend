@@ -12,24 +12,37 @@ import {
 import type { FindingToastInstance } from './findingDemoData'
 import styles from './FindingReveal.module.css'
 
+function pageColumnInset(): number {
+  if (typeof window === 'undefined') return 24
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--space-3xl')
+  const value = Number.parseFloat(raw)
+  return Number.isFinite(value) ? value : 24
+}
+
 function blurGeometry(
   labelTop: number | null,
   chatTop: number | null,
   blurFade: number,
   blurLift: number,
   viewportH: number,
+  pageColumn: boolean,
 ) {
   const max = Math.max(0, viewportH - 16)
   const fade = Math.round(Math.min(Math.max(blurFade, 0), max))
   const base = labelTop == null ? viewportH * 0.42 : Math.max(0, viewportH - labelTop)
   const hold = Math.round(Math.min(Math.max(0, base + blurLift), max))
-  const anchor = chatTop == null ? 0 : Math.max(0, Math.round(viewportH - chatTop))
+  const anchor =
+    chatTop == null
+      ? pageColumn
+        ? pageColumnInset()
+        : 0
+      : Math.max(0, Math.round(viewportH - chatTop))
   return { hold, fade, anchor }
 }
 
 function initialBlurGeom(settings: FindingAuroraSettings) {
   const viewportH = typeof window === 'undefined' ? 1000 : window.innerHeight
-  return blurGeometry(null, null, settings.blurFade, settings.blurLift, viewportH)
+  return blurGeometry(null, null, settings.blurFade, settings.blurLift, viewportH, false)
 }
 
 const FINDING_DASHBOARDS = [
@@ -39,9 +52,9 @@ const FINDING_DASHBOARDS = [
   'Customer Success',
 ] as const
 
-function visibleChatTop(): number | null {
+function visibleChatTop(skipRailComposer: boolean): number | null {
   const hub = document.querySelector('[data-lc-hub-chat]')
-  const rail = document.querySelector('[data-lc-composer]')
+  const rail = skipRailComposer ? null : document.querySelector('[data-lc-composer]')
   for (const node of [hub, rail]) {
     if (!(node instanceof HTMLElement)) continue
     const rect = node.getBoundingClientRect()
@@ -147,6 +160,8 @@ export type FindingRevealProps = {
   settings?: FindingAuroraSettings
   /** Shift the finding copy out from under the open chat rail. */
   railOpen?: boolean
+  /** Thread rail is the conversation. Anchor the copy to the page column, not that composer. */
+  pageColumnAnchor?: boolean
   /** Increment to play the exit, then call onClose. */
   dismissSignal?: number
   /** Shortcut: show a little of the aurora, hold, then open the mask fully. */
@@ -168,6 +183,7 @@ export function FindingReveal({
   onWorkflow,
   settings = DEFAULT_FINDING_AURORA,
   railOpen = false,
+  pageColumnAnchor = false,
   dismissSignal = 0,
   stagedReveal = false,
   revealNonce = 0,
@@ -251,7 +267,7 @@ export function FindingReveal({
   useLayoutEffect(() => {
     const measure = () => {
       const viewport = window.innerHeight
-      const chatTop = visibleChatTop()
+      const chatTop = visibleChatTop(pageColumnAnchor)
       const label = domainRef.current
       const next = blurGeometry(
         label ? label.getBoundingClientRect().top : null,
@@ -259,6 +275,7 @@ export function FindingReveal({
         settings.blurFade,
         settings.blurLift,
         viewport,
+        pageColumnAnchor,
       )
       setBlurGeom((prev) =>
         prev.hold === next.hold && prev.fade === next.fade && prev.anchor === next.anchor ? prev : next,
@@ -276,7 +293,7 @@ export function FindingReveal({
       window.removeEventListener('resize', measure)
       window.clearInterval(timer)
     }
-  }, [active?.instanceId, copyVisible, settings.blurFade, settings.blurLift, settings.showCopy, railOpen])
+  }, [active?.instanceId, copyVisible, settings.blurFade, settings.blurLift, settings.showCopy, railOpen, pageColumnAnchor])
 
   useEffect(() => {
     if (dismissSignal === seenDismiss.current) return

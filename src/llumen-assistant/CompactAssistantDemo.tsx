@@ -639,6 +639,11 @@ export function CompactAssistantDemo() {
     openedFromCompactRef.current = false
     setStagedReveal(false)
     setCompactOrbHold(null)
+    setFindingBorderCue(false)
+    if (findingShortcutTimer.current != null) {
+      window.clearTimeout(findingShortcutTimer.current)
+      findingShortcutTimer.current = null
+    }
     setFindingToasts([])
     setFindingToastIndex(0)
     if (returnToCompact) setCompactRestoreToken((n) => n + 1)
@@ -660,6 +665,7 @@ export function CompactAssistantDemo() {
   const [findingUnread, setFindingUnread] = useState(false)
   const [compactRestoreToken, setCompactRestoreToken] = useState(0)
   const [compactOrbHold, setCompactOrbHold] = useState<DOMRect | null>(null)
+  const [findingBorderCue, setFindingBorderCue] = useState(false)
 
   useEffect(() => {
     const current = findingToasts[findingToastIndex]
@@ -695,10 +701,12 @@ export function CompactAssistantDemo() {
   )
 
   const cueThenShowFindings = useCallback(
-    (then?: () => void) => {
-      if (then) openedFromCompactRef.current = true
+    (then?: () => void, fromCompact = false) => {
+      if (fromCompact) openedFromCompactRef.current = true
       pushFindingToast()
-      if (then) window.setTimeout(then, STAGED_AURORA_PHASE1_MS)
+      if (then) {
+        findingShortcutTimer.current = window.setTimeout(then, STAGED_AURORA_PHASE1_MS)
+      }
     },
     [pushFindingToast],
   )
@@ -725,12 +733,14 @@ export function CompactAssistantDemo() {
         setCompactOrbHold(rect)
         cueThenShowFindings(() => {
           setCompactOrbHold(null)
+          setFindingBorderCue(false)
           ask.click()
-        })
+        }, true)
         return
       }
     }
-    cueThenShowFindings()
+    setFindingBorderCue(true)
+    cueThenShowFindings(() => setFindingBorderCue(false))
   }, [activeStoryId, hubStoryOpen, cueThenShowFindings])
 
   useEffect(() => {
@@ -1402,6 +1412,12 @@ export function CompactAssistantDemo() {
         sendState={sendVisual}
         showParameters
         onAttachClick={() => {}}
+        findingCue={findingBorderCue && !showHub}
+        findingCueColors={{
+          stop1: findingAurora.colorStop1,
+          stop2: findingAurora.colorStop2,
+          stop3: findingAurora.colorStop3,
+        }}
         questionSlot={
           composerQuestion ? (
             <AgentQuestionPrompt
@@ -1498,6 +1514,7 @@ export function CompactAssistantDemo() {
           onWorkflow={(item) => beginFindingCommand('workflow', item)}
           settings={findingAurora}
           railOpen={open}
+          pageColumnAnchor={railComposerOpen && !showHub}
           stagedReveal={stagedReveal}
           revealNonce={revealNonce}
         />
@@ -1557,6 +1574,12 @@ export function CompactAssistantDemo() {
               onDismissWork={dismissHubWork}
               findingUnread={findingUnread}
               onRestoreFindings={() => restoreUnreadFindings()}
+              findingCue={findingBorderCue}
+              findingCueColors={{
+                stop1: findingAurora.colorStop1,
+                stop2: findingAurora.colorStop2,
+                stop3: findingAurora.colorStop3,
+              }}
             />
         </div>
       ) : null}

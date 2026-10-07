@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 2;
+  z-index: 4;
   height: calc(var(--aurora-blur-hold, 480px) + var(--aurora-blur-fade, 140px) * 2.2 + 120px);
   pointer-events: none;
   background: linear-gradient(
@@ -99,7 +99,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 3;
+  z-index: 4;
   width: 100%;
   height: 100dvh;
   pointer-events: none;
@@ -143,7 +143,7 @@
   left: 0;
   right: 0;
   bottom: var(--aurora-anchor, 0px);
-  z-index: 4;
+  z-index: 6;
   display: flex;
   align-items: flex-end;
   justify-content: stretch;
@@ -220,6 +220,8 @@
 
 .copy[data-rail='true'] {
   left: var(--lc-rail-width, 400px);
+  right: 0;
+  width: min(640px, calc(100vw - var(--lc-rail-width, 400px) - 48px));
 }
 
 .copyCluster {

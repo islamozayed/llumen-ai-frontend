@@ -181,7 +181,7 @@
   left: 0;
   right: 0;
   bottom: var(--space-3xl);
-  z-index: 3;
+  z-index: 5;
   width: min(640px, calc(100vw - 48px));
   margin-inline: auto;
   display: flex;
@@ -225,6 +225,7 @@
   padding: 0;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   background: var(--lc-surface-0, #0e1014);
+  z-index: 7;
   /* Animate `left` (not transform) so position:fixed subcontext stays viewport-relative */
   transform: none;
   animation: lcRailSlideIn var(--lc-rail-enter-duration, 320ms) var(--lc-ease) both;
@@ -2502,6 +2503,48 @@
 
 .chatBoxWithContexts {
   max-height: 340px;
+}
+
+.chatBox[data-finding-cue='true'] {
+  position: relative;
+  border-color: transparent;
+}
+
+.chatBox[data-finding-cue='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--orb-shimmer-angle, 0deg),
+    var(--orb-shimmer-2, #2a4098) 0deg,
+    var(--orb-shimmer-1, #3c78ff) 70deg,
+    var(--orb-shimmer-3, #6beeff) 120deg,
+    var(--orb-shimmer-1, #3c78ff) 170deg,
+    var(--orb-shimmer-2, #2a4098) 240deg,
+    var(--orb-shimmer-2, #2a4098) 360deg
+  );
+  mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+  mask-clip: content-box, border-box;
+  mask-origin: border-box, border-box;
+  mask-composite: exclude;
+  mask-repeat: no-repeat;
+  animation: findingBorderShimmer 1.15s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes findingBorderShimmer {
+  to {
+    --orb-shimmer-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatBox[data-finding-cue='true']::after {
+    animation: none;
+  }
 }
 
 .composeRow {

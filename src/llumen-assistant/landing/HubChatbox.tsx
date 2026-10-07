@@ -195,6 +195,9 @@ export type HubChatboxProps = {
   findingUnread?: boolean
   /** Reopens dismissed findings from the unread orb. */
   onRestoreFindings?: () => void
+  /** Aurora border shimmer while the first finding reveal is on screen. */
+  findingCue?: boolean
+  findingCueColors?: { stop1: string; stop2: string; stop3: string }
 }
 
 export function HubChatbox({
@@ -214,6 +217,8 @@ export function HubChatbox({
   onDismissWork,
   findingUnread = false,
   onRestoreFindings,
+  findingCue = false,
+  findingCueColors,
 }: HubChatboxProps) {
   const [focused, setFocused] = useState(false)
   const [editorEmpty, setEditorEmpty] = useState(true)
@@ -541,6 +546,16 @@ export function HubChatbox({
         ref={boxRef}
         className={`${styles.box}${toasting ? ` ${styles.boxToast}` : ''}`}
         data-stage={stage}
+        data-finding-cue={findingCue ? 'true' : 'false'}
+        style={
+          findingCue
+            ? {
+                ['--orb-shimmer-1' as string]: findingCueColors?.stop1,
+                ['--orb-shimmer-2' as string]: findingCueColors?.stop2,
+                ['--orb-shimmer-3' as string]: findingCueColors?.stop3,
+              }
+            : undefined
+        }
         onSubmit={(e) => {
           e.preventDefault()
           if (!toasting) send()

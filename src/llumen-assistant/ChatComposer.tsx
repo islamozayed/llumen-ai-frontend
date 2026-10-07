@@ -385,6 +385,9 @@ export type ChatComposerProps = {
   findingSlot?: ReactNode
   /** Agent question attached above the input while one is pending. */
   questionSlot?: ReactNode
+  /** Aurora border shimmer while the first finding reveal is on screen. */
+  findingCue?: boolean
+  findingCueColors?: { stop1: string; stop2: string; stop3: string }
 }
 
 export type ChatComposerHandle = {
@@ -405,6 +408,8 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     hasThreadMessages = false,
     findingSlot = null,
     questionSlot = null,
+    findingCue = false,
+    findingCueColors,
   },
   ref,
 ) {
@@ -913,6 +918,16 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           hasContexts ? ` ${styles.chatBoxWithContexts}` : ''
         }`}
         data-lc-composer=""
+        data-finding-cue={findingCue ? 'true' : 'false'}
+        style={
+          findingCue
+            ? {
+                ['--orb-shimmer-1' as string]: findingCueColors?.stop1,
+                ['--orb-shimmer-2' as string]: findingCueColors?.stop2,
+                ['--orb-shimmer-3' as string]: findingCueColors?.stop3,
+              }
+            : undefined
+        }
       >
       {hasContexts ? (
         <div className={styles.contextChipRow} aria-label="Attached files">
