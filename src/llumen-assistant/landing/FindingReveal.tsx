@@ -1,12 +1,57 @@
-import { useEffect, useRef, useState } from 'react'
-import { BorderBeam } from 'border-beam'
-import { llumenAssets } from '../assets'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Broadcast, CaretLeft, CaretRight, Plus, SquaresFour, ThumbsDown, ThumbsUp, TreeStructure, X } from '@phosphor-icons/react'
+import { Aurora } from './Aurora'
 import {
   DEFAULT_FINDING_AURORA,
-  findingAuroraCssVars,
+  FINDING_DISMISS_MS,
+  FINDING_EXIT_MS,
+  STAGED_AURORA_PHASE1_MS,
   type FindingAuroraSettings,
 } from './findingAuroraSettings'
+import type { FindingToastInstance } from './findingDemoData'
 import styles from './FindingReveal.module.css'
+
+function blurGeometry(
+  labelTop: number | null,
+  chatTop: number | null,
+  blurFade: number,
+  blurLift: number,
+  viewportH: number,
+) {
+  const max = Math.max(0, viewportH - 16)
+  const fade = Math.round(Math.min(Math.max(blurFade, 0), max))
+  const base = labelTop == null ? viewportH * 0.42 : Math.max(0, viewportH - labelTop)
+  const hold = Math.round(Math.min(Math.max(0, base + blurLift), max))
+  const anchor = chatTop == null ? 0 : Math.max(0, Math.round(viewportH - chatTop))
+  return { hold, fade, anchor }
+}
+
+function initialBlurGeom(settings: FindingAuroraSettings) {
+  const viewportH = typeof window === 'undefined' ? 1000 : window.innerHeight
+  return blurGeometry(null, null, settings.blurFade, settings.blurLift, viewportH)
+}
+
+const FINDING_DASHBOARDS = [
+  'Environmental Wellness',
+  'Air Quality Corridor',
+  'City Operations',
+  'Customer Success',
+] as const
+
+function visibleChatTop(): number | null {
+  const hub = document.querySelector('[data-lc-hub-chat]')
+  const rail = document.querySelector('[data-lc-composer]')
+  for (const node of [hub, rail]) {
+    if (!(node instanceof HTMLElement)) continue
+    const rect = node.getBoundingClientRect()
+    if (rect.width < 8 || rect.height < 8) continue
+    const style = getComputedStyle(node)
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) continue
+    return rect.top
+  }
+  return null
+}
 
 function splitWordSpaceSegments(text: string): { text: string; isWord: boolean }[] {
   const segments: { text: string; isWord: boolean }[] = []
@@ -18,37 +63,72 @@ function splitWordSpaceSegments(text: string): { text: string; isWord: boolean }
   return segments
 }
 
-function FindingCopyText({
-  text,
+function FindingSentence({
+  item,
   reduceMotion,
   staggerMs,
 }: {
-  text: string
+  item: FindingToastInstance
   reduceMotion: boolean
   staggerMs: number
 }) {
-  if (reduceMotion || !text) {
-    return <p className={styles.copyText}>{text}</p>
+  const parts = [
+    { text: item.before, highlight: false },
+    { text: item.highlight, highlight: true },
+    { text: item.after, highlight: false },
+  ]
+  const beforeWords = splitWordSpaceSegments(item.before).filter((seg) => seg.isWord).length
+  const highlightWords = splitWordSpaceSegments(item.highlight).filter((seg) => seg.isWord).length
+  const underlineAt = highlightWords === 0 ? 0 : (beforeWords + highlightWords - 1) * staggerMs + 440
+  const [underlined, setUnderlined] = useState(reduceMotion || highlightWords === 0)
+
+  useEffect(() => {
+    if (reduceMotion || highlightWords === 0) {
+      setUnderlined(true)
+      return
+    }
+    setUnderlined(false)
+    const timer = window.setTimeout(() => setUnderlined(true), underlineAt)
+    return () => window.clearTimeout(timer)
+  }, [item.before, item.highlight, reduceMotion, highlightWords, underlineAt])
+
+  if (reduceMotion) {
+    return (
+      <p className={styles.finding}>
+        {item.before}
+        <span className={`${styles.findingHighlight} ${styles.findingHighlightReady}`}>{item.highlight}</span>
+        {item.after}
+      </p>
+    )
   }
 
-  const segments = splitWordSpaceSegments(text)
   let wordIndex = 0
-
   return (
-    <p className={styles.copyText}>
-      {segments.map((seg, idx) => {
-        if (!seg.isWord) {
-          return <span key={`sp-${idx}`}>{seg.text}</span>
-        }
-        const delay = wordIndex * staggerMs
-        wordIndex += 1
+    <p className={styles.finding}>
+      {parts.map((part, partIndex) => {
+        const nodes = splitWordSpaceSegments(part.text).map((seg, segIndex) => {
+          if (!seg.isWord) {
+            return <span key={`sp-${partIndex}-${segIndex}`}>{seg.text}</span>
+          }
+          const delay = wordIndex * staggerMs
+          wordIndex += 1
+          return (
+            <span
+              key={`w-${partIndex}-${segIndex}`}
+              className={styles.wordReveal}
+              style={{ animationDelay: `${delay}ms` }}
+            >
+              {seg.text}
+            </span>
+          )
+        })
+        if (!part.highlight) return nodes
         return (
           <span
-            key={`w-${idx}-${seg.text.slice(0, 24)}`}
-            className={styles.wordReveal}
-            style={{ animationDelay: `${delay}ms` }}
+            key={`h-${partIndex}`}
+            className={`${styles.findingHighlight}${underlined ? ` ${styles.findingHighlightReady}` : ''}`}
           >
-            {seg.text}
+            {nodes}
           </span>
         )
       })}
@@ -57,94 +137,395 @@ function FindingCopyText({
 }
 
 export type FindingRevealProps = {
-  count: number
-  /** Fires once the intro (aurora + copy) has finished and the stack should appear. */
-  onReady: () => void
+  items: FindingToastInstance[]
+  activeIndex: number
+  onActiveIndexChange: (index: number) => void
+  /** Clears every finding and the aurora. */
+  onClose: () => void
+  onMonitor: (item: FindingToastInstance) => void
+  onWorkflow: (item: FindingToastInstance) => void
   settings?: FindingAuroraSettings
-  /** Keep the aurora looping and skip advancing to the toast stack. */
-  hold?: boolean
+  /** Shift the finding copy out from under the open chat rail. */
+  railOpen?: boolean
+  /** Increment to play the exit, then call onClose. */
+  dismissSignal?: number
+  /** Shortcut: show a little of the aurora, hold, then open the mask fully. */
+  stagedReveal?: boolean
+  /** Bumps to replay the staged mask. */
+  revealNonce?: number
 }
 
 /**
- * Finding notification intro: line-beam aurora behind the chatbox with Llumen copy.
- * Unmounted when the finding stack appears.
+ * React Bits aurora along the viewport base, with the finding copy
+ * offset to the top of the chat box.
  */
 export function FindingReveal({
-  count,
-  onReady,
+  items,
+  activeIndex,
+  onActiveIndexChange,
+  onClose,
+  onMonitor,
+  onWorkflow,
   settings = DEFAULT_FINDING_AURORA,
-  hold = false,
+  railOpen = false,
+  dismissSignal = 0,
+  stagedReveal = false,
+  revealNonce = 0,
 }: FindingRevealProps) {
+  const domainRef = useRef<HTMLParagraphElement>(null)
+  const veilRef = useRef<HTMLDivElement>(null)
+  const auroraBoxRef = useRef<HTMLDivElement>(null)
   const [copyVisible, setCopyVisible] = useState(false)
-  const [beamVisible, setBeamVisible] = useState(hold)
   const [reduceMotion, setReduceMotion] = useState(false)
-  const onReadyRef = useRef(onReady)
-  onReadyRef.current = onReady
-  const holdRef = useRef(hold)
-  holdRef.current = hold
+  const [blurGeom, setBlurGeom] = useState(() => initialBlurGeom(settings))
+  const [geomSettled, setGeomSettled] = useState(false)
+  const [auroraReady, setAuroraReady] = useState(false)
+  const [exiting, setExiting] = useState(false)
+  const [autoDismiss, setAutoDismiss] = useState(true)
+  const seenDismiss = useRef(dismissSignal)
+  const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({})
+  const [dashboardsOpen, setDashboardsOpen] = useState(false)
+  const dashboardRef = useRef<HTMLDivElement>(null)
+  const dashboardMenuRef = useRef<HTMLDivElement>(null)
+  const [dashboardPos, setDashboardPos] = useState<{ left: number; bottom: number } | null>(null)
+
+  const safeIndex = items.length === 0 ? 0 : Math.min(Math.max(activeIndex, 0), items.length - 1)
+  const active = items[safeIndex]
+
+  useEffect(() => {
+    setDashboardsOpen(false)
+  }, [active?.instanceId])
+
+  useLayoutEffect(() => {
+    if (!dashboardsOpen) return
+    const place = () => {
+      const anchor = dashboardRef.current
+      if (!anchor) return
+      const rect = anchor.getBoundingClientRect()
+      setDashboardPos({ left: rect.left, bottom: window.innerHeight - rect.top + 8 })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [dashboardsOpen])
+
+  useEffect(() => {
+    if (!dashboardsOpen) return
+    const onPointer = (event: MouseEvent) => {
+      if (!(event.target instanceof Node)) return
+      if (dashboardRef.current?.contains(event.target)) return
+      if (dashboardMenuRef.current?.contains(event.target)) return
+      setDashboardsOpen(false)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      setDashboardsOpen(false)
+    }
+    document.addEventListener('mousedown', onPointer)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointer)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [dashboardsOpen])
 
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     setReduceMotion(reduce)
-    if (reduce && !holdRef.current) {
-      onReadyRef.current()
+    if (reduce) {
+      setCopyVisible(true)
       return
     }
-    if (holdRef.current) setBeamVisible(true)
-    const copyTimer = window.setTimeout(() => {
-      setCopyVisible(true)
-      setBeamVisible(true)
-    }, settings.copyDelayMs)
-    const cycleMs = Math.max(0, settings.duration) * 1000
-    const readyTimer = hold
-      ? undefined
-      : window.setTimeout(() => onReadyRef.current(), settings.copyDelayMs + cycleMs)
-    return () => {
-      window.clearTimeout(copyTimer)
-      if (readyTimer != null) window.clearTimeout(readyTimer)
-    }
-  }, [hold, settings.copyDelayMs, settings.duration])
+    setCopyVisible(false)
+    const copyDelay = stagedReveal ? STAGED_AURORA_PHASE1_MS : settings.copyDelayMs
+    const copyTimer = window.setTimeout(() => setCopyVisible(true), copyDelay)
+    return () => window.clearTimeout(copyTimer)
+  }, [settings.copyDelayMs, stagedReveal, revealNonce])
 
-  const message =
-    count === 1
-      ? 'I found 1 thing that might need your attention'
-      : `I found ${count} things that might need your attention`
+  useLayoutEffect(() => {
+    const measure = () => {
+      const viewport = window.innerHeight
+      const chatTop = visibleChatTop()
+      const label = domainRef.current
+      const next = blurGeometry(
+        label ? label.getBoundingClientRect().top : null,
+        chatTop,
+        settings.blurFade,
+        settings.blurLift,
+        viewport,
+      )
+      setBlurGeom((prev) =>
+        prev.hold === next.hold && prev.fade === next.fade && prev.anchor === next.anchor ? prev : next,
+      )
+    }
+    measure()
+    setGeomSettled(true)
+    const observed = document.querySelector('[data-lc-hub-chat], [data-lc-composer]')
+    const observer = new ResizeObserver(measure)
+    if (observed) observer.observe(observed)
+    window.addEventListener('resize', measure)
+    const timer = window.setInterval(measure, 180)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+      window.clearInterval(timer)
+    }
+  }, [active?.instanceId, copyVisible, settings.blurFade, settings.blurLift, settings.showCopy, railOpen])
+
+  useEffect(() => {
+    if (dismissSignal === seenDismiss.current) return
+    seenDismiss.current = dismissSignal
+    if (!active) return
+    if (reduceMotion) {
+      onClose()
+      return
+    }
+    setExiting(true)
+  }, [dismissSignal, active, reduceMotion, onClose])
+
+  useEffect(() => {
+    if (!active || exiting || !autoDismiss) return
+    const timer = window.setTimeout(() => {
+      if (reduceMotion) onClose()
+      else setExiting(true)
+    }, FINDING_DISMISS_MS)
+    return () => window.clearTimeout(timer)
+  }, [active ? 1 : 0, exiting, autoDismiss, reduceMotion, onClose])
+
+  useEffect(() => {
+    if (!exiting) return
+    const timer = window.setTimeout(onClose, FINDING_EXIT_MS)
+    return () => window.clearTimeout(timer)
+  }, [exiting, onClose])
+
+  useEffect(() => {
+    if (active) return
+    setExiting(false)
+    setAutoDismiss(true)
+  }, [active])
+
+  useLayoutEffect(() => {
+    if (!stagedReveal || !auroraReady) return
+    for (const node of [veilRef.current, auroraBoxRef.current]) {
+      if (!node) continue
+      node.style.animation = 'none'
+      void node.offsetWidth
+      node.style.animation = ''
+    }
+  }, [stagedReveal, auroraReady, revealNonce])
+
+  const canNavigate = items.length > 1
+
+  const veilStyle = {
+    ['--aurora-blur' as string]: `${settings.blurStrength}px`,
+    ['--aurora-blur-hold' as string]: `${blurGeom.hold}px`,
+    ['--aurora-blur-fade' as string]: `${blurGeom.fade}px`,
+    ['--aurora-anchor' as string]: `${blurGeom.anchor}px`,
+  }
 
   return (
     <>
-      {beamVisible ? (
-        <div className={styles.aurora} aria-hidden>
-          <BorderBeam
-            size={settings.size}
-            theme={settings.theme}
-            colorVariant={settings.colorVariant}
-            brightness={settings.brightness}
-            saturation={settings.saturation}
-            duration={settings.duration}
-            hueRange={settings.hueRange}
-            strength={settings.strength}
-            staticColors={settings.staticColors}
-            active={settings.active}
-            borderRadius={0}
-            className={styles.beam}
-            data-travel={settings.travel}
-            data-play={hold ? 'loop' : 'once'}
-            style={findingAuroraCssVars(settings)}
-          >
-            <div className={styles.track} />
-          </BorderBeam>
-        </div>
-      ) : null}
-      {copyVisible && settings.showCopy ? (
-        <div className={styles.copy} aria-live="polite">
-          <img className={styles.copyOrb} src={llumenAssets.launcherOrb} alt="" />
-          <FindingCopyText
-            text={message}
-            reduceMotion={reduceMotion}
-            staggerMs={settings.wordStaggerMs}
+      <div
+        ref={veilRef}
+        className={styles.veil}
+        data-exiting={exiting ? 'true' : 'false'}
+        data-ready={auroraReady ? 'true' : 'false'}
+        data-staged={stagedReveal ? 'true' : 'false'}
+        style={veilStyle}
+      >
+        <div className={styles.veilBlur} data-level="1" />
+        <div className={styles.veilBlur} data-level="2" />
+        <div className={styles.veilBlur} data-level="3" />
+        <div className={styles.veilBlur} data-level="4" />
+      </div>
+      <div
+        ref={auroraBoxRef}
+        className={styles.aurora}
+        data-exiting={exiting ? 'true' : 'false'}
+        data-ready={auroraReady ? 'true' : 'false'}
+        data-staged={stagedReveal ? 'true' : 'false'}
+        style={veilStyle}
+        aria-hidden
+      >
+        {geomSettled ? (
+          <Aurora
+            colorStops={[settings.colorStop1, settings.colorStop2, settings.colorStop3]}
+            amplitude={settings.amplitude}
+            blend={settings.blend}
+            speed={settings.speed}
+            streaks={settings.streaks ?? 0.24}
+            highlights={settings.highlights ?? 0.04}
+            fadeHold={blurGeom.hold}
+            fadeSpan={blurGeom.fade}
+            onReady={() => setAuroraReady(true)}
           />
+        ) : null}
+      </div>
+      {items.length > 0 ? (
+        <div
+          className={styles.copy}
+          data-rail={railOpen ? 'true' : 'false'}
+          data-exiting={exiting ? 'true' : 'false'}
+          style={veilStyle}
+          onMouseDown={(event) => {
+            event.preventDefault()
+            setAutoDismiss(false)
+          }}
+        >
+          {active && settings.showCopy ? (
+          <div
+            className={`${styles.copyCluster}${copyVisible ? '' : ` ${styles.copyClusterPending}`}`}
+            key={active.instanceId}
+          >
+            <div className={styles.header}>
+              <p ref={domainRef} className={styles.domain}>{active.domain}</p>
+              <div className={styles.headerEnd}>
+                {canNavigate ? (
+                  <div className={styles.nav}>
+                    <button
+                      type="button"
+                      className={styles.navBtn}
+                      aria-label="Previous finding"
+                      onClick={() => onActiveIndexChange((safeIndex - 1 + items.length) % items.length)}
+                    >
+                      <CaretLeft size={16} weight="bold" aria-hidden />
+                    </button>
+                    <span className={styles.navCount}>
+                      {safeIndex + 1} / {items.length}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.navBtn}
+                      aria-label="Next finding"
+                      onClick={() => onActiveIndexChange((safeIndex + 1) % items.length)}
+                    >
+                      <CaretRight size={16} weight="bold" aria-hidden />
+                    </button>
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className={styles.close}
+                  aria-label="Close findings"
+                  onClick={() => {
+                    if (reduceMotion) onClose()
+                    else setExiting(true)
+                  }}
+                  style={{ ['--finding-dismiss' as string]: `${FINDING_DISMISS_MS}ms` }}
+                >
+                  <X size={14} weight="bold" aria-hidden />
+                  {autoDismiss ? (
+                    <svg className={styles.closeRing} viewBox="0 0 28 28" aria-hidden>
+                      <circle className={styles.closeRingTrack} cx="14" cy="14" r="11" />
+                      <circle className={styles.closeRingProgress} cx="14" cy="14" r="11" />
+                    </svg>
+                  ) : null}
+                </button>
+              </div>
+            </div>
+            <FindingSentence item={active} reduceMotion={reduceMotion} staggerMs={settings.wordStaggerMs} />
+            <div className={styles.actions}>
+              <div className={styles.actionGroup}>
+                <button type="button" className={styles.actionBtn} onClick={() => onMonitor(active)}>
+                  <Broadcast size={16} weight="regular" aria-hidden />
+                  Monitor
+                </button>
+                <button type="button" className={styles.actionBtn} onClick={() => onWorkflow(active)}>
+                  <TreeStructure size={16} weight="regular" aria-hidden />
+                  Set up workflow
+                </button>
+                <div className={styles.dashboardAnchor} ref={dashboardRef}>
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    aria-expanded={dashboardsOpen}
+                    aria-haspopup="menu"
+                    onClick={() => setDashboardsOpen((open) => !open)}
+                  >
+                    <SquaresFour size={16} weight="regular" aria-hidden />
+                    Add to dashboard
+                  </button>
+                </div>
+              </div>
+              <div className={styles.voteGroup}>
+                <button
+                  type="button"
+                  className={`${styles.voteBtn}${votes[active.instanceId] === 'up' ? ` ${styles.voteBtnActive}` : ''}`}
+                  aria-label="Show more like this"
+                  aria-pressed={votes[active.instanceId] === 'up'}
+                  onClick={() =>
+                    setVotes((prev) => ({
+                      ...prev,
+                      [active.instanceId]: prev[active.instanceId] === 'up' ? null : 'up',
+                    }))
+                  }
+                >
+                  <ThumbsUp size={16} weight={votes[active.instanceId] === 'up' ? 'fill' : 'regular'} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.voteBtn}${votes[active.instanceId] === 'down' ? ` ${styles.voteBtnActive}` : ''}`}
+                  aria-label="Not interested"
+                  aria-pressed={votes[active.instanceId] === 'down'}
+                  onClick={() =>
+                    setVotes((prev) => ({
+                      ...prev,
+                      [active.instanceId]: prev[active.instanceId] === 'down' ? null : 'down',
+                    }))
+                  }
+                >
+                  <ThumbsDown size={16} weight={votes[active.instanceId] === 'down' ? 'fill' : 'regular'} aria-hidden />
+                </button>
+              </div>
+            </div>
+          </div>
+          ) : null}
         </div>
       ) : null}
+      {dashboardsOpen && dashboardPos
+        ? createPortal(
+            <div
+              ref={dashboardMenuRef}
+              className={styles.dashboardMenu}
+              role="menu"
+              data-finding-dashboards=""
+              aria-label="Dashboards"
+              style={{ left: dashboardPos.left, bottom: dashboardPos.bottom }}
+              onMouseDown={(event) => {
+                event.preventDefault()
+                setAutoDismiss(false)
+              }}
+            >
+              {FINDING_DASHBOARDS.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  role="menuitem"
+                  className={styles.dashboardItem}
+                  onClick={() => setDashboardsOpen(false)}
+                >
+                  {name}
+                </button>
+              ))}
+              <button
+                type="button"
+                role="menuitem"
+                className={`${styles.dashboardItem} ${styles.dashboardCreate}`}
+                onClick={() => setDashboardsOpen(false)}
+              >
+                <Plus size={14} weight="bold" aria-hidden />
+                Create dashboard for finding
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   )
 }

@@ -184,10 +184,17 @@ export type HubChatboxProps = {
   morphFrom?: DOMRect | null
   /** When set, shows an X to collapse the hub (e.g. back to the Story ask orb). */
   onCollapse?: () => void
+  /** Fires as soon as that dismiss starts, before the shrink animation finishes. */
+  onWillCollapse?: () => void
+  /** Increment to collapse back to the compact orb. */
+  collapseToken?: number
   /** Slash-command work toast — replaces the composer until viewed or dismissed. */
   workToast?: HubWorkToast | null
   onViewWorkInChat?: () => void
   onDismissWork?: () => void
+  findingUnread?: boolean
+  /** Reopens dismissed findings from the unread orb. */
+  onRestoreFindings?: () => void
 }
 
 export function HubChatbox({
@@ -200,9 +207,13 @@ export function HubChatbox({
   placement = 'landing',
   morphFrom = null,
   onCollapse,
+  onWillCollapse,
+  collapseToken = 0,
   workToast = null,
   onViewWorkInChat,
   onDismissWork,
+  findingUnread = false,
+  onRestoreFindings,
 }: HubChatboxProps) {
   const [focused, setFocused] = useState(false)
   const [editorEmpty, setEditorEmpty] = useState(true)
@@ -222,23 +233,14 @@ export function HubChatbox({
   const mentionMenuRef = useRef<HTMLDivElement>(null)
   const slashMenuRef = useRef<HTMLDivElement>(null)
   const insertedChipIdsRef = useRef<Set<string>>(new Set())
-  const morphOriginRef = useRef<DOMRect | null>(null)
   const [morphingOut, setMorphingOut] = useState(false)
 
   const toasting = Boolean(workToast)
-  // Story hub stays engaged while mounted; only the X (onCollapse) dismisses it.
-  // Landing still collapses to the idle orb row on blur when empty.
-  const stayOpen = placement === 'story'
-  const expanded =
-    stayOpen || focused || !editorEmpty || files.length > 0 || mentionOpen || Boolean(slashMenu) || toasting
-  const idle =
-    !stayOpen &&
-    !focused &&
-    editorEmpty &&
-    files.length === 0 &&
-    !mentionOpen &&
-    !slashMenu &&
-    !toasting
+  // Story opens straight into the full chat. Landing rests on the bar until the field is used.
+  const engaged =
+    !editorEmpty || files.length > 0 || mentionOpen || Boolean(slashMenu) || toasting
+  const expanded = placement === 'story' || focused || engaged
+  const idle = !expanded && !toasting
   const canSend = !toasting && (!editorEmpty || files.length > 0)
   const interactionLocked = exiting || morphingOut || toasting
   const slashCommands = useMemo(() => filterSlashCommands(slashMenu?.query ?? ''), [slashMenu?.query])
@@ -391,32 +393,29 @@ export function HubChatbox({
     editorRef.current?.focus()
   }, [focusToken, exiting])
 
-  useEffect(() => {
-    if (morphFrom) morphOriginRef.current = morphFrom
-  }, [morphFrom])
-
   useLayoutEffect(() => {
     const el = boxRef.current
-    if (!el || !morphFrom || exiting) return
+    if (!el || placement !== 'story' || !morphFrom || exiting) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const dest = el.getBoundingClientRect()
-    const dx = morphFrom.left + morphFrom.width / 2 - (dest.left + dest.width / 2)
-    const dy = morphFrom.top + morphFrom.height / 2 - (dest.top + dest.height / 2)
     gsap.killTweensOf(el)
     gsap.fromTo(
       el,
+      { opacity: 0, y: 18, scale: 0.96 },
       {
-        x: dx,
-        y: dy,
-        scale: Math.max(0.18, morphFrom.width / Math.max(dest.width, 1)),
-        opacity: 0.4,
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        duration: 0.34,
+        ease: 'power3.out',
+        onComplete: () => {
+          gsap.set(el, { clearProps: 'transform,opacity' })
+        },
       },
-      { x: 0, y: 0, scale: 1, opacity: 1, duration: 0.42, ease: 'power3.out' },
     )
     return () => {
       gsap.killTweensOf(el)
     }
-  }, [morphFrom, exiting])
+  }, [morphFrom, exiting, placement])
 
   useEffect(() => {
     if (!mentionOpen && !slashMenu) return
@@ -474,36 +473,41 @@ export function HubChatbox({
   }
 
   const collapse = useCallback(() => {
-    if (interactionLocked || !onCollapse) return
+    if (interactionLocked || !onCollapse) return false
+    onWillCollapse?.()
     closeMention()
     closeSlash()
 
-    const el = boxRef.current
-    const origin = morphOriginRef.current
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (!el || !origin || reduceMotion) {
+    const finish = () => {
       onCollapse()
-      return
+    }
+
+    const el = boxRef.current
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!el || reduceMotion) {
+      finish()
+      return true
     }
 
     setMorphingOut(true)
-    const dest = el.getBoundingClientRect()
-    const dx = origin.left + origin.width / 2 - (dest.left + dest.width / 2)
-    const dy = origin.top + origin.height / 2 - (dest.top + dest.height / 2)
-    const scale = Math.max(0.18, origin.width / Math.max(dest.width, 1))
     gsap.killTweensOf(el)
     gsap.to(el, {
-      x: dx,
-      y: dy,
-      scale,
       opacity: 0,
-      duration: 0.42,
+      y: 14,
+      scale: 0.96,
+      duration: 0.26,
       ease: 'power3.in',
-      onComplete: () => {
-        onCollapse()
-      },
+      onComplete: finish,
     })
-  }, [closeMention, closeSlash, interactionLocked, onCollapse])
+    return true
+  }, [closeMention, closeSlash, interactionLocked, onCollapse, onWillCollapse])
+
+  const collapseTokenRef = useRef(collapseToken)
+  useEffect(() => {
+    if (!collapseToken || collapseToken === collapseTokenRef.current) return
+    collapseTokenRef.current = collapseToken
+    collapse()
+  }, [collapseToken, collapse])
 
   const send = () => {
     if (interactionLocked || !canSend) return
@@ -528,6 +532,7 @@ export function HubChatbox({
   const showPlaceholder = !toasting && editorEmpty && files.length === 0
   const placeholder = showPlaceholder ? 'Ask Llumen anything…' : ''
   const orbIdle = idle || toasting
+  const stage = expanded ? 'expanded' : 'collapsed'
   const reduceBeamMotion =
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -535,6 +540,7 @@ export function HubChatbox({
       <form
         ref={boxRef}
         className={`${styles.box}${toasting ? ` ${styles.boxToast}` : ''}`}
+        data-stage={stage}
         onSubmit={(e) => {
           e.preventDefault()
           if (!toasting) send()
@@ -592,11 +598,25 @@ export function HubChatbox({
         ) : null}
 
         <div className={styles.composeRow}>
-          <span
-            className={`${styles.orb}${orbIdle ? '' : ` ${styles.orbCollapsed}`}`}
-            aria-hidden
-          >
-            <img className={panelStyles.launcherIcon} src={llumenAssets.launcherOrb} alt="" />
+          <span className={styles.orbWrap}>
+            {findingUnread && orbIdle && onRestoreFindings ? (
+              <button
+                type="button"
+                className={styles.orbRestore}
+                aria-label="Show findings"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={onRestoreFindings}
+              >
+                <span className={styles.orb} aria-hidden>
+                  <img className={panelStyles.launcherIcon} src={llumenAssets.launcherOrb} alt="" />
+                </span>
+                <span className={styles.unreadDot} />
+              </button>
+            ) : (
+              <span className={`${styles.orb}${orbIdle ? '' : ` ${styles.orbCollapsed}`}`} aria-hidden>
+                <img className={panelStyles.launcherIcon} src={llumenAssets.launcherOrb} alt="" />
+              </span>
+            )}
           </span>
           {toasting && workToast ? (
             <ToastMessage text={workToast.message} reduceMotion={reduceBeamMotion} />
@@ -693,28 +713,6 @@ export function HubChatbox({
               <X size={12} weight="bold" aria-hidden />
             </button>
           ) : null}
-          {idle ? (
-            <div className={styles.composeActions}>
-              <button
-                type="button"
-                className={styles.iconAction}
-                aria-label="Past sessions"
-                disabled={interactionLocked}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={onOpenSessions}
-              >
-                <ClockCounterClockwise size={18} weight="regular" aria-hidden />
-              </button>
-              <button
-                type="submit"
-                className={styles.send}
-                disabled={interactionLocked || !canSend}
-                aria-label="Send"
-              >
-                <ArrowUp size={18} weight="regular" aria-hidden />
-              </button>
-            </div>
-          ) : null}
         </div>
 
         <div
@@ -805,6 +803,7 @@ export function HubChatbox({
       className={`${styles.root}${exiting ? ` ${styles.rootExiting}` : ''}${
         morphingOut ? ` ${styles.rootMorphingOut}` : ''
       }`}
+      data-lc-hub-chat=""
       aria-hidden={exiting || morphingOut}
     >
       {toasting ? (

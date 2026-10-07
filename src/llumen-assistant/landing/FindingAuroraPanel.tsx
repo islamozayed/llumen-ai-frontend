@@ -3,10 +3,6 @@ import { createPortal } from 'react-dom'
 import { ArrowCounterClockwise, Sparkle, X } from '@phosphor-icons/react'
 import { useRevealScrollbarOnScroll } from '../useRevealScrollbarOnScroll'
 import {
-  AURORA_COLOR_VARIANTS,
-  AURORA_SIZES,
-  AURORA_THEMES,
-  AURORA_TRAVEL,
   DEFAULT_FINDING_AURORA,
   type FindingAuroraSettings,
 } from './findingAuroraSettings'
@@ -27,41 +23,6 @@ function patch<K extends keyof FindingAuroraSettings>(
   value: FindingAuroraSettings[K],
 ) {
   onChange({ ...settings, [key]: value })
-}
-
-function Segmented<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: T
-  options: { id: T; label: string }[]
-  onChange: (id: T) => void
-}) {
-  return (
-    <div className={styles.field}>
-      <span className={styles.fieldLabel}>{label}</span>
-      <div className={styles.segmented} role="radiogroup" aria-label={label}>
-        {options.map((opt) => {
-          const active = opt.id === value
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              className={`${styles.segBtn}${active ? ` ${styles.segBtnActive}` : ''}`}
-              onClick={() => onChange(opt.id)}
-            >
-              {opt.label}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
 }
 
 function SliderRow({
@@ -123,6 +84,24 @@ function ToggleRow({
   )
 }
 
+function ColorRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (next: string) => void
+}) {
+  return (
+    <label className={styles.colorRow}>
+      <span>{label}</span>
+      <span className={styles.colorValue}>{value}</span>
+      <input type="color" value={value} aria-label={label} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  )
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className={styles.section}>
@@ -158,8 +137,6 @@ export function FindingAuroraPanel({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onOpenChange])
-
-  const lineHueMax = settings.size === 'line' ? 13 : 180
 
   return (
     <div className={styles.root}>
@@ -218,212 +195,105 @@ export function FindingAuroraPanel({
 
               <div ref={scrollRef} className={styles.scroll}>
                 <div className={styles.scrollInner}>
-                  <Section title="Color">
-                    <Segmented
-                      label="Palette"
-                      value={settings.colorVariant}
-                      options={AURORA_COLOR_VARIANTS}
-                      onChange={(id) => set('colorVariant', id)}
+                  <Section title="Aurora">
+                    <ColorRow
+                      label="Color left"
+                      value={settings.colorStop1}
+                      onChange={(n) => set('colorStop1', n)}
                     />
-                    <Segmented
-                      label="Theme"
-                      value={settings.theme}
-                      options={AURORA_THEMES}
-                      onChange={(id) => set('theme', id)}
+                    <ColorRow
+                      label="Color middle"
+                      value={settings.colorStop2}
+                      onChange={(n) => set('colorStop2', n)}
+                    />
+                    <ColorRow
+                      label="Color right"
+                      value={settings.colorStop3}
+                      onChange={(n) => set('colorStop3', n)}
                     />
                     <SliderRow
-                      label="Hue offset"
-                      value={settings.hueBase}
+                      label="Amplitude"
+                      value={settings.amplitude}
                       min={0}
-                      max={360}
-                      step={1}
-                      format={(n) => `${fmtInt(n)}°`}
-                      onChange={(n) => set('hueBase', n)}
+                      max={2}
+                      step={0.01}
+                      format={fmt2}
+                      onChange={(n) => set('amplitude', n)}
                     />
                     <SliderRow
-                      label="Hue range"
-                      value={Math.min(settings.hueRange, lineHueMax)}
+                      label="Blend"
+                      value={settings.blend}
                       min={0}
-                      max={lineHueMax}
-                      step={1}
-                      format={(n) => `${fmtInt(n)}°`}
-                      onChange={(n) => set('hueRange', n)}
-                    />
-                    <ToggleRow
-                      label="Lock colors (no hue shift)"
-                      checked={settings.staticColors}
-                      onChange={(n) => set('staticColors', n)}
-                    />
-                  </Section>
-
-                  <Section title="Motion">
-                    <Segmented
-                      label="Type"
-                      value={settings.size}
-                      options={AURORA_SIZES}
-                      onChange={(id) => set('size', id)}
-                    />
-                    <Segmented
-                      label="Direction"
-                      value={settings.travel}
-                      options={AURORA_TRAVEL}
-                      onChange={(id) => set('travel', id)}
+                      max={2}
+                      step={0.01}
+                      format={fmt2}
+                      onChange={(n) => set('blend', n)}
                     />
                     <SliderRow
-                      label="Travel speed"
-                      value={settings.duration}
-                      min={0.4}
-                      max={8}
-                      step={0.05}
-                      format={(n) => `${fmt2(n)}s`}
-                      onChange={(n) => set('duration', n)}
+                      label="Speed"
+                      value={settings.speed}
+                      min={0}
+                      max={3}
+                      step={0.01}
+                      format={fmt2}
+                      onChange={(n) => set('speed', n)}
                     />
-                    <ToggleRow
-                      label="Animation playing"
-                      checked={settings.active}
-                      onChange={(n) => set('active', n)}
-                    />
-                  </Section>
-
-                  <Section title="Intensity">
                     <SliderRow
-                      label="Strength"
-                      value={settings.strength}
+                      label="Streaks"
+                      value={settings.streaks ?? 0.24}
                       min={0}
                       max={1}
                       step={0.01}
                       format={fmt2}
-                      onChange={(n) => set('strength', n)}
+                      onChange={(n) => set('streaks', n)}
                     />
                     <SliderRow
-                      label="Brightness"
-                      value={settings.brightness}
-                      min={0.2}
-                      max={4}
-                      step={0.05}
-                      format={fmt2}
-                      onChange={(n) => set('brightness', n)}
-                    />
-                    <SliderRow
-                      label="Saturation"
-                      value={settings.saturation}
+                      label="Highlights"
+                      value={settings.highlights ?? 0.04}
                       min={0}
-                      max={3}
-                      step={0.05}
-                      format={fmt2}
-                      onChange={(n) => set('saturation', n)}
-                    />
-                    <SliderRow
-                      label="Stroke opacity"
-                      value={settings.strokeOpacity}
-                      min={0}
-                      max={2}
+                      max={1}
                       step={0.01}
                       format={fmt2}
-                      onChange={(n) => set('strokeOpacity', n)}
+                      onChange={(n) => set('highlights', n)}
                     />
-                    <SliderRow
-                      label="Inner glow"
-                      value={settings.innerOpacity}
-                      min={0}
-                      max={2}
-                      step={0.01}
-                      format={fmt2}
-                      onChange={(n) => set('innerOpacity', n)}
-                    />
-                    <SliderRow
-                      label="Bloom opacity"
-                      value={settings.bloomOpacity}
-                      min={0}
-                      max={2}
-                      step={0.01}
-                      format={fmt2}
-                      onChange={(n) => set('bloomOpacity', n)}
-                    />
+                    <p className={styles.hint}>
+                      Streaks pull the glow into vertical curtains. Highlights add bright
+                      cores inside those rays so the light is not one soft blob.
+                    </p>
                   </Section>
 
-                  <Section title="Bloom shape">
+                  <Section title="Backdrop">
                     <SliderRow
-                      label="Track height"
-                      value={settings.trackHeight}
+                      label="Blur strength"
+                      value={settings.blurStrength ?? DEFAULT_FINDING_AURORA.blurStrength}
+                      min={0}
+                      max={120}
+                      step={1}
+                      format={(n) => `${fmtInt(n)}px`}
+                      onChange={(n) => set('blurStrength', n)}
+                    />
+                    <SliderRow
+                      label="Fade length"
+                      value={settings.blurFade ?? DEFAULT_FINDING_AURORA.blurFade}
                       min={24}
+                      max={360}
+                      step={2}
+                      format={(n) => `${fmtInt(n)}px`}
+                      onChange={(n) => set('blurFade', n)}
+                    />
+                    <SliderRow
+                      label="Solid lift"
+                      value={settings.blurLift ?? DEFAULT_FINDING_AURORA.blurLift}
+                      min={0}
                       max={160}
                       step={1}
                       format={(n) => `${fmtInt(n)}px`}
-                      onChange={(n) => set('trackHeight', n)}
+                      onChange={(n) => set('blurLift', n)}
                     />
-                    <SliderRow
-                      label="Path offset left"
-                      value={settings.pathOffsetLeft ?? DEFAULT_FINDING_AURORA.pathOffsetLeft}
-                      min={-80}
-                      max={160}
-                      step={1}
-                      format={(n) => `${fmtInt(n)}px`}
-                      onChange={(n) => set('pathOffsetLeft', n)}
-                    />
-                    <SliderRow
-                      label="Path offset right"
-                      value={settings.pathOffsetRight ?? DEFAULT_FINDING_AURORA.pathOffsetRight}
-                      min={-80}
-                      max={160}
-                      step={1}
-                      format={(n) => `${fmtInt(n)}px`}
-                      onChange={(n) => set('pathOffsetRight', n)}
-                    />
-                    <SliderRow
-                      label="Stroke scale X"
-                      value={settings.afterScaleX}
-                      min={0.4}
-                      max={3}
-                      step={0.05}
-                      format={fmt2}
-                      onChange={(n) => set('afterScaleX', n)}
-                    />
-                    <SliderRow
-                      label="Stroke scale Y"
-                      value={settings.afterScaleY}
-                      min={0.4}
-                      max={6}
-                      step={0.05}
-                      format={fmt2}
-                      onChange={(n) => set('afterScaleY', n)}
-                    />
-                    <SliderRow
-                      label="Inner scale X"
-                      value={settings.beforeScaleX}
-                      min={0.4}
-                      max={3}
-                      step={0.05}
-                      format={fmt2}
-                      onChange={(n) => set('beforeScaleX', n)}
-                    />
-                    <SliderRow
-                      label="Inner scale Y"
-                      value={settings.beforeScaleY}
-                      min={0.4}
-                      max={6}
-                      step={0.05}
-                      format={fmt2}
-                      onChange={(n) => set('beforeScaleY', n)}
-                    />
-                    <SliderRow
-                      label="Bloom scale X"
-                      value={settings.bloomScaleX}
-                      min={0.4}
-                      max={4}
-                      step={0.05}
-                      format={fmt2}
-                      onChange={(n) => set('bloomScaleX', n)}
-                    />
-                    <SliderRow
-                      label="Bloom scale Y"
-                      value={settings.bloomScaleY}
-                      min={0.4}
-                      max={8}
-                      step={0.05}
-                      format={fmt2}
-                      onChange={(n) => set('bloomScaleY', n)}
-                    />
+                    <p className={styles.hint}>
+                      Solid lift is extra solid blur above the domain label. Fade length is
+                      how far that blur then falls off, in pixels.
+                    </p>
                   </Section>
 
                   <Section title="Intro timing">
@@ -442,8 +312,7 @@ export function FindingAuroraPanel({
                       onChange={(n) => set('copyDelayMs', n)}
                     />
                     <p className={styles.hint}>
-                      Copy stays for one travel pass ({settings.duration.toFixed(2)}s), then
-                      dismisses.
+                      The finding fades in after this delay and stays on the aurora.
                     </p>
                     <SliderRow
                       label="Word stagger"

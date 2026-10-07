@@ -14,13 +14,13 @@ import { CaretDown } from '@phosphor-icons/react'
 import { MeshGradient } from '@paper-design/shaders-react'
 import gsap from 'gsap'
 import styles from './compact-assistant.module.css'
+import { llumenAssets } from './assets'
 import LandingHomeDefault from './landing/LandingHomeDefault'
 import { type LandingContextChip } from './landing/LandingChatbox'
 import { HubChatbox } from './landing/HubChatbox'
 import { FindingReveal } from './landing/FindingReveal'
 import { FindingAuroraPanel } from './landing/FindingAuroraPanel'
-import { FindingToastStack } from './landing/FindingToastStack'
-import { DEFAULT_FINDING_AURORA, type FindingAuroraSettings } from './landing/findingAuroraSettings'
+import { DEFAULT_FINDING_AURORA, STAGED_AURORA_PHASE1_MS, type FindingAuroraSettings } from './landing/findingAuroraSettings'
 import {
   FINDING_TOAST_SEED_COUNT,
   isFindingSlashCommand,
@@ -281,55 +281,6 @@ function UserMessageBubble({
   )
 }
 
-function FindingNotificationLayer({
-  toasts,
-  toastIndex,
-  stackVisible,
-  auroraPanelOpen,
-  aurora,
-  replayKey,
-  onReady,
-  onIndexChange,
-  onDismiss,
-  onTellMeMore,
-}: {
-  toasts: FindingToastInstance[]
-  toastIndex: number
-  stackVisible: boolean
-  auroraPanelOpen: boolean
-  aurora: FindingAuroraSettings
-  replayKey: number
-  onReady: () => void
-  onIndexChange: (index: number) => void
-  onDismiss: () => void
-  onTellMeMore: (item: LandingTellMeMorePayload) => void
-}) {
-  const showStack = stackVisible && toasts.length > 0 && !auroraPanelOpen
-  const showReveal = auroraPanelOpen || (toasts.length > 0 && !stackVisible)
-  return (
-    <>
-      {showStack ? (
-        <FindingToastStack
-          items={toasts}
-          activeIndex={toastIndex}
-          onActiveIndexChange={onIndexChange}
-          onDismiss={onDismiss}
-          onTellMeMore={onTellMeMore}
-        />
-      ) : null}
-      {showReveal ? (
-        <FindingReveal
-          key={replayKey}
-          count={toasts.length || FINDING_TOAST_SEED_COUNT}
-          settings={aurora}
-          hold={auroraPanelOpen}
-          onReady={onReady}
-        />
-      ) : null}
-    </>
-  )
-}
-
 export function CompactAssistantDemo() {
   const previewMode = useMemo(() => readFigmaPreviewMode(), [])
   const previewForceInstant = previewMode != null
@@ -357,7 +308,6 @@ export function CompactAssistantDemo() {
   const [landingFocusToken, setLandingFocusToken] = useState(0)
   const [findingToasts, setFindingToasts] = useState<FindingToastInstance[]>([])
   const [findingToastIndex, setFindingToastIndex] = useState(0)
-  const [findingStackVisible, setFindingStackVisible] = useState(false)
   const [findingAurora, setFindingAurora] = useState<FindingAuroraSettings>(DEFAULT_FINDING_AURORA)
   const [auroraPanelOpen, setAuroraPanelOpen] = useState(false)
   const [auroraReplayKey, setAuroraReplayKey] = useState(0)
@@ -658,7 +608,7 @@ export function CompactAssistantDemo() {
   }, [])
 
   const pushFindingToast = useCallback(() => {
-    // First `/finding` seeds a Z-stack; later calls add one more on top.
+    // First `/finding` seeds the set; later calls add one more.
     const seeding = findingToasts.length === 0
     const count = seeding ? FINDING_TOAST_SEED_COUNT : 1
     const batch: FindingToastInstance[] = []
@@ -668,19 +618,171 @@ export function CompactAssistantDemo() {
       batch.push({ ...template, instanceId: uid() })
     }
     setFindingToasts((prev) => [...prev, ...batch].slice(-6))
-    setFindingToastIndex(Math.min(findingToasts.length + batch.length - 1, 5))
-    if (seeding) setFindingStackVisible(false)
+    setFindingToastIndex(seeding ? 0 : Math.min(findingToasts.length + batch.length, 6) - 1)
   }, [findingToasts.length])
 
-  const onFindingRevealReady = useCallback(() => {
-    setFindingStackVisible(true)
-  }, [])
-
-  const dismissFindingToasts = useCallback(() => {
+  const closeFindings = useCallback(() => {
+    const items = findingToastsRef.current
+    if (items.length > 0) {
+      const allSeen = items.every((item) => seenFindingIdsRef.current.has(item.instanceId))
+      setFindingUnread(!allSeen)
+      dismissedFindingsRef.current = allSeen
+        ? null
+        : {
+            items,
+            index: findingToastIndexRef.current,
+            seen: new Set(seenFindingIdsRef.current),
+          }
+    }
+    seenFindingIdsRef.current = new Set()
+    const returnToCompact = openedFromCompactRef.current
+    openedFromCompactRef.current = false
+    setStagedReveal(false)
+    setCompactOrbHold(null)
     setFindingToasts([])
     setFindingToastIndex(0)
-    setFindingStackVisible(false)
+    if (returnToCompact) setCompactRestoreToken((n) => n + 1)
   }, [])
+
+  const findingToastsRef = useRef(findingToasts)
+  findingToastsRef.current = findingToasts
+  const findingToastIndexRef = useRef(findingToastIndex)
+  findingToastIndexRef.current = findingToastIndex
+  const seenFindingIdsRef = useRef(new Set<string>())
+  const openedFromCompactRef = useRef(false)
+  const dismissedFindingsRef = useRef<{
+    items: FindingToastInstance[]
+    index: number
+    seen: Set<string>
+  } | null>(null)
+  const [stagedReveal, setStagedReveal] = useState(false)
+  const [revealNonce, setRevealNonce] = useState(0)
+  const [findingUnread, setFindingUnread] = useState(false)
+  const [compactRestoreToken, setCompactRestoreToken] = useState(0)
+  const [compactOrbHold, setCompactOrbHold] = useState<DOMRect | null>(null)
+
+  useEffect(() => {
+    const current = findingToasts[findingToastIndex]
+    if (!current) return
+    seenFindingIdsRef.current.add(current.instanceId)
+    if (findingToasts.every((item) => seenFindingIdsRef.current.has(item.instanceId))) {
+      setFindingUnread(false)
+    }
+  }, [findingToasts, findingToastIndex])
+
+  const restoreUnreadFindings = useCallback(
+    (sourceRect?: DOMRect) => {
+      const saved = dismissedFindingsRef.current
+      if (!saved) return
+      const reveal = () => {
+        seenFindingIdsRef.current = new Set(saved.seen)
+        setFindingToasts(saved.items)
+        setFindingToastIndex(saved.index)
+        setFindingUnread(false)
+      }
+      if (activeStoryId != null && !hubStoryOpen && sourceRect) {
+        openedFromCompactRef.current = true
+        setHubMorphFrom(sourceRect)
+        setHubStoryOpen(true)
+        setLandingFocusToken((n) => n + 1)
+        window.setTimeout(reveal, 380)
+        return
+      }
+      openedFromCompactRef.current = false
+      reveal()
+    },
+    [activeStoryId, hubStoryOpen],
+  )
+
+  const cueThenShowFindings = useCallback(
+    (then?: () => void) => {
+      if (then) openedFromCompactRef.current = true
+      pushFindingToast()
+      if (then) window.setTimeout(then, STAGED_AURORA_PHASE1_MS)
+    },
+    [pushFindingToast],
+  )
+
+  const [findingDismissSignal, setFindingDismissSignal] = useState(0)
+  const findingShortcutTimer = useRef<number | null>(null)
+
+  const requestCloseFindings = useCallback(() => {
+    if (findingToasts.length === 0) return
+    setFindingDismissSignal((n) => n + 1)
+  }, [findingToasts.length])
+
+  const launchFindingShortcut = useCallback(() => {
+    if (findingShortcutTimer.current != null) {
+      window.clearTimeout(findingShortcutTimer.current)
+      findingShortcutTimer.current = null
+    }
+    setStagedReveal(true)
+    setRevealNonce((n) => n + 1)
+    if (activeStoryId != null && !hubStoryOpen) {
+      const ask = document.querySelector<HTMLButtonElement>('[aria-label="Ask about this story"]')
+      if (ask) {
+        const rect = ask.getBoundingClientRect()
+        setCompactOrbHold(rect)
+        cueThenShowFindings(() => {
+          setCompactOrbHold(null)
+          ask.click()
+        })
+        return
+      }
+    }
+    cueThenShowFindings()
+  }, [activeStoryId, hubStoryOpen, cueThenShowFindings])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.code !== 'KeyF' || !event.metaKey || !event.altKey || !event.shiftKey) return
+      event.preventDefault()
+      event.stopPropagation()
+      launchFindingShortcut()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [launchFindingShortcut])
+
+  useEffect(() => {
+    if (findingToasts.length === 0) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || shareOpen) return
+      if (document.querySelector('[data-finding-dashboards]')) return
+      event.preventDefault()
+      event.stopPropagation()
+      requestCloseFindings()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [findingToasts.length, requestCloseFindings, shareOpen])
+
+  const beginFindingCommand = useCallback(
+    (command: 'monitor' | 'workflow', item: FindingToastInstance) => {
+      const parsed = parseSlashCommand(`/${command} ${item.title}`)
+      if (!parsed) return
+      const threadOpen = open && hubRailMode === 'thread'
+      if (command === 'monitor' && isHub && !threadOpen) {
+        hubWorkUserTextRef.current = parsed.userText
+        setHubWorkToast({ message: underwayMessage(parsed) })
+        return
+      }
+      setLandingChips([])
+      setHubWorkToast(null)
+      hubWorkUserTextRef.current = ''
+      setHubRailMode('thread')
+      setSessionsOpen(false)
+      setOpen(true)
+      setExpanded(false)
+      const priorAssistant = messages.filter((msg) => msg.role === 'assistant').length
+      if (!titleEditedRef.current && priorAssistant === 0) {
+        setChatTitle(truncateTitle(slashChatTitle(parsed)))
+      }
+      setMessages((m) => [...m, { id: uid(), role: 'user', text: parsed.userText }])
+      startAssistantReply(workUnderwayReply(parsed))
+    },
+    [open, hubRailMode, isHub, messages, startAssistantReply],
+  )
 
   const sendText = useCallback(
     (raw: string) => {
@@ -688,7 +790,7 @@ export function CompactAssistantDemo() {
       if (!t || streaming) return
       if (isFindingSlashCommand(t)) {
         setDraft('')
-        pushFindingToast()
+        cueThenShowFindings()
         return
       }
       const slash = parseSlashCommand(t)
@@ -727,7 +829,7 @@ export function CompactAssistantDemo() {
       setMessages((m) => [...m, { id: uid(), role: 'user', text: t }])
       startAssistantReply(reply)
     },
-    [streaming, messages, startAssistantReply, pushFindingToast],
+    [streaming, messages, startAssistantReply, cueThenShowFindings],
   )
 
   const send = useCallback(() => {
@@ -1074,12 +1176,6 @@ export function CompactAssistantDemo() {
       const slide = story.slides[slideIndex]
       const chipLabel = slide?.title ?? story.storyTitle
       if (isHub) {
-        const chip: LandingContextChip = {
-          id: `story-${story.id ?? chipLabel}-${slideIndex}`,
-          label: chipLabel,
-          categoryId: 'briefings',
-        }
-        setLandingChips((prev) => (prev.some((c) => c.id === chip.id) ? prev : [...prev, chip]))
         setHubMorphFrom(sourceRect)
         setHubStoryOpen(true)
         setLandingFocusToken((n) => n + 1)
@@ -1101,7 +1197,7 @@ export function CompactAssistantDemo() {
     (text: string, chips: LandingContextChip[]) => {
       if (isFindingSlashCommand(text)) {
         setLandingChips([])
-        pushFindingToast()
+        cueThenShowFindings()
         return
       }
       const slash = parseSlashCommand(text)
@@ -1139,7 +1235,7 @@ export function CompactAssistantDemo() {
       setExpanded(false)
       sendText(composed || fallback)
     },
-    [sendText, pushFindingToast, isHub],
+    [sendText, cueThenShowFindings, isHub],
   )
 
   const onTellMeMore = useCallback(
@@ -1243,24 +1339,7 @@ export function CompactAssistantDemo() {
     (hubSessionsRail ||
       (!open && (!storyActive || hubStoryOpen)) ||
       (hubThreadRail && storyActive && hubStoryOpen))
-  const showHubFindings =
-    !railComposerOpen && (showHub || findingToasts.length > 0 || auroraPanelOpen)
-  const showRailFindings = railComposerOpen && (findingToasts.length > 0 || auroraPanelOpen)
-
-  const findingChrome = showRailFindings ? (
-    <FindingNotificationLayer
-      toasts={findingToasts}
-      toastIndex={findingToastIndex}
-      stackVisible={findingStackVisible}
-      auroraPanelOpen={auroraPanelOpen}
-      aurora={findingAurora}
-      replayKey={auroraReplayKey}
-      onReady={onFindingRevealReady}
-      onIndexChange={setFindingToastIndex}
-      onDismiss={dismissFindingToasts}
-      onTellMeMore={onTellMeMore}
-    />
-  ) : null
+  const showFindingStage = findingToasts.length > 0 || auroraPanelOpen
 
   const chatMiddle = (
     <div ref={chatMiddleRef} className={`${styles.middle} ${isNewChat ? styles.middleEmpty : ''}`}>
@@ -1323,7 +1402,6 @@ export function CompactAssistantDemo() {
         sendState={sendVisual}
         showParameters
         onAttachClick={() => {}}
-        findingSlot={findingChrome}
         questionSlot={
           composerQuestion ? (
             <AgentQuestionPrompt
@@ -1342,19 +1420,13 @@ export function CompactAssistantDemo() {
   )
 
   const replayFindingAurora = useCallback(() => {
-    setFindingStackVisible(false)
     setAuroraReplayKey((k) => k + 1)
   }, [])
 
   const onAuroraPanelOpenChange = useCallback((next: boolean) => {
     setAuroraPanelOpen(next)
-    if (next) {
-      setFindingStackVisible(false)
-      setAuroraReplayKey((k) => k + 1)
-    } else if (findingToasts.length > 0) {
-      setFindingStackVisible(true)
-    }
-  }, [findingToasts.length])
+    if (next) setAuroraReplayKey((k) => k + 1)
+  }, [])
 
   const uxSwitcher = (
     <div className={styles.headerTools}>
@@ -1401,6 +1473,8 @@ export function CompactAssistantDemo() {
             }}
             onAsk={isHub ? openStoryAsk : undefined}
             agentOpen={open || hubStoryOpen}
+            findingUnread={findingUnread}
+            onRestoreFindings={restoreUnreadFindings}
             headerEnd={uxSwitcher}
           />
         ) : (
@@ -1412,28 +1486,47 @@ export function CompactAssistantDemo() {
           />
         )}
       </div>
-      {(showHub || showHubFindings) ? (
+      {showFindingStage ? (
+        <FindingReveal
+          key={auroraReplayKey}
+          items={findingToasts}
+          activeIndex={findingToastIndex}
+          onActiveIndexChange={setFindingToastIndex}
+          onClose={closeFindings}
+          dismissSignal={findingDismissSignal}
+          onMonitor={(item) => beginFindingCommand('monitor', item)}
+          onWorkflow={(item) => beginFindingCommand('workflow', item)}
+          settings={findingAurora}
+          railOpen={open}
+          stagedReveal={stagedReveal}
+          revealNonce={revealNonce}
+        />
+      ) : null}
+      {showFindingStage && compactOrbHold && !hubStoryOpen ? (
+        <div
+          className={styles.compactOrbHold}
+          style={{
+            left: compactOrbHold.left,
+            top: compactOrbHold.top,
+            width: compactOrbHold.width,
+            height: compactOrbHold.height,
+            ['--orb-shimmer-1' as string]: findingAurora.colorStop1,
+            ['--orb-shimmer-2' as string]: findingAurora.colorStop2,
+            ['--orb-shimmer-3' as string]: findingAurora.colorStop3,
+          }}
+          aria-hidden
+        >
+          <img src={llumenAssets.launcherOrb} alt="" width={24} height={24} />
+          {findingUnread ? <span className={styles.compactOrbHoldDot} /> : null}
+        </div>
+      ) : null}
+      {showHub ? (
         <div
           className={`${styles.composerDock}${storyActive ? ` ${styles.composerDockStory}` : ''}${
             hubSessionsRail ? ` ${styles.composerDockShifted}` : ''
           }`}
         >
-          {showHubFindings ? (
-            <FindingNotificationLayer
-              toasts={findingToasts}
-              toastIndex={findingToastIndex}
-              stackVisible={findingStackVisible}
-              auroraPanelOpen={auroraPanelOpen}
-              aurora={findingAurora}
-              replayKey={auroraReplayKey}
-              onReady={onFindingRevealReady}
-              onIndexChange={setFindingToastIndex}
-              onDismiss={dismissFindingToasts}
-              onTellMeMore={onTellMeMore}
-            />
-          ) : null}
-          {showHub ? (
-            <HubChatbox
+          <HubChatbox
               // Remount when leaving a story so draft/focus/files don't carry over engaged.
               key={storyActive ? `story-${activeStoryId}` : 'landing'}
               onSubmit={submitLandingAsk}
@@ -1444,6 +1537,8 @@ export function CompactAssistantDemo() {
               exiting={hubThreadRail}
               placement={storyActive ? 'story' : 'landing'}
               morphFrom={storyActive ? hubMorphFrom : null}
+              onWillCollapse={requestCloseFindings}
+              collapseToken={compactRestoreToken}
               onCollapse={
                 storyActive
                   ? () => {
@@ -1460,8 +1555,9 @@ export function CompactAssistantDemo() {
               workToast={hubWorkToast}
               onViewWorkInChat={viewHubWorkInChat}
               onDismissWork={dismissHubWork}
+              findingUnread={findingUnread}
+              onRestoreFindings={() => restoreUnreadFindings()}
             />
-          ) : null}
         </div>
       ) : null}
       <div
@@ -1478,7 +1574,7 @@ export function CompactAssistantDemo() {
               ref={assistantPanelRef}
               expanded={false}
               splitView={splitOpen}
-              allowOverflow={sessionsOpen || hubSessionsRail || showRailFindings}
+              allowOverflow={sessionsOpen || hubSessionsRail}
               thinking={replyRendering}
             >
               <div className={styles.splitBody}>

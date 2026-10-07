@@ -94,10 +94,88 @@
   /* No width/left morph — docked rail slides in instead of growing from the FAB */
 }
 
-/* Hub composer + finding toasts share one bottom dock so the stack rides the
-   chatbox height (idle orb vs expanded toolbar/chips/multiline).
-   Center with inset/margin (not transform) so card backdrop-filter can sample
-   the landing behind the dock. */
+@property --orb-shimmer-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* Kept above the aurora during the first reveal so the compact orb stays visible. */
+.compactOrbHold {
+  position: fixed;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--lc-bg-launcher, rgba(26, 26, 26, 0.55));
+  backdrop-filter: blur(var(--lc-blur-launcher, 30px));
+  -webkit-backdrop-filter: blur(var(--lc-blur-launcher, 30px));
+  pointer-events: none;
+  overflow: visible;
+}
+
+.compactOrbHold::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--orb-shimmer-angle),
+    var(--orb-shimmer-2, #2a4098) 0deg,
+    var(--orb-shimmer-1, #3c78ff) 70deg,
+    var(--orb-shimmer-3, #6beeff) 120deg,
+    var(--orb-shimmer-1, #3c78ff) 170deg,
+    var(--orb-shimmer-2, #2a4098) 240deg,
+    var(--orb-shimmer-2, #2a4098) 360deg
+  );
+  mask-image: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2px),
+    #000 calc(100% - 1px)
+  );
+  animation: compactOrbShimmer 1.15s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes compactOrbShimmer {
+  to {
+    --orb-shimmer-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compactOrbHold::before {
+    animation: none;
+  }
+}
+
+.compactOrbHold img {
+  position: relative;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.compactOrbHoldDot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff3b30;
+  box-shadow: 0 0 0 2px rgba(12, 14, 18, 0.95);
+}
+
+/* Hub composer sits in the bottom dock. Findings use a viewport aurora
+   instead of riding this box. Center with inset/margin (not transform) so
+   backdrop-filter can sample the landing behind the dock. */
 .composerDock {
   position: fixed;
   left: 0;

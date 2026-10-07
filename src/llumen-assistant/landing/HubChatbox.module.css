@@ -118,7 +118,24 @@
   width: 100%;
 }
 
+.orbWrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.orbRestore {
+  position: relative;
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
 .orb {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -133,6 +150,18 @@
     width 220ms var(--lc-ease),
     opacity 180ms var(--lc-ease),
     margin 220ms var(--lc-ease);
+}
+
+.unreadDot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff3b30;
+  box-shadow: 0 0 0 2px rgba(14, 16, 20, 0.95);
+  pointer-events: none;
 }
 
 .orbCollapsed {
@@ -163,7 +192,10 @@
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
-  transition: transform 220ms var(--lc-ease);
+  opacity: 1;
+  transition:
+    transform 220ms var(--lc-ease),
+    opacity 280ms var(--lc-ease);
 }
 
 .composerEditor {
@@ -210,9 +242,9 @@
   overflow: hidden;
   opacity: 1;
   transition:
-    max-height 220ms var(--lc-ease),
-    margin-top 220ms var(--lc-ease),
-    opacity 180ms var(--lc-ease);
+    max-height 320ms var(--lc-ease),
+    margin-top 320ms var(--lc-ease),
+    opacity 240ms var(--lc-ease);
 }
 
 .toolbarCollapsed {

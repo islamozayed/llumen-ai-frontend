@@ -30,6 +30,10 @@ export type StoryViewProps = {
   onAsk?: (context: { story: LandingStory; slideIndex: number; sourceRect: DOMRect }) => void
   /** When the agent rail is open, hide the Ask icon. */
   agentOpen?: boolean
+  /** Red dot when findings were dismissed before every entry was seen. */
+  findingUnread?: boolean
+  /** Reopens findings that were dismissed before every entry was seen. */
+  onRestoreFindings?: (sourceRect: DOMRect) => void
   /** Prototype control slot in the top-right header. */
   headerEnd?: ReactNode
 }
@@ -64,7 +68,15 @@ function filterIcon(id: string) {
   }
 }
 
-export function StoryView({ storyId, onBack, onAsk, agentOpen = false, headerEnd }: StoryViewProps) {
+export function StoryView({
+  storyId,
+  onBack,
+  onAsk,
+  agentOpen = false,
+  findingUnread = false,
+  onRestoreFindings,
+  headerEnd,
+}: StoryViewProps) {
   const story = useMemo(() => getLandingStory(storyId), [storyId])
   const [slideIndex, setSlideIndex] = useState(0)
   const [legendOpen, setLegendOpen] = useState(true)
@@ -239,11 +251,17 @@ export function StoryView({ storyId, onBack, onAsk, agentOpen = false, headerEnd
               type="button"
               className={styles.askBtn}
               aria-label="Ask about this story"
-              onClick={(event) =>
-                onAsk({ story, slideIndex, sourceRect: event.currentTarget.getBoundingClientRect() })
-              }
+              onClick={(event) => {
+                const sourceRect = event.currentTarget.getBoundingClientRect()
+                if (findingUnread && onRestoreFindings) {
+                  onRestoreFindings(sourceRect)
+                  return
+                }
+                onAsk({ story, slideIndex, sourceRect })
+              }}
             >
               <img className={styles.askIcon} src={llumenAssets.launcherOrb} alt="" width={24} height={24} />
+              {findingUnread ? <span className={styles.unreadDot} /> : null}
             </button>
           ) : null}
 
