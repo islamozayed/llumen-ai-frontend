@@ -130,8 +130,6 @@ export const InteractiveMap = forwardRef<InteractiveMapHandle, InteractiveMapPro
       scrollZoom,
     })
 
-    map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right')
-
     map.on('load', () => {
       if (buildingMinZoom != null && map.getLayer('building-extrusion')) {
         map.setLayerZoomRange('building-extrusion', buildingMinZoom, 24)

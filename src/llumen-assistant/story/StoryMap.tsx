@@ -27,8 +27,8 @@ function mulberry32(seed: number) {
   }
 }
 
-function jitter(rand: () => number, scale = 0.09): [number, number] {
-  return [CENTER[0] + (rand() - 0.5) * scale, CENTER[1] + (rand() - 0.5) * scale]
+function jitter(rand: () => number, center: [number, number], scale = 0.09): [number, number] {
+  return [center[0] + (rand() - 0.5) * scale, center[1] + (rand() - 0.5) * scale]
 }
 
 function point(coords: [number, number], props: Record<string, string | number>) {
@@ -39,25 +39,25 @@ function point(coords: [number, number], props: Record<string, string | number>)
   }
 }
 
-function buildDemoLayers() {
-  const rand = mulberry32(2025)
+function buildDemoLayers(center: [number, number], seed = 2025) {
+  const rand = mulberry32(seed)
   const vehicles = {
     type: 'FeatureCollection' as const,
     features: Array.from({ length: 42 }, (_, i) =>
-      point(jitter(rand, 0.12), { status: i % 3 === 0 ? 'idling' : 'active' }),
+      point(jitter(rand, center, 0.12), { status: i % 3 === 0 ? 'idling' : 'active' }),
     ),
   }
   const heat = {
     type: 'FeatureCollection' as const,
     features: Array.from({ length: 180 }, () => {
-      const coords = jitter(rand, 0.16)
+      const coords = jitter(rand, center, 0.16)
       return point(coords, { mag: 2 + rand() * 8 })
     }),
   }
   const aqi = {
     type: 'FeatureCollection' as const,
     features: Array.from({ length: 18 }, () =>
-      point(jitter(rand, 0.14), { aqi: 40 + rand() * 220 }),
+      point(jitter(rand, center, 0.14), { aqi: 40 + rand() * 220 }),
     ),
   }
   return { vehicles, heat, aqi }
@@ -82,9 +82,19 @@ export type StoryMapLayerVisibility = {
   vehiclesIdling: boolean
 }
 
+export type StoryMapFocus = {
+  center: [number, number]
+  zoom?: number
+  seed?: number
+}
+
 export type StoryMapProps = {
   className?: string
   layers?: StoryMapLayerVisibility
+  /** Camera target. Changing it flies the map and rebuilds demo points around the new center. */
+  focus?: StoryMapFocus
+  scrollZoom?: boolean
+  showControls?: boolean
 }
 
 const DEFAULT_LAYERS: StoryMapLayerVisibility = {
@@ -94,30 +104,42 @@ const DEFAULT_LAYERS: StoryMapLayerVisibility = {
 }
 
 /** Full Mapbox story canvas with map-legend demo overlays. */
-export function StoryMap({ className, layers = DEFAULT_LAYERS }: StoryMapProps) {
+export function StoryMap({
+  className,
+  layers = DEFAULT_LAYERS,
+  focus,
+  scrollZoom = true,
+  showControls = true,
+}: StoryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const handleRef = useRef<InteractiveMapHandle | null>(null)
   const [ready, setReady] = useState(false)
   const layersRef = useRef(layers)
   layersRef.current = layers
+  const focusRef = useRef(focus)
+  focusRef.current = focus
+  const appliedFocusKey = useRef<string | null>(null)
 
   useEffect(() => {
     const el = containerRef.current
     if (!el || mapRef.current) return
 
     mapboxgl.accessToken = MAPBOX_TOKEN
+    const initialFocus = focusRef.current
+    const initialCenter = initialFocus?.center ?? CENTER
+    const initialZoom = initialFocus?.zoom ?? ZOOM
     const map = new mapboxgl.Map({
       container: el,
       style: MAPBOX_STYLE,
-      center: CENTER,
-      zoom: ZOOM,
+      center: initialCenter,
+      zoom: initialZoom,
       attributionControl: false,
+      scrollZoom,
     })
-    map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right')
     mapRef.current = map
 
-    const data = buildDemoLayers()
+    const data = buildDemoLayers(initialCenter, initialFocus?.seed ?? 2025)
     const observer = new ResizeObserver(() => map.resize())
     observer.observe(el)
 
@@ -236,9 +258,10 @@ export function StoryMap({ className, layers = DEFAULT_LAYERS }: StoryMapProps) 
       map.remove()
       mapRef.current = null
       handleRef.current = null
+      appliedFocusKey.current = null
       setReady(false)
     }
-  }, [])
+  }, [scrollZoom])
 
   useEffect(() => {
     const map = mapRef.current
@@ -256,16 +279,46 @@ export function StoryMap({ className, layers = DEFAULT_LAYERS }: StoryMapProps) 
     )
   }, [layers, ready])
 
+  const focusLng = focus?.center[0]
+  const focusLat = focus?.center[1]
+  const focusZoom = focus?.zoom
+  const focusSeed = focus?.seed
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready || focusLng == null || focusLat == null) return
+    const key = `${focusLng.toFixed(5)},${focusLat.toFixed(5)},${focusZoom ?? ''},${focusSeed ?? ''}`
+    if (appliedFocusKey.current === key) return
+    const first = appliedFocusKey.current == null
+    appliedFocusKey.current = key
+    const center: [number, number] = [focusLng, focusLat]
+    const data = buildDemoLayers(center, focusSeed ?? 2025)
+    ;(map.getSource('story-heat') as mapboxgl.GeoJSONSource | undefined)?.setData(data.heat)
+    ;(map.getSource('story-vehicles') as mapboxgl.GeoJSONSource | undefined)?.setData(data.vehicles)
+    ;(map.getSource('story-aqi') as mapboxgl.GeoJSONSource | undefined)?.setData(data.aqi)
+    if (first) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    map.flyTo({
+      center,
+      zoom: focusZoom ?? ZOOM,
+      duration: reduce ? 0 : 1600,
+      essential: true,
+      curve: 1.35,
+    })
+  }, [ready, focusLng, focusLat, focusZoom, focusSeed])
+
   return (
     <div className={[styles.root, className].filter(Boolean).join(' ')}>
       <div ref={containerRef} className={styles.canvas} />
-      <MapControls
-        className={styles.controls}
-        disabled={!ready}
-        onZoomIn={() => handleRef.current?.zoomIn()}
-        onZoomOut={() => handleRef.current?.zoomOut()}
-        onResetNorth={() => handleRef.current?.resetNorth()}
-      />
+      {showControls ? (
+        <MapControls
+          className={styles.controls}
+          disabled={!ready}
+          onZoomIn={() => handleRef.current?.zoomIn()}
+          onZoomOut={() => handleRef.current?.zoomOut()}
+          onResetNorth={() => handleRef.current?.resetNorth()}
+        />
+      ) : null}
     </div>
   )
 }

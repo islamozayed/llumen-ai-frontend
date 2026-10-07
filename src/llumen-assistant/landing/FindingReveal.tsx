@@ -1,15 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { Broadcast, CaretLeft, CaretRight, Plus, SquaresFour, ThumbsDown, ThumbsUp, TreeStructure, X } from '@phosphor-icons/react'
+import { Broadcast, CaretLeft, CaretRight, ChatText, Link, ThumbsDown, ThumbsUp, X } from '@phosphor-icons/react'
 import { Aurora } from './Aurora'
 import {
   DEFAULT_FINDING_AURORA,
-  FINDING_DISMISS_MS,
   FINDING_EXIT_MS,
   STAGED_AURORA_PHASE1_MS,
   type FindingAuroraSettings,
 } from './findingAuroraSettings'
-import type { FindingToastInstance } from './findingDemoData'
+import { relatedStoryId, type FindingToastInstance } from './findingDemoData'
 import styles from './FindingReveal.module.css'
 
 function pageColumnInset(): number {
@@ -45,14 +43,12 @@ function initialBlurGeom(settings: FindingAuroraSettings) {
   return blurGeometry(null, null, settings.blurFade, settings.blurLift, viewportH, false)
 }
 
-const FINDING_DASHBOARDS = [
-  'Environmental Wellness',
-  'Air Quality Corridor',
-  'City Operations',
-  'Customer Success',
-] as const
-
 function visibleChatTop(skipRailComposer: boolean): number | null {
+  const toasts = document.querySelector('[data-finding-toasts]')
+  if (toasts instanceof HTMLElement) {
+    const rect = toasts.getBoundingClientRect()
+    if (rect.width >= 8 && rect.height >= 8) return rect.top
+  }
   const hub = document.querySelector('[data-lc-hub-chat]')
   const rail = skipRailComposer ? null : document.querySelector('[data-lc-composer]')
   for (const node of [hub, rail]) {
@@ -156,7 +152,8 @@ export type FindingRevealProps = {
   /** Clears every finding and the aurora. */
   onClose: () => void
   onMonitor: (item: FindingToastInstance) => void
-  onWorkflow: (item: FindingToastInstance) => void
+  onTellMeMore: (item: FindingToastInstance) => void
+  onOpenRelated: (item: FindingToastInstance) => void
   settings?: FindingAuroraSettings
   /** Shift the finding copy out from under the open chat rail. */
   railOpen?: boolean
@@ -180,7 +177,8 @@ export function FindingReveal({
   onActiveIndexChange,
   onClose,
   onMonitor,
-  onWorkflow,
+  onTellMeMore,
+  onOpenRelated,
   settings = DEFAULT_FINDING_AURORA,
   railOpen = false,
   pageColumnAnchor = false,
@@ -197,59 +195,11 @@ export function FindingReveal({
   const [geomSettled, setGeomSettled] = useState(false)
   const [auroraReady, setAuroraReady] = useState(false)
   const [exiting, setExiting] = useState(false)
-  const [autoDismiss, setAutoDismiss] = useState(true)
   const seenDismiss = useRef(dismissSignal)
   const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({})
-  const [dashboardsOpen, setDashboardsOpen] = useState(false)
-  const dashboardRef = useRef<HTMLDivElement>(null)
-  const dashboardMenuRef = useRef<HTMLDivElement>(null)
-  const [dashboardPos, setDashboardPos] = useState<{ left: number; bottom: number } | null>(null)
 
   const safeIndex = items.length === 0 ? 0 : Math.min(Math.max(activeIndex, 0), items.length - 1)
   const active = items[safeIndex]
-
-  useEffect(() => {
-    setDashboardsOpen(false)
-  }, [active?.instanceId])
-
-  useLayoutEffect(() => {
-    if (!dashboardsOpen) return
-    const place = () => {
-      const anchor = dashboardRef.current
-      if (!anchor) return
-      const rect = anchor.getBoundingClientRect()
-      setDashboardPos({ left: rect.left, bottom: window.innerHeight - rect.top + 8 })
-    }
-    place()
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    return () => {
-      window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', place, true)
-    }
-  }, [dashboardsOpen])
-
-  useEffect(() => {
-    if (!dashboardsOpen) return
-    const onPointer = (event: MouseEvent) => {
-      if (!(event.target instanceof Node)) return
-      if (dashboardRef.current?.contains(event.target)) return
-      if (dashboardMenuRef.current?.contains(event.target)) return
-      setDashboardsOpen(false)
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      event.stopPropagation()
-      setDashboardsOpen(false)
-    }
-    document.addEventListener('mousedown', onPointer)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onPointer)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [dashboardsOpen])
 
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -307,15 +257,6 @@ export function FindingReveal({
   }, [dismissSignal, active, reduceMotion, onClose])
 
   useEffect(() => {
-    if (!active || exiting || !autoDismiss) return
-    const timer = window.setTimeout(() => {
-      if (reduceMotion) onClose()
-      else setExiting(true)
-    }, FINDING_DISMISS_MS)
-    return () => window.clearTimeout(timer)
-  }, [active ? 1 : 0, exiting, autoDismiss, reduceMotion, onClose])
-
-  useEffect(() => {
     if (!exiting) return
     const timer = window.setTimeout(onClose, FINDING_EXIT_MS)
     return () => window.clearTimeout(timer)
@@ -324,7 +265,6 @@ export function FindingReveal({
   useEffect(() => {
     if (active) return
     setExiting(false)
-    setAutoDismiss(true)
   }, [active])
 
   useLayoutEffect(() => {
@@ -390,10 +330,6 @@ export function FindingReveal({
           data-rail={railOpen ? 'true' : 'false'}
           data-exiting={exiting ? 'true' : 'false'}
           style={veilStyle}
-          onMouseDown={(event) => {
-            event.preventDefault()
-            setAutoDismiss(false)
-          }}
         >
           {active && settings.showCopy ? (
           <div
@@ -434,15 +370,8 @@ export function FindingReveal({
                     if (reduceMotion) onClose()
                     else setExiting(true)
                   }}
-                  style={{ ['--finding-dismiss' as string]: `${FINDING_DISMISS_MS}ms` }}
                 >
                   <X size={14} weight="bold" aria-hidden />
-                  {autoDismiss ? (
-                    <svg className={styles.closeRing} viewBox="0 0 28 28" aria-hidden>
-                      <circle className={styles.closeRingTrack} cx="14" cy="14" r="11" />
-                      <circle className={styles.closeRingProgress} cx="14" cy="14" r="11" />
-                    </svg>
-                  ) : null}
                 </button>
               </div>
             </div>
@@ -451,26 +380,13 @@ export function FindingReveal({
               <div className={styles.actionGroup}>
                 <button type="button" className={styles.actionBtn} onClick={() => onMonitor(active)}>
                   <Broadcast size={16} weight="regular" aria-hidden />
-                  Monitor
+                  Keep monitoring
                 </button>
-                <button type="button" className={styles.actionBtn} onClick={() => onWorkflow(active)}>
-                  <TreeStructure size={16} weight="regular" aria-hidden />
-                  Set up workflow
+                <button type="button" className={styles.actionBtn} onClick={() => onTellMeMore(active)}>
+                  <ChatText size={16} weight="regular" aria-hidden />
+                  Tell me more
                 </button>
-                <div className={styles.dashboardAnchor} ref={dashboardRef}>
-                  <button
-                    type="button"
-                    className={styles.actionBtn}
-                    aria-expanded={dashboardsOpen}
-                    aria-haspopup="menu"
-                    onClick={() => setDashboardsOpen((open) => !open)}
-                  >
-                    <SquaresFour size={16} weight="regular" aria-hidden />
-                    Add to dashboard
-                  </button>
-                </div>
-              </div>
-              <div className={styles.voteGroup}>
+                <div className={styles.voteGroup}>
                 <button
                   type="button"
                   className={`${styles.voteBtn}${votes[active.instanceId] === 'up' ? ` ${styles.voteBtnActive}` : ''}`}
@@ -499,50 +415,22 @@ export function FindingReveal({
                 >
                   <ThumbsDown size={16} weight={votes[active.instanceId] === 'down' ? 'fill' : 'regular'} aria-hidden />
                 </button>
+                </div>
               </div>
+              <button
+                type="button"
+                className={styles.actionBtn}
+                onClick={() => onOpenRelated(active)}
+                disabled={!relatedStoryId(active)}
+              >
+                <Link size={16} weight="regular" aria-hidden />
+                View slides
+              </button>
             </div>
           </div>
           ) : null}
         </div>
       ) : null}
-      {dashboardsOpen && dashboardPos
-        ? createPortal(
-            <div
-              ref={dashboardMenuRef}
-              className={styles.dashboardMenu}
-              role="menu"
-              data-finding-dashboards=""
-              aria-label="Dashboards"
-              style={{ left: dashboardPos.left, bottom: dashboardPos.bottom }}
-              onMouseDown={(event) => {
-                event.preventDefault()
-                setAutoDismiss(false)
-              }}
-            >
-              {FINDING_DASHBOARDS.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  role="menuitem"
-                  className={styles.dashboardItem}
-                  onClick={() => setDashboardsOpen(false)}
-                >
-                  {name}
-                </button>
-              ))}
-              <button
-                type="button"
-                role="menuitem"
-                className={`${styles.dashboardItem} ${styles.dashboardCreate}`}
-                onClick={() => setDashboardsOpen(false)}
-              >
-                <Plus size={14} weight="bold" aria-hidden />
-                Create dashboard for finding
-              </button>
-            </div>,
-            document.body,
-          )
-        : null}
     </>
   )
 }

@@ -40,6 +40,18 @@
   cursor: default;
 }
 
+/* Sits on the chat without pushing it. Transform-free so frosted peeks can sample behind. */
+.overChat {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 12px);
+  z-index: 8;
+  width: auto;
+  /* Include the upward peek so the alert copy can sit above the stack. */
+  padding-top: 64px;
+}
+
 .navBtn:focus-visible {
   outline: 2px solid rgba(109, 233, 225, 0.7);
   outline-offset: 2px;
@@ -51,7 +63,7 @@
   width: min(520px, 100%);
   max-width: 520px;
   /* Same height as the front card so side arrows center on the stack. */
-  height: 200px;
+  height: 168px;
   /* Z-stack peeks may extend above without shifting flex alignment. */
   overflow: visible;
 }
@@ -62,15 +74,17 @@
   right: 0;
   bottom: 0;
   top: auto;
-  height: 200px;
+  height: 168px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
-  background: rgba(14, 16, 20, 0.82);
+  background: rgba(14, 16, 20, 0.42);
   color: #fff;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
   /* Peek offset via box geometry — transform/perspective ancestors kill frost. */
   transition:
     left 320ms var(--lc-ease, cubic-bezier(0.2, 0, 0, 1)),
@@ -86,11 +100,11 @@
 
 /* Frost on this node (not a child of a transformed card). */
 .cardBehind {
-  background: rgba(18, 22, 30, 0.36);
+  background: rgba(18, 22, 30, 0.22);
   border-color: rgba(255, 255, 255, 0.16);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(20px) saturate(1.25);
-  -webkit-backdrop-filter: blur(20px) saturate(1.25);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
 }
 
 /* Depth dimming via scrim instead of CSS filter: brightness() on the card. */
@@ -135,8 +149,8 @@
   align-self: stretch;
   height: 100%;
   min-height: 0;
-  gap: 12px;
-  padding: 14px 16px 12px;
+  gap: 8px;
+  padding: 10px 14px 10px;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
@@ -146,8 +160,8 @@
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: flex-start;
+  gap: 6px;
   width: 100%;
   min-width: 0;
   min-height: 0;
@@ -176,6 +190,7 @@
 }
 
 .dismiss {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -201,6 +216,39 @@
   outline-offset: 2px;
 }
 
+.dismissRing {
+  position: absolute;
+  inset: 0;
+  width: 24px;
+  height: 24px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.dismissRingTrack,
+.dismissRingProgress {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.dismissRingTrack {
+  stroke: rgba(255, 255, 255, 0.22);
+}
+
+.dismissRingProgress {
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-linecap: round;
+  stroke-dasharray: 56.55;
+  stroke-dashoffset: 0;
+  animation: toastDismiss var(--toast-dismiss, 10s) linear forwards;
+}
+
+@keyframes toastDismiss {
+  to {
+    stroke-dashoffset: 56.55;
+  }
+}
+
 .finding {
   margin: 0;
   width: 100%;
@@ -224,10 +272,19 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   width: 100%;
   flex-shrink: 0;
   margin-top: auto;
+}
+
+.actionGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .actionBtn,
@@ -286,5 +343,9 @@
 @media (prefers-reduced-motion: reduce) {
   .card {
     transition: none;
+  }
+
+  .dismissRingProgress {
+    animation: none;
   }
 }

@@ -1,5 +1,12 @@
-/** Tuned ocean ramp for the finding aurora. */
+/**
+ * Ocean blues from the finding-cue border before the alert palette
+ * (`OCEAN_AURORA_STOPS` in ee1bdc8, and the `--orb-shimmer-*` fallbacks).
+ * Toast borders and the story-orb cue use these. The alert aurora does not.
+ */
 export const OCEAN_AURORA_STOPS = ['#3c78ff', '#2a4098', '#6beeff'] as const
+
+/** Tuned alert ramp: left, middle, and right stops from the aurora panel. */
+export const ALERT_AURORA_STOPS = ['#4110c6', '#ff2344', '#5e77b0'] as const
 
 export type FindingAuroraSettings = {
   /** Left, middle, and right stops of the React Bits aurora ramp. */
@@ -25,12 +32,12 @@ export type FindingAuroraSettings = {
 }
 
 export const DEFAULT_FINDING_AURORA: FindingAuroraSettings = {
-  colorStop1: OCEAN_AURORA_STOPS[0],
-  colorStop2: OCEAN_AURORA_STOPS[1],
-  colorStop3: OCEAN_AURORA_STOPS[2],
+  colorStop1: ALERT_AURORA_STOPS[0],
+  colorStop2: ALERT_AURORA_STOPS[1],
+  colorStop3: ALERT_AURORA_STOPS[2],
   amplitude: 1.44,
   blend: 0.5,
-  speed: 0.32,
+  speed: 0.4,
   streaks: 0.24,
   highlights: 0.04,
   showCopy: true,
@@ -41,6 +48,7 @@ export const DEFAULT_FINDING_AURORA: FindingAuroraSettings = {
   blurLift: 12,
 }
 
+/** Toast stack auto-dismiss. The alert aurora stays until the user closes it. */
 export const FINDING_DISMISS_MS = 10_000
 export const FINDING_EXIT_MS = 480
 /** Shortcut mask length. Matches `auroraRevealStaged` (2.4s). */

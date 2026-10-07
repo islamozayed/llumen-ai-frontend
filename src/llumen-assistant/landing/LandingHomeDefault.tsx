@@ -7,25 +7,20 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Bell,
   ChatText,
-  GearSix,
   Link,
-  LockSimple,
-  MagnifyingGlass,
   Pause,
   Play,
-  Plus,
-  SquaresFour,
   ThumbsDown,
   ThumbsUp,
-  User,
-  Users,
 } from '@phosphor-icons/react'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { landingAssets as a, storyThumbLayers, type StoryThumbVariant } from './landingAssets'
+import { ConversationGrid } from './ConversationGrid'
+import { LandingTopBar, STUDIO_CATEGORIES, STUDIO_WORKSPACES, WorkspaceGlyph } from './LandingTopBar'
 import { SpecularActionButton } from './SpecularActionButton'
+import type { TopBarVariant } from '../prototypeChrome'
 import styles from './LandingHome.module.css'
 
 const AUTOPLAY_MS = 7000
@@ -127,24 +122,6 @@ function crossesOffstage(prev: CardLayout | undefined, next: CardLayout, trackWi
   const nextOffRight = next.left >= trackWidth - 1
   return (prevOffLeft && nextOffRight) || (prevOffRight && nextOffLeft)
 }
-
-const WORKSPACE_FILTERS = [
-  { label: 'All', icon: 'all' },
-  { label: 'Private', icon: 'private' },
-  { label: 'Shared With Me', icon: 'shared' },
-] as const
-
-const CATEGORY_FILTERS = [
-  'Finance',
-  'Operations',
-  'HR',
-  'Sales',
-  'Marketing',
-  'IT',
-  'Product',
-  'Engineering',
-  'Customer Success',
-] as const
 
 const AI_GRADIENTS = [
   'linear-gradient(180deg, #4a4969 0%, #7072ab 50%, #cd82a0 100%)',
@@ -408,12 +385,6 @@ const RECOMMENDED: {
     thumb: 'satellite',
   },
 ]
-
-function FilterIcon({ name }: { name: (typeof WORKSPACE_FILTERS)[number]['icon'] }) {
-  if (name === 'all') return <SquaresFour size={20} weight="regular" aria-hidden />
-  if (name === 'private') return <LockSimple size={20} weight="regular" aria-hidden />
-  return <Users size={20} weight="regular" aria-hidden />
-}
 
 function Finding({
   before,
@@ -701,19 +672,23 @@ export type LandingHomeDefaultProps = {
   onOpenStory?: (storyId: string) => void
   /** Add the attention card as a context chip in the landing chatbox. */
   onTellMeMore?: (item: LandingTellMeMorePayload) => void
-  /** Prototype control slot in the top-right nav. */
-  headerEnd?: ReactNode
   /** Extra bottom inset so stories clear a center composer (Hub). Current uses the FAB only. */
   reserveComposer?: boolean
+  topBar?: TopBarVariant
+  /** What sits under the attention carousel. */
+  listing?: 'stories' | 'conversations'
+  onOpenConversation?: (id: string) => void
 }
 
 export default function LandingHomeDefault({
   onOpenStory,
   onTellMeMore,
-  headerEnd,
   reserveComposer = true,
+  topBar = 'current',
+  listing = 'stories',
+  onOpenConversation,
 }: LandingHomeDefaultProps = {}) {
-  const [filter, setFilter] = useState('All')
+  const [filter, setFilter] = useState<string>(STUDIO_CATEGORIES[0])
   const [active, setActive] = useState(0)
   const [playing, setPlaying] = useState(true)
   const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({})
@@ -821,59 +796,41 @@ export default function LandingHomeDefault({
   return (
     <div className={styles.root} data-name="Landing">
       <header className={styles.nav}>
-        <div className={styles.navTop}>
-          <a className={styles.logo} href="#top" aria-label="Llumen home">
-            <img className={styles.logoMark} src={a.logoMark} alt="" />
-            <img className={styles.logoWord} src={a.wordmark} alt="Llumen" />
-          </a>
-          <label className={styles.search}>
-            <MagnifyingGlass size={16} weight="regular" aria-hidden />
-            <input type="search" placeholder="Search..." aria-label="Search" />
-          </label>
-          <div className={styles.navActions}>
-            <button type="button" className={styles.pillBtn}>
-              <GearSix size={20} weight="regular" aria-hidden />
-              Studio
-            </button>
-            <button type="button" className={styles.pillBtn}>
-              <Plus size={20} weight="regular" aria-hidden />
-              Create
-            </button>
-            <button type="button" className={styles.iconBtn} aria-label="Notifications">
-              <Bell size={20} weight="regular" />
-            </button>
-            <button type="button" className={styles.iconBtn} aria-label="Account">
-              <User size={20} weight="regular" />
-            </button>
-            {headerEnd}
+        <LandingTopBar
+          variant={topBar}
+          workspace={filter}
+          workspaces={STUDIO_WORKSPACES}
+          categories={STUDIO_CATEGORIES}
+          onWorkspaceChange={setFilter}
+        />
+        {topBar === 'studio' ? null : (
+          <div className={styles.filters} aria-label="Workspace filters">
+            {STUDIO_WORKSPACES.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className={`${styles.pill}${filter === item.label ? ` ${styles.pillActive}` : ''}`}
+                aria-pressed={filter === item.label}
+                onClick={() => setFilter(item.label)}
+              >
+                <WorkspaceGlyph name={item.icon} />
+                {item.label}
+              </button>
+            ))}
+            <span className={styles.filterRule} aria-hidden />
+            {STUDIO_CATEGORIES.map((label) => (
+              <button
+                key={label}
+                type="button"
+                className={`${styles.pill}${filter === label ? ` ${styles.pillActive}` : ''}`}
+                aria-pressed={filter === label}
+                onClick={() => setFilter(label)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        </div>
-        <div className={styles.filters} aria-label="Workspace filters">
-          {WORKSPACE_FILTERS.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              className={`${styles.pill}${filter === item.label ? ` ${styles.pillActive}` : ''}`}
-              aria-pressed={filter === item.label}
-              onClick={() => setFilter(item.label)}
-            >
-              <FilterIcon name={item.icon} />
-              {item.label}
-            </button>
-          ))}
-          <span className={styles.filterRule} aria-hidden />
-          {CATEGORY_FILTERS.map((label) => (
-            <button
-              key={label}
-              type="button"
-              className={`${styles.pill}${filter === label ? ` ${styles.pillActive}` : ''}`}
-              aria-pressed={filter === label}
-              onClick={() => setFilter(label)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        )}
       </header>
 
       <main>
@@ -984,8 +941,12 @@ export default function LandingHomeDefault({
 
         <section
           className={`${styles.section}${reserveComposer ? '' : ` ${styles.sectionCompact}`}`}
-          aria-labelledby="recommended"
+          aria-labelledby={listing === 'conversations' ? 'conversations-heading' : 'recommended'}
         >
+          {listing === 'conversations' ? (
+            <ConversationGrid onOpen={onOpenConversation} />
+          ) : (
+          <>
           <h2 id="recommended" className={styles.sectionEyebrow}>
             Recommended For you
           </h2>
@@ -1030,6 +991,8 @@ export default function LandingHomeDefault({
               )
             })}
           </div>
+          </>
+          )}
         </section>
       </main>
     </div>

@@ -1,5 +1,6 @@
 .root {
   position: relative;
+  /* Above the toast siblings' base layer; the dock itself is above the aurora. */
   z-index: 2;
   width: 100%;
   transform: translateY(0);
@@ -88,9 +89,23 @@
   mask-origin: border-box, border-box;
   mask-composite: exclude;
   mask-repeat: no-repeat;
-  animation: findingBorderShimmer 1.15s linear infinite;
+  opacity: 1;
+  transition: opacity 280ms ease;
+  animation: findingBorderShimmer 1s linear infinite;
   pointer-events: none;
   z-index: 2;
+}
+
+.box[data-finding-cue='true'] {
+  transition: border-color 280ms ease;
+}
+
+.box[data-finding-cue='true'][data-shimmer-exit='true'] {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.box[data-finding-cue='true'][data-shimmer-exit='true']::after {
+  opacity: 0;
 }
 
 @keyframes findingBorderShimmer {
@@ -100,8 +115,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .box[data-finding-cue='true']::after {
+  .box[data-finding-cue='true'],
+  .box[data-finding-cue='true']::after,
+  .orb[data-orb-cue='true']::before {
     animation: none;
+    transition: none;
   }
 }
 
@@ -185,6 +203,7 @@
   margin: 0;
   flex-shrink: 0;
   overflow: hidden;
+  border-radius: 999px;
   pointer-events: none;
   opacity: 1;
   transition:
@@ -211,10 +230,47 @@
   opacity: 0;
 }
 
+.orb[data-orb-cue='true']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--orb-shimmer-angle, 0deg),
+    var(--orb-shimmer-2, #2a4098) 0deg,
+    var(--orb-shimmer-1, #3c78ff) 70deg,
+    var(--orb-shimmer-3, #6beeff) 120deg,
+    var(--orb-shimmer-1, #3c78ff) 170deg,
+    var(--orb-shimmer-2, #2a4098) 240deg,
+    var(--orb-shimmer-2, #2a4098) 360deg
+  );
+  mask-image: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2px),
+    #000 calc(100% - 1px)
+  );
+  opacity: 1;
+  transition: opacity 280ms ease;
+  animation: findingBorderShimmer 1s linear infinite;
+  pointer-events: none;
+}
+
+.box[data-shimmer-exit='true'] .orb[data-orb-cue='true']::before {
+  opacity: 0;
+}
+
 .orb img {
+  position: relative;
+  z-index: 1;
   width: 24px;
   height: 24px;
   flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb[data-orb-cue='true']::before {
+    animation: none;
+  }
 }
 
 .input {

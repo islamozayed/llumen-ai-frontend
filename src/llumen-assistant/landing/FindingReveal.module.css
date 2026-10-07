@@ -4,6 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
+  /* Frost stays under the hub composer so the blur samples the page, not the chatbox. */
   z-index: 4;
   height: calc(var(--aurora-blur-hold, 480px) + var(--aurora-blur-fade, 140px) * 2.2 + 120px);
   pointer-events: none;
@@ -99,7 +100,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 4;
+  /* Behind the hub composer dock (8). Copy is 7, also behind that dock. */
+  z-index: 6;
   width: 100%;
   height: 100dvh;
   pointer-events: none;
@@ -143,7 +145,7 @@
   left: 0;
   right: 0;
   bottom: var(--aurora-anchor, 0px);
-  z-index: 6;
+  z-index: 7;
   display: flex;
   align-items: flex-end;
   justify-content: stretch;

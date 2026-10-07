@@ -27,9 +27,16 @@
 }
 
 /* Landing is the page scrollport — document itself does not scroll */
-.demoLandingLayer {
+.demoLandingFrame {
   position: relative;
   z-index: 1;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+}
+
+.demoLandingLayer {
+  position: relative;
   height: 100%;
   width: 100%;
   max-width: 100%;
@@ -40,6 +47,16 @@
   pointer-events: auto;
   -webkit-overflow-scrolling: touch;
   transition: padding-left var(--lc-rail-enter-duration, 320ms) var(--lc-ease);
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: auto;
+}
+
+.demoLandingLayer::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
 }
 
 .demoPageRailOpen .demoLandingLayer {
@@ -100,10 +117,10 @@
   initial-value: 0deg;
 }
 
-/* Kept above the aurora during the first reveal so the compact orb stays visible. */
+/* Stays above the alert glow during phase 1, then the chatbox replaces it. */
 .compactOrbHold {
   position: fixed;
-  z-index: 5;
+  z-index: 9;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -119,8 +136,7 @@
   overflow: visible;
 }
 
-.compactOrbHold::before {
-  content: '';
+.compactOrbRing {
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -138,8 +154,14 @@
     transparent calc(100% - 2px),
     #000 calc(100% - 1px)
   );
-  animation: compactOrbShimmer 1.15s linear infinite;
+  opacity: 1;
+  transition: opacity 280ms ease;
+  animation: compactOrbShimmer 1s linear infinite;
   pointer-events: none;
+}
+
+.compactOrbHold[data-shimmer-exit='true'] .compactOrbRing {
+  opacity: 0;
 }
 
 @keyframes compactOrbShimmer {
@@ -149,8 +171,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .compactOrbHold::before {
+  .compactOrbRing {
     animation: none;
+    transition: none;
   }
 }
 
@@ -173,15 +196,27 @@
   box-shadow: 0 0 0 2px rgba(12, 14, 18, 0.95);
 }
 
-/* Hub composer sits in the bottom dock. Findings use a viewport aurora
-   instead of riding this box. Center with inset/margin (not transform) so
-   backdrop-filter can sample the landing behind the dock. */
+/* Fallback when neither the hub composer nor the rail is on screen. */
+.findingToastDock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--space-3xl);
+  z-index: 8;
+  width: min(640px, calc(100vw - 48px));
+  margin-inline: auto;
+  pointer-events: none;
+}
+
+/* Hub composer sits in the bottom dock, above the alert aurora (6) and finding copy (7).
+   Notice toasts overlay this box and do not spawn an aurora.
+   Center with inset/margin (not transform) so backdrop-filter can sample the landing. */
 .composerDock {
   position: fixed;
   left: 0;
   right: 0;
   bottom: var(--space-3xl);
-  z-index: 5;
+  z-index: 8;
   width: min(640px, calc(100vw - 48px));
   margin-inline: auto;
   display: flex;
@@ -2530,7 +2565,7 @@
   mask-origin: border-box, border-box;
   mask-composite: exclude;
   mask-repeat: no-repeat;
-  animation: findingBorderShimmer 1.15s linear infinite;
+  animation: findingBorderShimmer 1s linear infinite;
   pointer-events: none;
   z-index: 2;
 }

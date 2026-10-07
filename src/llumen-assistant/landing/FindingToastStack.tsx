@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Broadcast,
   CaretLeft,
   CaretRight,
   ChatText,
@@ -9,12 +10,13 @@ import {
   X,
 } from '@phosphor-icons/react'
 import type { LandingTellMeMorePayload } from './LandingHomeDefault'
-import type { FindingToastInstance } from './findingDemoData'
+import { relatedStoryId, type FindingToastInstance } from './findingDemoData'
+import { FINDING_DISMISS_MS } from './findingAuroraSettings'
 import styles from './FindingToastStack.module.css'
 
 /** Cards behind the front in the preview stack. Front + this = 3 visible. */
 const MAX_VISIBLE_BEHIND = 2
-const STACK_CARD_HEIGHT = 200
+const STACK_CARD_HEIGHT = 168
 
 export type FindingToastStackProps = {
   items: FindingToastInstance[]
@@ -23,6 +25,10 @@ export type FindingToastStackProps = {
   /** Clears the entire finding stack (not just the front card). */
   onDismiss: () => void
   onTellMeMore?: (item: LandingTellMeMorePayload) => void
+  onMonitor?: (item: FindingToastInstance) => void
+  onOpenRelated?: (item: FindingToastInstance) => void
+  /** Float the stack over the chat. Notices never spawn an aurora. */
+  overlay?: boolean
 }
 
 export function FindingToastStack({
@@ -31,44 +37,76 @@ export function FindingToastStack({
   onActiveIndexChange,
   onDismiss,
   onTellMeMore,
+  onMonitor,
+  onOpenRelated,
+  overlay = false,
 }: FindingToastStackProps) {
   const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({})
+  const [engaged, setEngaged] = useState(false)
+  const onDismissRef = useRef(onDismiss)
+  onDismissRef.current = onDismiss
+  const stackKey = items.map((item) => item.instanceId).join('|')
+
+  useEffect(() => {
+    setEngaged(false)
+  }, [stackKey])
+
+  useEffect(() => {
+    if (items.length === 0 || engaged) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const timer = window.setTimeout(() => onDismissRef.current(), reduce ? 0 : FINDING_DISMISS_MS)
+    return () => window.clearTimeout(timer)
+  }, [engaged, items.length, stackKey])
+
+  const engage = () => setEngaged(true)
 
   const safeIndex = items.length === 0 ? 0 : Math.min(Math.max(activeIndex, 0), items.length - 1)
   const active = items[safeIndex]
 
   const stackOrder = useMemo(() => {
     if (items.length === 0) return []
-    // Relative depth from front: 0 = active, then next, wrapping around.
-    return items.map((item, index) => {
-      const depth = (index - safeIndex + items.length) % items.length
-      return { item, index, depth }
-    })
+    const remaining = Math.max(0, items.length - 1 - safeIndex)
+    const visibleBehind = Math.min(MAX_VISIBLE_BEHIND, remaining)
+    return items
+      .map((item, index) => ({ item, index, depth: index - safeIndex }))
+      .filter(({ depth }) => depth >= 0 && depth <= visibleBehind)
   }, [items, safeIndex])
 
   if (!active) return null
 
-  const canNavigate = items.length > 1
+  const atStart = safeIndex <= 0
+  const atEnd = safeIndex >= items.length - 1
 
   const goPrev = () => {
-    if (!canNavigate) return
-    onActiveIndexChange((safeIndex - 1 + items.length) % items.length)
+    if (atStart) return
+    onActiveIndexChange(safeIndex - 1)
   }
 
   const goNext = () => {
-    if (!canNavigate) return
-    onActiveIndexChange((safeIndex + 1) % items.length)
+    if (atEnd) return
+    onActiveIndexChange(safeIndex + 1)
   }
 
   const vote = votes[active.instanceId] ?? null
 
   return (
-    <div className={styles.root} role="region" aria-label="Finding notifications">
+    <div
+      className={`${styles.root}${overlay ? ` ${styles.overChat}` : ''}`}
+      data-finding-toasts=""
+      data-auto-dismiss={engaged ? 'false' : 'true'}
+      role="region"
+      aria-label="Finding notifications"
+      onPointerOver={engage}
+      onPointerDown={engage}
+      onFocus={engage}
+      onKeyDown={engage}
+      onWheel={engage}
+    >
       <button
         type="button"
         className={styles.navBtn}
         aria-label="Previous finding"
-        disabled={!canNavigate}
+        disabled={atStart}
         onClick={goPrev}
       >
         <CaretLeft size={18} weight="bold" aria-hidden />
@@ -95,21 +133,12 @@ export function FindingToastStack({
                   height: scale * STACK_CARD_HEIGHT,
                   left: `${insetPct}%`,
                   right: `${insetPct}%`,
-                  // Front AI cards keep their gradient; behind peeks use frosted glass instead.
-                  ...(isFront && item.type === 'ai' && item.gradient
-                    ? { background: item.gradient }
-                    : {}),
                 }}
                 aria-hidden={!isFront}
                 aria-label={isFront ? `${item.domain}. ${item.title}` : undefined}
               >
                 {isFront ? (
                   <>
-                    <div className={styles.cardMedia} aria-hidden>
-                      {item.type === 'slides' && item.image ? <img src={item.image} alt="" /> : null}
-                      <div className={styles.cardScrim} />
-                    </div>
-
                     <div className={styles.body}>
                       <div className={styles.content}>
                         <div className={styles.topRow}>
@@ -119,8 +148,15 @@ export function FindingToastStack({
                             className={styles.dismiss}
                             aria-label="Dismiss findings"
                             onClick={onDismiss}
+                            style={{ ['--toast-dismiss' as string]: `${FINDING_DISMISS_MS}ms` }}
                           >
                             <X size={12} weight="bold" aria-hidden />
+                            {engaged ? null : (
+                              <svg key={stackKey} className={styles.dismissRing} viewBox="0 0 24 24" aria-hidden>
+                                <circle className={styles.dismissRingTrack} cx="12" cy="12" r="9" />
+                                <circle className={styles.dismissRingProgress} cx="12" cy="12" r="9" />
+                              </svg>
+                            )}
                           </button>
                         </div>
 
@@ -132,22 +168,27 @@ export function FindingToastStack({
                       </div>
 
                       <div className={styles.actions}>
-                        <button
-                          type="button"
-                          className={styles.actionBtn}
-                          onClick={() =>
-                            onTellMeMore?.({
-                              id: item.id,
-                              title: item.title,
-                              domain: item.domain,
-                              finding: `${item.before}${item.highlight}${item.after}`.trim(),
-                            })
-                          }
-                        >
-                          <ChatText size={16} weight="regular" aria-hidden />
-                          Tell Me More
-                        </button>
-                        <div className={styles.voteGroup}>
+                        <div className={styles.actionGroup}>
+                          <button type="button" className={styles.actionBtn} onClick={() => onMonitor?.(item)}>
+                            <Broadcast size={16} weight="regular" aria-hidden />
+                            Keep monitoring
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.actionBtn}
+                            onClick={() =>
+                              onTellMeMore?.({
+                                id: item.id,
+                                title: item.title,
+                                domain: item.domain,
+                                finding: `${item.before}${item.highlight}${item.after}`.trim(),
+                              })
+                            }
+                          >
+                            <ChatText size={16} weight="regular" aria-hidden />
+                            Tell me more
+                          </button>
+                          <div className={styles.voteGroup}>
                           <button
                             type="button"
                             className={`${styles.voteBtn}${vote === 'up' ? ` ${styles.voteBtnActive}` : ''}`}
@@ -180,13 +221,17 @@ export function FindingToastStack({
                               aria-hidden
                             />
                           </button>
+                          </div>
                         </div>
-                        {item.type === 'slides' ? (
-                          <button type="button" className={styles.linkBtn} aria-label="View Slides">
-                            <Link size={16} weight="regular" aria-hidden />
-                            View Slides
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          className={styles.linkBtn}
+                          onClick={() => onOpenRelated?.(item)}
+                          disabled={!relatedStoryId(item)}
+                        >
+                          <Link size={16} weight="regular" aria-hidden />
+                          View slides
+                        </button>
                       </div>
                     </div>
                   </>
@@ -206,7 +251,7 @@ export function FindingToastStack({
         type="button"
         className={styles.navBtn}
         aria-label="Next finding"
-        disabled={!canNavigate}
+        disabled={atEnd}
         onClick={goNext}
       >
         <CaretRight size={18} weight="bold" aria-hidden />

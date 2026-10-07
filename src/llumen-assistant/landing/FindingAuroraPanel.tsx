@@ -14,6 +14,8 @@ export type FindingAuroraPanelProps = {
   settings: FindingAuroraSettings
   onChange: (next: FindingAuroraSettings) => void
   onReplay: () => void
+  /** Render only the settings panel. The header trigger stays hidden. */
+  hideTrigger?: boolean
 }
 
 function patch<K extends keyof FindingAuroraSettings>(
@@ -124,6 +126,7 @@ export function FindingAuroraPanel({
   settings,
   onChange,
   onReplay,
+  hideTrigger = false,
 }: FindingAuroraPanelProps) {
   const scrollRef = useRevealScrollbarOnScroll()
   const set = <K extends keyof FindingAuroraSettings>(key: K, value: FindingAuroraSettings[K]) =>
@@ -138,20 +141,7 @@ export function FindingAuroraPanel({
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onOpenChange])
 
-  return (
-    <div className={styles.root}>
-      <button
-        type="button"
-        className={`${styles.trigger}${open ? ` ${styles.triggerOpen}` : ''}`}
-        aria-expanded={open}
-        aria-controls="finding-aurora-panel"
-        onClick={() => onOpenChange(!open)}
-      >
-        <span className={styles.kicker}>FX</span>
-        <Sparkle size={14} weight="fill" aria-hidden />
-        <span>Aurora</span>
-      </button>
-      {open
+  const panel = open
         ? createPortal(
             <aside
               id="finding-aurora-panel"
@@ -329,7 +319,24 @@ export function FindingAuroraPanel({
             </aside>,
             document.body,
           )
-        : null}
+        : null
+
+  if (hideTrigger) return panel
+
+  return (
+    <div className={styles.root}>
+      <button
+        type="button"
+        className={`${styles.trigger}${open ? ` ${styles.triggerOpen}` : ''}`}
+        aria-expanded={open}
+        aria-controls="finding-aurora-panel"
+        onClick={() => onOpenChange(!open)}
+      >
+        <span className={styles.kicker}>FX</span>
+        <Sparkle size={14} weight="fill" aria-hidden />
+        <span>Aurora</span>
+      </button>
+      {panel}
     </div>
   )
 }

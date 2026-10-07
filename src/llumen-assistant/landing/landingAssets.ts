@@ -24,6 +24,8 @@ export const landingAssets = {
   /** Figma Stories grid thumbs (node 1740:15946) */
   storyThumbMapBase: `${b}/story-thumb-map-base.png`,
   storyThumbMapMarkers: `${b}/story-thumb-map-markers.png`,
+  /** Card/story alpha mask (node 1791:26707) — identical to story-mask.svg */
+  storyThumbMask: `${b}/story-mask.svg`,
   storyThumbChartBase: `${b}/story-thumb-chart-base.png`,
   storyThumbChartBars: `${b}/story-thumb-chart-bars.png`,
 } as const

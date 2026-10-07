@@ -197,6 +197,10 @@ export type HubChatboxProps = {
   onRestoreFindings?: () => void
   /** Aurora border shimmer while the first finding reveal is on screen. */
   findingCue?: boolean
+  /** Orb ring only. Used when a toast starts from the compact orb, not the collapsed or expanded box. */
+  orbCue?: boolean
+  /** Fade the toast ring out at the end of its second. Alert cue does not set this. */
+  shimmerExit?: boolean
   findingCueColors?: { stop1: string; stop2: string; stop3: string }
 }
 
@@ -218,6 +222,8 @@ export function HubChatbox({
   findingUnread = false,
   onRestoreFindings,
   findingCue = false,
+  orbCue = false,
+  shimmerExit = false,
   findingCueColors,
 }: HubChatboxProps) {
   const [focused, setFocused] = useState(false)
@@ -537,7 +543,15 @@ export function HubChatbox({
   const showPlaceholder = !toasting && editorEmpty && files.length === 0
   const placeholder = showPlaceholder ? 'Ask Llumen anything…' : ''
   const orbIdle = idle || toasting
+  // compact is the standalone orb (chatbox not mounted). This box is collapsed or expanded.
   const stage = expanded ? 'expanded' : 'collapsed'
+  const orbCueStyle = orbCue
+    ? {
+        ['--orb-shimmer-1' as string]: findingCueColors?.stop1,
+        ['--orb-shimmer-2' as string]: findingCueColors?.stop2,
+        ['--orb-shimmer-3' as string]: findingCueColors?.stop3,
+      }
+    : undefined
   const reduceBeamMotion =
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -547,6 +561,7 @@ export function HubChatbox({
         className={`${styles.box}${toasting ? ` ${styles.boxToast}` : ''}`}
         data-stage={stage}
         data-finding-cue={findingCue ? 'true' : 'false'}
+        data-shimmer-exit={shimmerExit ? 'true' : 'false'}
         style={
           findingCue
             ? {
@@ -622,13 +637,23 @@ export function HubChatbox({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={onRestoreFindings}
               >
-                <span className={styles.orb} aria-hidden>
+                <span
+                  className={styles.orb}
+                  data-orb-cue={orbCue ? 'true' : 'false'}
+                  style={orbCueStyle}
+                  aria-hidden
+                >
                   <img className={panelStyles.launcherIcon} src={llumenAssets.launcherOrb} alt="" />
                 </span>
                 <span className={styles.unreadDot} />
               </button>
             ) : (
-              <span className={`${styles.orb}${orbIdle ? '' : ` ${styles.orbCollapsed}`}`} aria-hidden>
+              <span
+                className={`${styles.orb}${orbIdle ? '' : ` ${styles.orbCollapsed}`}`}
+                data-orb-cue={orbCue ? 'true' : 'false'}
+                style={orbCueStyle}
+                aria-hidden
+              >
                 <img className={panelStyles.launcherIcon} src={llumenAssets.launcherOrb} alt="" />
               </span>
             )}

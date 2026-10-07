@@ -20,7 +20,7 @@ export type SessionSummary = {
 /** Preloaded demo session — turn 1 question + agent reply. */
 export const DEMO_SESSION_ID = 'aq-corridor'
 
-const MOCK_SESSIONS: SessionSummary[] = [
+export const DEMO_SESSIONS: SessionSummary[] = [
   {
     id: DEMO_SESSION_ID,
     title: 'Air quality corridor review',
@@ -249,8 +249,8 @@ export function SessionsPanel({
 
   const filteredSessions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return MOCK_SESSIONS
-    return MOCK_SESSIONS.filter(
+    if (!q) return DEMO_SESSIONS
+    return DEMO_SESSIONS.filter(
       (s) => s.title.toLowerCase().includes(q) || s.preview.toLowerCase().includes(q),
     )
   }, [searchQuery])

@@ -1,5 +1,7 @@
 import { landingAssets as a } from './landingAssets'
 
+export type FindingSeverity = 'notice' | 'alert'
+
 export type FindingToastItem = {
   id: string
   type: 'slides' | 'chart' | 'ai'
@@ -10,6 +12,26 @@ export type FindingToastItem = {
   after: string
   image?: string
   gradient?: string
+  /** Notices stack as toasts. Alerts take the intrusive aurora. */
+  severity?: FindingSeverity
+  /** Recommended-story id opened by "View slides". */
+  storyId?: string
+}
+
+const FINDING_STORY_IDS: Record<string, string> = {
+  'dumping-map': 'r1',
+  'aqi-map': 'r2',
+  'proactive-ai': 'r3',
+  'ai-gradient-2': 'r4',
+  'ai-gradient-4': 'r5',
+  'ai-gradient-5': 'r6',
+  'dumping-alert': 'r1',
+  'aqi-alert': 'r2',
+  'pressure-alert': 'r5',
+}
+
+export function relatedStoryId(item: { id: string; storyId?: string }): string | undefined {
+  return item.storyId ?? FINDING_STORY_IDS[item.id]
 }
 
 const AI_GRADIENTS = [
@@ -96,6 +118,48 @@ export function isFindingSlashCommand(text: string): boolean {
 
 export function nextFindingFromPool(index: number): FindingToastItem {
   return FINDING_TOAST_POOL[index % FINDING_TOAST_POOL.length]
+}
+
+/** Huge alerts. These are the only findings that spawn the aurora. */
+export const ALERT_FINDING_POOL: FindingToastItem[] = [
+  {
+    id: 'dumping-alert',
+    type: 'ai',
+    severity: 'alert',
+    title: 'Illegal dumping surge',
+    domain: 'Public Safety',
+    before: 'Illegal dumping along the Mussafah industrial belt has ',
+    highlight: 'spiked 35% in six hours',
+    after: ', and three sites are now above the emergency threshold',
+  },
+  {
+    id: 'aqi-alert',
+    type: 'ai',
+    severity: 'alert',
+    title: 'Air quality emergency',
+    domain: 'Operations',
+    before: 'Fine particulate readings across the coastal corridor have ',
+    highlight: 'crossed the hazardous band',
+    after: ', with schools and clinics inside the plume',
+  },
+  {
+    id: 'pressure-alert',
+    type: 'ai',
+    severity: 'alert',
+    title: 'Water network failure',
+    domain: 'Engineering',
+    before: 'Overnight pressure in Al Ain has ',
+    highlight: 'collapsed across four districts',
+    after: ', and interruptions of 4–6 hours are already underway',
+  },
+]
+
+export function nextAlertFromPool(index: number): FindingToastItem {
+  return ALERT_FINDING_POOL[index % ALERT_FINDING_POOL.length]
+}
+
+export function isAlertFinding(item: { severity?: FindingSeverity }): boolean {
+  return item.severity === 'alert'
 }
 
 /** How many findings `/finding` seeds when the stack is empty. */

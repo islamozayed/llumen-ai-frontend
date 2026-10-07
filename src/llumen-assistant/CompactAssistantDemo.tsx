@@ -16,15 +16,21 @@ import gsap from 'gsap'
 import styles from './compact-assistant.module.css'
 import { llumenAssets } from './assets'
 import LandingHomeDefault from './landing/LandingHomeDefault'
+import { FeedLanding } from './landing/FeedLanding'
+import { OverlayScrollThumb } from './landing/OverlayScrollThumb'
 import { type LandingContextChip } from './landing/LandingChatbox'
 import { HubChatbox } from './landing/HubChatbox'
 import { FindingReveal } from './landing/FindingReveal'
+import { FindingToastStack } from './landing/FindingToastStack'
 import { FindingAuroraPanel } from './landing/FindingAuroraPanel'
-import { DEFAULT_FINDING_AURORA, STAGED_AURORA_PHASE1_MS, type FindingAuroraSettings } from './landing/findingAuroraSettings'
+import { DEFAULT_FINDING_AURORA, OCEAN_AURORA_STOPS, STAGED_AURORA_PHASE1_MS, type FindingAuroraSettings } from './landing/findingAuroraSettings'
 import {
   FINDING_TOAST_SEED_COUNT,
+  isAlertFinding,
   isFindingSlashCommand,
+  nextAlertFromPool,
   nextFindingFromPool,
+  relatedStoryId,
   type FindingToastInstance,
 } from './landing/findingDemoData'
 import {
@@ -45,7 +51,15 @@ import {
 } from './slashCommands'
 import type { HubWorkToast } from './landing/HubChatbox'
 import type { LandingTellMeMorePayload } from './landing/LandingHomeDefault'
-import { InteractionModelSwitcher } from './InteractionModelSwitcher'
+import { CommandPalette } from './CommandPalette'
+import {
+  persistLandingVariant,
+  persistTopBarVariant,
+  readLandingVariant,
+  readTopBarVariant,
+  type LandingVariant,
+  type TopBarVariant,
+} from './prototypeChrome'
 import {
   persistChatInteractionModel,
   readChatInteractionModel,
@@ -308,10 +322,15 @@ export function CompactAssistantDemo() {
   const [landingFocusToken, setLandingFocusToken] = useState(0)
   const [findingToasts, setFindingToasts] = useState<FindingToastInstance[]>([])
   const [findingToastIndex, setFindingToastIndex] = useState(0)
+  const [alertIndex, setAlertIndex] = useState(0)
   const [findingAurora, setFindingAurora] = useState<FindingAuroraSettings>(DEFAULT_FINDING_AURORA)
   const [auroraPanelOpen, setAuroraPanelOpen] = useState(false)
   const [auroraReplayKey, setAuroraReplayKey] = useState(0)
+  const [landingVariant, setLandingVariant] = useState<LandingVariant>(() => readLandingVariant())
+  const [topBar, setTopBar] = useState<TopBarVariant>(() => readTopBarVariant())
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const findingPoolIndexRef = useRef(0)
+  const alertPoolIndexRef = useRef(0)
   const [hubWorkToast, setHubWorkToast] = useState<HubWorkToast | null>(null)
   const hubWorkUserTextRef = useRef('')
   const [hubStoryOpen, setHubStoryOpen] = useState(false)
@@ -607,57 +626,25 @@ export function CompactAssistantDemo() {
     }, thinkingMs)
   }, [])
 
-  const pushFindingToast = useCallback(() => {
-    // First `/finding` seeds the set; later calls add one more.
-    const seeding = findingToasts.length === 0
-    const count = seeding ? FINDING_TOAST_SEED_COUNT : 1
-    const batch: FindingToastInstance[] = []
-    for (let i = 0; i < count; i++) {
-      const template = nextFindingFromPool(findingPoolIndexRef.current)
-      findingPoolIndexRef.current += 1
-      batch.push({ ...template, instanceId: uid() })
-    }
-    setFindingToasts((prev) => [...prev, ...batch].slice(-6))
-    setFindingToastIndex(seeding ? 0 : Math.min(findingToasts.length + batch.length, 6) - 1)
-  }, [findingToasts.length])
-
-  const closeFindings = useCallback(() => {
-    const items = findingToastsRef.current
-    if (items.length > 0) {
-      const allSeen = items.every((item) => seenFindingIdsRef.current.has(item.instanceId))
-      setFindingUnread(!allSeen)
-      dismissedFindingsRef.current = allSeen
-        ? null
-        : {
-            items,
-            index: findingToastIndexRef.current,
-            seen: new Set(seenFindingIdsRef.current),
-          }
-    }
-    seenFindingIdsRef.current = new Set()
-    const returnToCompact = openedFromCompactRef.current
-    openedFromCompactRef.current = false
-    setStagedReveal(false)
-    setCompactOrbHold(null)
-    setFindingBorderCue(false)
-    if (findingShortcutTimer.current != null) {
-      window.clearTimeout(findingShortcutTimer.current)
-      findingShortcutTimer.current = null
-    }
-    setFindingToasts([])
-    setFindingToastIndex(0)
-    if (returnToCompact) setCompactRestoreToken((n) => n + 1)
-  }, [])
-
   const findingToastsRef = useRef(findingToasts)
   findingToastsRef.current = findingToasts
   const findingToastIndexRef = useRef(findingToastIndex)
   findingToastIndexRef.current = findingToastIndex
+  const alertIndexRef = useRef(alertIndex)
+  alertIndexRef.current = alertIndex
   const seenFindingIdsRef = useRef(new Set<string>())
   const openedFromCompactRef = useRef(false)
+  const findingShortcutTimer = useRef<number | null>(null)
+  const pendingClearRef = useRef<{
+    items: FindingToastInstance[]
+    index: number
+    alertIndex: number
+    seen: Set<string>
+  } | null>(null)
   const dismissedFindingsRef = useRef<{
     items: FindingToastInstance[]
     index: number
+    alertIndex: number
     seen: Set<string>
   } | null>(null)
   const [stagedReveal, setStagedReveal] = useState(false)
@@ -665,16 +652,110 @@ export function CompactAssistantDemo() {
   const [findingUnread, setFindingUnread] = useState(false)
   const [compactRestoreToken, setCompactRestoreToken] = useState(0)
   const [compactOrbHold, setCompactOrbHold] = useState<DOMRect | null>(null)
+  /** Alert uses the tuned ramp. Toast uses yesterday's ocean blues. */
+  const [orbCuePalette, setOrbCuePalette] = useState<'alert' | 'ocean'>('alert')
   const [findingBorderCue, setFindingBorderCue] = useState(false)
+  const [toastOrbCue, setToastOrbCue] = useState(false)
+  const [toastBoxCue, setToastBoxCue] = useState(false)
+  const [toastShimmerExit, setToastShimmerExit] = useState(false)
+  const toastShimmerTimer = useRef<number | null>(null)
+  const [findingDismissSignal, setFindingDismissSignal] = useState(0)
+
+  const pushNotices = useCallback(() => {
+    const notices = findingToastsRef.current.filter((item) => !isAlertFinding(item))
+    const seeding = notices.length === 0
+    const count = seeding ? FINDING_TOAST_SEED_COUNT : 1
+    const batch: FindingToastInstance[] = []
+    for (let i = 0; i < count; i++) {
+      const template = nextFindingFromPool(findingPoolIndexRef.current)
+      findingPoolIndexRef.current += 1
+      batch.push({ ...template, severity: 'notice', instanceId: uid() })
+    }
+    setFindingToasts((prev) => {
+      const alerts = prev.filter((item) => isAlertFinding(item))
+      const nextNotices = [...prev.filter((item) => !isAlertFinding(item)), ...batch].slice(-6)
+      return [...nextNotices, ...alerts]
+    })
+    setFindingToastIndex(seeding ? 0 : Math.min(notices.length + batch.length, 6) - 1)
+  }, [])
+
+  const pushAlert = useCallback(() => {
+    const template = nextAlertFromPool(alertPoolIndexRef.current)
+    alertPoolIndexRef.current += 1
+    const instance: FindingToastInstance = { ...template, severity: 'alert', instanceId: uid() }
+    const alertCount = findingToastsRef.current.filter((item) => isAlertFinding(item)).length
+    setFindingToasts((prev) => {
+      const notices = prev.filter((item) => !isAlertFinding(item))
+      const alerts = [...prev.filter((item) => isAlertFinding(item)), instance].slice(-4)
+      return [...notices, ...alerts]
+    })
+    setAlertIndex(Math.min(alertCount + 1, 4) - 1)
+    setStagedReveal(true)
+    setRevealNonce((n) => n + 1)
+  }, [])
+
+  const dismissFindings = useCallback((which: 'notice' | 'alert' | 'all') => {
+    const items = findingToastsRef.current
+    const remaining = items.filter((item) => {
+      if (which === 'all') return false
+      if (which === 'notice') return isAlertFinding(item)
+      return !isAlertFinding(item)
+    })
+    if (remaining.length === 0 && items.length > 0) {
+      const snap = pendingClearRef.current ?? {
+        items,
+        index: findingToastIndexRef.current,
+        alertIndex: alertIndexRef.current,
+        seen: new Set(seenFindingIdsRef.current),
+      }
+      pendingClearRef.current = null
+      const allSeen = snap.items.every((item) => snap.seen.has(item.instanceId))
+      setFindingUnread(!allSeen)
+      dismissedFindingsRef.current = allSeen ? null : snap
+      seenFindingIdsRef.current = new Set()
+      const returnToCompact = openedFromCompactRef.current
+      openedFromCompactRef.current = false
+      setStagedReveal(false)
+      setCompactOrbHold(null)
+      setFindingBorderCue(false)
+      if (findingShortcutTimer.current != null) {
+        window.clearTimeout(findingShortcutTimer.current)
+        findingShortcutTimer.current = null
+      }
+      setFindingToastIndex(0)
+      setAlertIndex(0)
+      if (returnToCompact) setCompactRestoreToken((n) => n + 1)
+    } else if (which !== 'notice') {
+      setStagedReveal(false)
+      setFindingBorderCue(false)
+      setAlertIndex(0)
+    }
+    setFindingToasts(remaining)
+  }, [])
+
+  const closeAlert = useCallback(() => dismissFindings('alert'), [dismissFindings])
+
+  const noticeItems = useMemo(
+    () => findingToasts.filter((item) => !isAlertFinding(item)),
+    [findingToasts],
+  )
+  const alertItems = useMemo(
+    () => findingToasts.filter((item) => isAlertFinding(item)),
+    [findingToasts],
+  )
 
   useEffect(() => {
-    const current = findingToasts[findingToastIndex]
-    if (!current) return
-    seenFindingIdsRef.current.add(current.instanceId)
-    if (findingToasts.every((item) => seenFindingIdsRef.current.has(item.instanceId))) {
+    const notice = noticeItems[Math.min(findingToastIndex, Math.max(0, noticeItems.length - 1))]
+    const alert = alertItems[Math.min(alertIndex, Math.max(0, alertItems.length - 1))]
+    if (notice) seenFindingIdsRef.current.add(notice.instanceId)
+    if (alert) seenFindingIdsRef.current.add(alert.instanceId)
+    if (
+      findingToasts.length > 0 &&
+      findingToasts.every((item) => seenFindingIdsRef.current.has(item.instanceId))
+    ) {
       setFindingUnread(false)
     }
-  }, [findingToasts, findingToastIndex])
+  }, [alertIndex, alertItems, findingToastIndex, findingToasts, noticeItems])
 
   const restoreUnreadFindings = useCallback(
     (sourceRect?: DOMRect) => {
@@ -684,7 +765,12 @@ export function CompactAssistantDemo() {
         seenFindingIdsRef.current = new Set(saved.seen)
         setFindingToasts(saved.items)
         setFindingToastIndex(saved.index)
+        setAlertIndex(saved.alertIndex)
         setFindingUnread(false)
+        if (saved.items.some((item) => isAlertFinding(item))) {
+          setStagedReveal(true)
+          setRevealNonce((n) => n + 1)
+        }
       }
       if (activeStoryId != null && !hubStoryOpen && sourceRect) {
         openedFromCompactRef.current = true
@@ -700,48 +786,245 @@ export function CompactAssistantDemo() {
     [activeStoryId, hubStoryOpen],
   )
 
-  const cueThenShowFindings = useCallback(
-    (then?: () => void, fromCompact = false) => {
-      if (fromCompact) openedFromCompactRef.current = true
-      pushFindingToast()
-      if (then) {
-        findingShortcutTimer.current = window.setTimeout(then, STAGED_AURORA_PHASE1_MS)
-      }
-    },
-    [pushFindingToast],
-  )
+  const TOAST_SHIMMER_HOLD_MS = 720
+  const TOAST_SHIMMER_FADE_MS = 280
+  const landingToastRevealTimer = useRef<number | null>(null)
 
-  const [findingDismissSignal, setFindingDismissSignal] = useState(0)
-  const findingShortcutTimer = useRef<number | null>(null)
+  const playToastShimmer = useCallback(() => {
+    // compact: orb only (no hub box). collapsed and expanded: the box is on screen.
+    const stage = document.querySelector('[data-lc-hub-chat] [data-stage]')?.getAttribute('data-stage')
+    const onBox = stage === 'collapsed' || stage === 'expanded'
+    setToastShimmerExit(false)
+    setToastOrbCue(stage === 'compact')
+    setToastBoxCue(onBox)
+    if (toastShimmerTimer.current != null) window.clearTimeout(toastShimmerTimer.current)
+    toastShimmerTimer.current = window.setTimeout(() => {
+      setToastShimmerExit(true)
+      toastShimmerTimer.current = window.setTimeout(() => {
+        toastShimmerTimer.current = null
+        setToastOrbCue(false)
+        setToastBoxCue(false)
+        setToastShimmerExit(false)
+      }, TOAST_SHIMMER_FADE_MS)
+    }, TOAST_SHIMMER_HOLD_MS)
+  }, [])
+
+  const revealLandingToastAfterShimmer = useCallback((reveal: () => void) => {
+    const stage = document.querySelector('[data-lc-hub-chat] [data-stage]')?.getAttribute('data-stage')
+    const landingBox = stage === 'collapsed' || stage === 'expanded'
+    playToastShimmer()
+    if (!landingBox) {
+      reveal()
+      return
+    }
+    if (landingToastRevealTimer.current != null) window.clearTimeout(landingToastRevealTimer.current)
+    landingToastRevealTimer.current = window.setTimeout(() => {
+      landingToastRevealTimer.current = null
+      reveal()
+    }, TOAST_SHIMMER_HOLD_MS + TOAST_SHIMMER_FADE_MS)
+  }, [playToastShimmer])
+
+  const cueThenShowFindings = useCallback(() => {
+    revealLandingToastAfterShimmer(() => pushNotices())
+  }, [pushNotices, revealLandingToastAfterShimmer])
+
+  useEffect(() => {
+    if (!compactOrbHold) return
+    setToastShimmerExit(false)
+    const exit = window.setTimeout(() => setToastShimmerExit(true), 720)
+    return () => {
+      window.clearTimeout(exit)
+      setToastShimmerExit(false)
+    }
+  }, [compactOrbHold])
 
   const requestCloseFindings = useCallback(() => {
-    if (findingToasts.length === 0) return
-    setFindingDismissSignal((n) => n + 1)
-  }, [findingToasts.length])
+    const items = findingToastsRef.current
+    if (items.length === 0) return
+    pendingClearRef.current = {
+      items,
+      index: findingToastIndexRef.current,
+      alertIndex: alertIndexRef.current,
+      seen: new Set(seenFindingIdsRef.current),
+    }
+    const hasAlert = items.some((item) => isAlertFinding(item))
+    if (hasAlert) {
+      dismissFindings('notice')
+      setFindingDismissSignal((n) => n + 1)
+      return
+    }
+    dismissFindings('all')
+  }, [dismissFindings])
 
-  const launchFindingShortcut = useCallback(() => {
+  const launchAlert = useCallback((then?: () => void, fromCompact = false, skipBorderCue = false) => {
+    if (fromCompact) openedFromCompactRef.current = true
+    pushAlert()
+    if (!skipBorderCue) setFindingBorderCue(true)
     if (findingShortcutTimer.current != null) {
       window.clearTimeout(findingShortcutTimer.current)
-      findingShortcutTimer.current = null
     }
-    setStagedReveal(true)
-    setRevealNonce((n) => n + 1)
+    findingShortcutTimer.current = window.setTimeout(() => {
+      findingShortcutTimer.current = null
+      setFindingBorderCue(false)
+      then?.()
+    }, STAGED_AURORA_PHASE1_MS)
+  }, [pushAlert])
+
+  const openStoryChat = useCallback((rect: DOMRect) => {
+    setHubMorphFrom(rect)
+    setHubStoryOpen(true)
+    setLandingFocusToken((n) => n + 1)
+  }, [])
+
+  const launchFindingShortcut = useCallback(() => {
     if (activeStoryId != null && !hubStoryOpen) {
       const ask = document.querySelector<HTMLButtonElement>('[aria-label="Ask about this story"]')
       if (ask) {
         const rect = ask.getBoundingClientRect()
+        openedFromCompactRef.current = true
+        setOrbCuePalette('alert')
         setCompactOrbHold(rect)
-        cueThenShowFindings(() => {
+        // Aurora phase 1 plays now. The orb stays until that phase finishes, then the chatbox opens.
+        launchAlert(() => {
           setCompactOrbHold(null)
-          setFindingBorderCue(false)
-          ask.click()
-        }, true)
+          openStoryChat(rect)
+        }, true, true)
         return
       }
     }
-    setFindingBorderCue(true)
-    cueThenShowFindings(() => setFindingBorderCue(false))
-  }, [activeStoryId, hubStoryOpen, cueThenShowFindings])
+    launchAlert()
+  }, [activeStoryId, hubStoryOpen, launchAlert, openStoryChat])
+
+  const launchCurrentAurora = useCallback(() => {
+    const template = nextAlertFromPool(alertPoolIndexRef.current)
+    alertPoolIndexRef.current += 1
+    const alert: FindingToastInstance = { ...template, severity: 'alert', instanceId: uid() }
+    const show = (borderCue = true) => {
+      pendingClearRef.current = null
+      setFindingToasts([alert])
+      setFindingToastIndex(0)
+      setAlertIndex(0)
+      setFindingUnread(false)
+      setStagedReveal(true)
+      setRevealNonce((n) => n + 1)
+      setAuroraReplayKey((k) => k + 1)
+      setFindingBorderCue(borderCue)
+      setCompactOrbHold(null)
+      if (findingShortcutTimer.current != null) {
+        window.clearTimeout(findingShortcutTimer.current)
+      }
+      findingShortcutTimer.current = window.setTimeout(() => {
+        findingShortcutTimer.current = null
+        setFindingBorderCue(false)
+      }, STAGED_AURORA_PHASE1_MS)
+    }
+    const storyAsk =
+      activeStoryId != null && !hubStoryOpen
+        ? document.querySelector<HTMLButtonElement>('[aria-label="Ask about this story"]')
+        : null
+    const launcher =
+      !storyAsk && !isHub && !open
+        ? document.querySelector<HTMLButtonElement>('[aria-label="Open Llumen assistant"]')
+        : null
+    if (findingShortcutTimer.current != null) {
+      window.clearTimeout(findingShortcutTimer.current)
+      findingShortcutTimer.current = null
+    }
+    if (!storyAsk && !launcher) {
+      setOrbCuePalette('alert')
+      show()
+      return
+    }
+    const orb = (storyAsk ?? launcher)!
+    const rect = orb.getBoundingClientRect()
+    if (storyAsk) openedFromCompactRef.current = true
+    setOrbCuePalette('alert')
+    setCompactOrbHold(rect)
+    if (storyAsk) {
+      pendingClearRef.current = null
+      setFindingToasts([alert])
+      setFindingToastIndex(0)
+      setAlertIndex(0)
+      setFindingUnread(false)
+      setStagedReveal(true)
+      setRevealNonce((n) => n + 1)
+      setAuroraReplayKey((k) => k + 1)
+      setFindingBorderCue(false)
+      findingShortcutTimer.current = window.setTimeout(() => {
+        findingShortcutTimer.current = null
+        setCompactOrbHold(null)
+        openStoryChat(rect)
+      }, STAGED_AURORA_PHASE1_MS)
+      return
+    }
+    findingShortcutTimer.current = window.setTimeout(() => {
+      setCompactOrbHold(null)
+      setOpen(true)
+      setExpanded(false)
+      findingShortcutTimer.current = window.setTimeout(() => {
+        findingShortcutTimer.current = null
+        show()
+      }, 420)
+    }, STAGED_AURORA_PHASE1_MS)
+  }, [activeStoryId, hubStoryOpen, isHub, open, openStoryChat])
+
+  const launchDualStateAurora = useCallback(() => {
+    const notices: FindingToastInstance[] = []
+    for (let i = 0; i < 4; i++) {
+      const template = nextFindingFromPool(findingPoolIndexRef.current)
+      findingPoolIndexRef.current += 1
+      notices.push({ ...template, severity: 'notice', instanceId: uid() })
+    }
+    const reveal = () => {
+      pendingClearRef.current = null
+      setFindingToasts(notices)
+      setFindingToastIndex(0)
+      setAlertIndex(0)
+      setFindingUnread(false)
+      setStagedReveal(false)
+      setFindingBorderCue(false)
+      setCompactOrbHold(null)
+    }
+    const storyAsk =
+      activeStoryId != null && !hubStoryOpen
+        ? document.querySelector<HTMLButtonElement>('[aria-label="Ask about this story"]')
+        : null
+    const launcher =
+      !storyAsk && !isHub && !open
+        ? document.querySelector<HTMLButtonElement>('[aria-label="Open Llumen assistant"]')
+        : null
+    if (findingShortcutTimer.current != null) {
+      window.clearTimeout(findingShortcutTimer.current)
+      findingShortcutTimer.current = null
+    }
+    // Landing chat is already on screen: shimmer the border, then show the toast.
+    if (!storyAsk && !launcher) {
+      revealLandingToastAfterShimmer(reveal)
+      return
+    }
+    const orb = storyAsk ?? launcher
+    if (!orb) {
+      reveal()
+      return
+    }
+    if (storyAsk) openedFromCompactRef.current = true
+    setOrbCuePalette('ocean')
+    setFindingUnread(false)
+    setCompactOrbHold(orb.getBoundingClientRect())
+    // Same staged hold as the alert: shimmer the orb, open the chat, then the finding.
+    findingShortcutTimer.current = window.setTimeout(() => {
+      setCompactOrbHold(null)
+      if (storyAsk) openStoryChat(storyAsk.getBoundingClientRect())
+      else {
+        setOpen(true)
+        setExpanded(false)
+      }
+      findingShortcutTimer.current = window.setTimeout(() => {
+        findingShortcutTimer.current = null
+        reveal()
+      }, 420)
+    }, STAGED_AURORA_PHASE1_MS)
+  }, [activeStoryId, hubStoryOpen, isHub, open, openStoryChat, revealLandingToastAfterShimmer])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1161,6 +1444,25 @@ export function CompactAssistantDemo() {
     [closePanel],
   )
 
+  const onLandingVariantChange = useCallback((next: LandingVariant) => {
+    persistLandingVariant(next)
+    setLandingVariant(next)
+  }, [])
+
+  const onTopBarChange = useCallback((next: TopBarVariant) => {
+    persistTopBarVariant(next)
+    setTopBar(next)
+  }, [])
+
+  const openConversation = useCallback(
+    (id: string) => {
+      openSession(id)
+      setOpen(true)
+      setExpanded(false)
+    },
+    [openSession],
+  )
+
   const openLauncher = useCallback(() => {
     setOpen(true)
     setExpanded(false)
@@ -1220,7 +1522,7 @@ export function CompactAssistantDemo() {
         sendText(text)
         return
       }
-      if (slash && isHub) {
+      if (slash && isHub && landingVariant !== 'feed-chat') {
         setLandingChips([])
         hubWorkUserTextRef.current = slash.userText
         setHubWorkToast({ message: underwayMessage(slash) })
@@ -1245,7 +1547,7 @@ export function CompactAssistantDemo() {
       setExpanded(false)
       sendText(composed || fallback)
     },
-    [sendText, cueThenShowFindings, isHub],
+    [sendText, cueThenShowFindings, isHub, landingVariant],
   )
 
   const onTellMeMore = useCallback(
@@ -1339,6 +1641,11 @@ export function CompactAssistantDemo() {
     return grouped
   }, [messages])
 
+  const openRelatedFinding = useCallback((item: FindingToastInstance) => {
+    const storyId = relatedStoryId(item)
+    if (storyId) setActiveStoryId(storyId)
+  }, [])
+
   const storyActive = activeStoryId != null
   const showLauncher = !isHub && !open
   const hubSessionsRail = isHub && open && hubRailMode === 'sessions'
@@ -1349,7 +1656,23 @@ export function CompactAssistantDemo() {
     (hubSessionsRail ||
       (!open && (!storyActive || hubStoryOpen)) ||
       (hubThreadRail && storyActive && hubStoryOpen))
-  const showFindingStage = findingToasts.length > 0 || auroraPanelOpen
+  const showAlertAurora = alertItems.length > 0 || auroraPanelOpen
+  const toastOverRail = noticeItems.length > 0 && railComposerOpen
+  const toastOverHub = noticeItems.length > 0 && showHub && !toastOverRail
+  const toastFallback = noticeItems.length > 0 && !toastOverRail && !toastOverHub
+  const noticeToast = (overlay: boolean) =>
+    noticeItems.length === 0 ? null : (
+      <FindingToastStack
+        items={noticeItems}
+        activeIndex={findingToastIndex}
+        onActiveIndexChange={setFindingToastIndex}
+        onDismiss={() => dismissFindings('notice')}
+        onTellMeMore={onTellMeMore}
+        onMonitor={(item) => beginFindingCommand('monitor', item)}
+        onOpenRelated={openRelatedFinding}
+        overlay={overlay}
+      />
+    )
 
   const chatMiddle = (
     <div ref={chatMiddleRef} className={`${styles.middle} ${isNewChat ? styles.middleEmpty : ''}`}>
@@ -1412,6 +1735,7 @@ export function CompactAssistantDemo() {
         sendState={sendVisual}
         showParameters
         onAttachClick={() => {}}
+        findingSlot={toastOverRail ? noticeToast(true) : null}
         findingCue={findingBorderCue && !showHub}
         findingCueColors={{
           stop1: findingAurora.colorStop1,
@@ -1444,18 +1768,28 @@ export function CompactAssistantDemo() {
     if (next) setAuroraReplayKey((k) => k + 1)
   }, [])
 
-  const uxSwitcher = (
-    <div className={styles.headerTools}>
-      <FindingAuroraPanel
-        open={auroraPanelOpen}
-        onOpenChange={onAuroraPanelOpenChange}
-        settings={findingAurora}
-        onChange={setFindingAurora}
-        onReplay={replayFindingAurora}
+  const [landingScrollEl, setLandingScrollEl] = useState<HTMLDivElement | null>(null)
+
+  const landingHome =
+    landingVariant === 'feed' || landingVariant === 'feed-card' || landingVariant === 'feed-chat' ? (
+      <FeedLanding
+        contained={landingVariant === 'feed-card'}
+        conversational={landingVariant === 'feed-chat'}
+        topBar={topBar}
+        onOpenStory={setActiveStoryId}
+        onTellMeMore={onTellMeMore}
+        reserveComposer={isHub}
       />
-      <InteractionModelSwitcher value={interactionModel} onChange={onInteractionModelChange} />
-    </div>
-  )
+    ) : (
+      <LandingHomeDefault
+        onOpenStory={setActiveStoryId}
+        onTellMeMore={onTellMeMore}
+        topBar={topBar}
+        listing={landingVariant === 'conversations' ? 'conversations' : 'stories'}
+        onOpenConversation={openConversation}
+        reserveComposer={isHub}
+      />
+    )
 
   return (
     <div
@@ -1475,7 +1809,11 @@ export function CompactAssistantDemo() {
           className={styles.demoPageShaderCanvas}
         />
       </div>
-      <div className={styles.demoLandingLayer}>
+      <div className={styles.demoLandingFrame}>
+      <div
+        className={styles.demoLandingLayer}
+        ref={(node) => setLandingScrollEl((current) => (current === node ? current : node))}
+      >
         {storyActive ? (
           <StoryView
             storyId={activeStoryId}
@@ -1491,27 +1829,31 @@ export function CompactAssistantDemo() {
             agentOpen={open || hubStoryOpen}
             findingUnread={findingUnread}
             onRestoreFindings={restoreUnreadFindings}
-            headerEnd={uxSwitcher}
           />
         ) : (
-          <LandingHomeDefault
-            onOpenStory={setActiveStoryId}
-            onTellMeMore={onTellMeMore}
-            headerEnd={uxSwitcher}
-            reserveComposer={isHub}
-          />
+          landingHome
         )}
       </div>
-      {showFindingStage ? (
+      {storyActive ? null : <OverlayScrollThumb scrollEl={landingScrollEl} />}
+      </div>
+      {showAlertAurora ? (
         <FindingReveal
           key={auroraReplayKey}
-          items={findingToasts}
-          activeIndex={findingToastIndex}
-          onActiveIndexChange={setFindingToastIndex}
-          onClose={closeFindings}
+          items={alertItems}
+          activeIndex={alertIndex}
+          onActiveIndexChange={setAlertIndex}
+          onClose={closeAlert}
           dismissSignal={findingDismissSignal}
           onMonitor={(item) => beginFindingCommand('monitor', item)}
-          onWorkflow={(item) => beginFindingCommand('workflow', item)}
+          onTellMeMore={(item) =>
+            onTellMeMore({
+              id: item.id,
+              title: item.title,
+              domain: item.domain,
+              finding: `${item.before}${item.highlight}${item.after}`.trim(),
+            })
+          }
+          onOpenRelated={openRelatedFinding}
           settings={findingAurora}
           railOpen={open}
           pageColumnAnchor={railComposerOpen && !showHub}
@@ -1519,20 +1861,25 @@ export function CompactAssistantDemo() {
           revealNonce={revealNonce}
         />
       ) : null}
-      {showFindingStage && compactOrbHold && !hubStoryOpen ? (
+      {compactOrbHold && !hubStoryOpen ? (
         <div
           className={styles.compactOrbHold}
+          data-shimmer-exit={toastShimmerExit ? 'true' : 'false'}
           style={{
             left: compactOrbHold.left,
             top: compactOrbHold.top,
             width: compactOrbHold.width,
             height: compactOrbHold.height,
-            ['--orb-shimmer-1' as string]: findingAurora.colorStop1,
-            ['--orb-shimmer-2' as string]: findingAurora.colorStop2,
-            ['--orb-shimmer-3' as string]: findingAurora.colorStop3,
+            ['--orb-shimmer-1' as string]:
+              orbCuePalette === 'ocean' ? OCEAN_AURORA_STOPS[0] : findingAurora.colorStop1,
+            ['--orb-shimmer-2' as string]:
+              orbCuePalette === 'ocean' ? OCEAN_AURORA_STOPS[1] : findingAurora.colorStop2,
+            ['--orb-shimmer-3' as string]:
+              orbCuePalette === 'ocean' ? OCEAN_AURORA_STOPS[2] : findingAurora.colorStop3,
           }}
           aria-hidden
         >
+          <span className={styles.compactOrbRing} />
           <img src={llumenAssets.launcherOrb} alt="" width={24} height={24} />
           {findingUnread ? <span className={styles.compactOrbHoldDot} /> : null}
         </div>
@@ -1543,6 +1890,7 @@ export function CompactAssistantDemo() {
             hubSessionsRail ? ` ${styles.composerDockShifted}` : ''
           }`}
         >
+          {toastOverHub ? noticeToast(true) : null}
           <HubChatbox
               // Remount when leaving a story so draft/focus/files don't carry over engaged.
               key={storyActive ? `story-${activeStoryId}` : 'landing'}
@@ -1574,15 +1922,26 @@ export function CompactAssistantDemo() {
               onDismissWork={dismissHubWork}
               findingUnread={findingUnread}
               onRestoreFindings={() => restoreUnreadFindings()}
-              findingCue={findingBorderCue}
-              findingCueColors={{
-                stop1: findingAurora.colorStop1,
-                stop2: findingAurora.colorStop2,
-                stop3: findingAurora.colorStop3,
-              }}
+              findingCue={findingBorderCue || toastBoxCue}
+              orbCue={toastOrbCue && !findingBorderCue}
+              shimmerExit={toastShimmerExit && toastBoxCue && !findingBorderCue}
+              findingCueColors={
+                findingBorderCue
+                  ? {
+                      stop1: findingAurora.colorStop1,
+                      stop2: findingAurora.colorStop2,
+                      stop3: findingAurora.colorStop3,
+                    }
+                  : {
+                      stop1: OCEAN_AURORA_STOPS[0],
+                      stop2: OCEAN_AURORA_STOPS[1],
+                      stop3: OCEAN_AURORA_STOPS[2],
+                    }
+              }
             />
         </div>
       ) : null}
+      {toastFallback ? <div className={styles.findingToastDock}>{noticeToast(false)}</div> : null}
       <div
         className={`${styles.fabColumn}${open ? ` ${styles.fabColumnDocked}` : ''}${
           !showLauncher && !open ? ` ${styles.fabColumnHidden}` : ''
@@ -1720,6 +2079,27 @@ export function CompactAssistantDemo() {
           />
         </div>
       ) : null}
+      <FindingAuroraPanel
+        hideTrigger
+        open={auroraPanelOpen}
+        onOpenChange={onAuroraPanelOpenChange}
+        settings={findingAurora}
+        onChange={setFindingAurora}
+        onReplay={replayFindingAurora}
+      />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        landing={landingVariant}
+        topBar={topBar}
+        ux={interactionModel}
+        onLanding={onLandingVariantChange}
+        onTopBar={onTopBarChange}
+        onUx={onInteractionModelChange}
+        onOpenAurora={() => onAuroraPanelOpenChange(true)}
+        onCurrentAurora={launchCurrentAurora}
+        onDualStateAurora={launchDualStateAurora}
+      />
       <ShareModal
         open={shareOpen}
         title={`Share “${chatTitle}”`}
