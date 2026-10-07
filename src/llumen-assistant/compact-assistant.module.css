@@ -208,6 +208,10 @@
   pointer-events: none;
 }
 
+.findingToastDockStory {
+  bottom: 88px;
+}
+
 /* Hub composer sits in the bottom dock, above the alert aurora (6) and finding copy (7).
    Notice toasts overlay this box and do not spawn an aurora.
    Center with inset/margin (not transform) so backdrop-filter can sample the landing. */

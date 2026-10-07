@@ -159,6 +159,8 @@ export type FindingRevealProps = {
   railOpen?: boolean
   /** Thread rail is the conversation. Anchor the copy to the page column, not that composer. */
   pageColumnAnchor?: boolean
+  /** Story ribbon sits above the viewport edge. Pad the finding to meet it. */
+  storyMode?: boolean
   /** Increment to play the exit, then call onClose. */
   dismissSignal?: number
   /** Shortcut: show a little of the aurora, hold, then open the mask fully. */
@@ -182,6 +184,7 @@ export function FindingReveal({
   settings = DEFAULT_FINDING_AURORA,
   railOpen = false,
   pageColumnAnchor = false,
+  storyMode = false,
   dismissSignal = 0,
   stagedReveal = false,
   revealNonce = 0,
@@ -328,6 +331,7 @@ export function FindingReveal({
         <div
           className={styles.copy}
           data-rail={railOpen ? 'true' : 'false'}
+          data-story={storyMode ? 'true' : 'false'}
           data-exiting={exiting ? 'true' : 'false'}
           style={veilStyle}
         >

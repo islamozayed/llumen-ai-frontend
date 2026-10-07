@@ -51,10 +51,10 @@ export const DEFAULT_FINDING_AURORA: FindingAuroraSettings = {
 /** Toast stack auto-dismiss. The alert aurora stays until the user closes it. */
 export const FINDING_DISMISS_MS = 10_000
 export const FINDING_EXIT_MS = 480
-/** Shortcut mask length. Matches `auroraRevealStaged` (2.4s). */
-export const STAGED_AURORA_REVEAL_MS = 2400
 /**
- * Phase 1 is the small opening plus a 1s hold (58% keyframe).
- * Findings appear here, while the mask is still opening to full.
+ * Shortcut mask length. Phase 1 still ends at 1392ms.
+ * The phase 1 → phase 2 expand is 600ms slower than the original 1008ms.
  */
-export const STAGED_AURORA_PHASE1_MS = Math.round(STAGED_AURORA_REVEAL_MS * 0.58)
+export const STAGED_AURORA_REVEAL_MS = 3000
+/** End of the phase 1 hold. Copy and the story orb handoff wait for this. */
+export const STAGED_AURORA_PHASE1_MS = 1392

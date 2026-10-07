@@ -159,6 +159,10 @@
   isolation: isolate;
 }
 
+.copy[data-story='true'] {
+  padding-bottom: 20px;
+}
+
 .close {
   position: relative;
   display: inline-flex;
@@ -489,7 +493,7 @@
 .veil[data-ready='true'][data-staged='true'],
 .aurora[data-ready='true'][data-staged='true'] {
   animation-name: auroraRevealStaged;
-  animation-duration: 2.4s;
+  animation-duration: 3s;
 }
 
 @keyframes auroraReveal {
@@ -501,14 +505,15 @@
   }
 }
 
+/* 3s total. Phase 1 hold still ends at 1392ms; the expand to full is 600ms longer. */
 @keyframes auroraRevealStaged {
   0% {
     --aurora-reveal: 0%;
   }
-  16% {
+  12.8% {
     --aurora-reveal: 11%;
   }
-  58% {
+  46.4% {
     --aurora-reveal: 11%;
   }
   100% {

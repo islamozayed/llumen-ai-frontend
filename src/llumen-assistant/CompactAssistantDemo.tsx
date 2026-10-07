@@ -774,10 +774,7 @@ export function CompactAssistantDemo() {
       }
       if (activeStoryId != null && !hubStoryOpen && sourceRect) {
         openedFromCompactRef.current = true
-        setHubMorphFrom(sourceRect)
-        setHubStoryOpen(true)
-        setLandingFocusToken((n) => n + 1)
-        window.setTimeout(reveal, 380)
+        reveal()
         return
       }
       openedFromCompactRef.current = false
@@ -870,12 +867,6 @@ export function CompactAssistantDemo() {
     }, STAGED_AURORA_PHASE1_MS)
   }, [pushAlert])
 
-  const openStoryChat = useCallback((rect: DOMRect) => {
-    setHubMorphFrom(rect)
-    setHubStoryOpen(true)
-    setLandingFocusToken((n) => n + 1)
-  }, [])
-
   const launchFindingShortcut = useCallback(() => {
     if (activeStoryId != null && !hubStoryOpen) {
       const ask = document.querySelector<HTMLButtonElement>('[aria-label="Ask about this story"]')
@@ -884,16 +875,15 @@ export function CompactAssistantDemo() {
         openedFromCompactRef.current = true
         setOrbCuePalette('alert')
         setCompactOrbHold(rect)
-        // Aurora phase 1 plays now. The orb stays until that phase finishes, then the chatbox opens.
+        // Aurora phase 1 plays now. The orb stays until that phase finishes. The hub chatbox stays closed.
         launchAlert(() => {
           setCompactOrbHold(null)
-          openStoryChat(rect)
         }, true, true)
         return
       }
     }
     launchAlert()
-  }, [activeStoryId, hubStoryOpen, launchAlert, openStoryChat])
+  }, [activeStoryId, hubStoryOpen, launchAlert])
 
   const launchCurrentAurora = useCallback(() => {
     const template = nextAlertFromPool(alertPoolIndexRef.current)
@@ -953,7 +943,6 @@ export function CompactAssistantDemo() {
       findingShortcutTimer.current = window.setTimeout(() => {
         findingShortcutTimer.current = null
         setCompactOrbHold(null)
-        openStoryChat(rect)
       }, STAGED_AURORA_PHASE1_MS)
       return
     }
@@ -966,7 +955,7 @@ export function CompactAssistantDemo() {
         show()
       }, 420)
     }, STAGED_AURORA_PHASE1_MS)
-  }, [activeStoryId, hubStoryOpen, isHub, open, openStoryChat])
+  }, [activeStoryId, hubStoryOpen, isHub, open])
 
   const launchDualStateAurora = useCallback(() => {
     const notices: FindingToastInstance[] = []
@@ -1011,20 +1000,26 @@ export function CompactAssistantDemo() {
     setOrbCuePalette('ocean')
     setFindingUnread(false)
     setCompactOrbHold(orb.getBoundingClientRect())
-    // Same staged hold as the alert: shimmer the orb, open the chat, then the finding.
+    // Story: shimmer the compact orb, then the toast. The hub chatbox stays closed.
+    // Classic launcher: open the side rail, then the toast.
+    const shimmerMs = storyAsk ? TOAST_SHIMMER_HOLD_MS + TOAST_SHIMMER_FADE_MS : STAGED_AURORA_PHASE1_MS
     findingShortcutTimer.current = window.setTimeout(() => {
       setCompactOrbHold(null)
-      if (storyAsk) openStoryChat(storyAsk.getBoundingClientRect())
-      else {
+      if (!storyAsk) {
         setOpen(true)
         setExpanded(false)
+      }
+      if (storyAsk) {
+        findingShortcutTimer.current = null
+        reveal()
+        return
       }
       findingShortcutTimer.current = window.setTimeout(() => {
         findingShortcutTimer.current = null
         reveal()
       }, 420)
-    }, STAGED_AURORA_PHASE1_MS)
-  }, [activeStoryId, hubStoryOpen, isHub, open, openStoryChat, revealLandingToastAfterShimmer])
+    }, shimmerMs)
+  }, [activeStoryId, hubStoryOpen, isHub, open, revealLandingToastAfterShimmer])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1552,29 +1547,31 @@ export function CompactAssistantDemo() {
 
   const onTellMeMore = useCallback(
     (item: LandingTellMeMorePayload) => {
-      const chip: LandingContextChip = {
-        id: item.id,
-        label: item.title,
-        domain: item.domain,
-        categoryId: 'briefings',
-      }
-      const hubSessionsRail = isHub && open && hubRailMode === 'sessions'
-      if (open && !hubSessionsRail) {
-        composerRef.current?.insertMention(landingChipToMention(chip))
-        return
-      }
-      setLandingChips((prev) => {
-        if (prev.some((c) => c.id === item.id)) return prev
-        return [...prev, chip]
-      })
-      if (!isHub) {
-        setOpen(true)
-        setExpanded(false)
-        return
-      }
-      setLandingFocusToken((n) => n + 1)
+      const detail = item.finding?.trim()
+      const userText = detail
+        ? `Tell me more about ${item.title}. ${detail}`
+        : `Tell me more about ${item.title}`
+      clearStream()
+      setMessages([
+        { id: uid(), role: 'user', text: userText },
+        { id: uid(), role: 'assistant', text: '', reply: TURN1_REPLY },
+      ])
+      setSources(sourcesForDemoConversation(true))
+      setSourcesPanelDismissed(false)
+      setDraft('')
+      setLandingChips([])
+      setHubWorkToast(null)
+      hubWorkUserTextRef.current = ''
+      setChatTitle(truncateTitle(item.title))
+      titleEditedRef.current = true
+      setHubStoryOpen(false)
+      setHubMorphFrom(null)
+      setHubRailMode('thread')
+      setSessionsOpen(false)
+      setOpen(true)
+      setExpanded(false)
     },
-    [open, landingChipToMention, isHub, hubRailMode],
+    [clearStream],
   )
 
   // Opening the rail with chips on the landing chatbox → move them into ChatComposer
@@ -1857,6 +1854,7 @@ export function CompactAssistantDemo() {
           settings={findingAurora}
           railOpen={open}
           pageColumnAnchor={railComposerOpen && !showHub}
+          storyMode={storyActive}
           stagedReveal={stagedReveal}
           revealNonce={revealNonce}
         />
@@ -1941,7 +1939,11 @@ export function CompactAssistantDemo() {
             />
         </div>
       ) : null}
-      {toastFallback ? <div className={styles.findingToastDock}>{noticeToast(false)}</div> : null}
+      {toastFallback ? (
+        <div className={`${styles.findingToastDock}${storyActive ? ` ${styles.findingToastDockStory}` : ''}`}>
+          {noticeToast(false)}
+        </div>
+      ) : null}
       <div
         className={`${styles.fabColumn}${open ? ` ${styles.fabColumnDocked}` : ''}${
           !showLauncher && !open ? ` ${styles.fabColumnHidden}` : ''
