@@ -14,6 +14,7 @@ import {
   type InlineContextItem,
 } from '../inlineContextData'
 import { SlashCommandMenu } from '../SlashCommandMenu'
+import { FINDING_DISMISS_MS } from './findingAuroraSettings'
 import {
   filterSlashCommands,
   getSlashMenuPosition,
@@ -247,6 +248,13 @@ export function HubChatbox({
   const [morphingOut, setMorphingOut] = useState(false)
 
   const toasting = Boolean(workToast)
+  const workToastKey = workToast?.message ?? ''
+  useEffect(() => {
+    if (!workToast) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const timer = window.setTimeout(() => onDismissWork?.(), reduce ? 0 : FINDING_DISMISS_MS)
+    return () => window.clearTimeout(timer)
+  }, [workToast, onDismissWork])
   // Story opens straight into the full chat. Landing rests on the bar until the field is used.
   const engaged =
     !editorEmpty || files.length > 0 || mentionOpen || Boolean(slashMenu) || toasting
@@ -772,11 +780,35 @@ export function HubChatbox({
               </button>
               <button
                 type="button"
-                className={styles.toastAction}
+                className={styles.toastClose}
+                aria-label="Dismiss"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={onDismissWork}
+                style={{ ['--toast-dismiss' as string]: `${FINDING_DISMISS_MS}ms` }}
               >
-                Dismiss
+                <X size={12} weight="bold" aria-hidden />
+                <svg key={workToastKey} className={styles.toastCloseRing} viewBox="0 0 24 24" overflow="visible" aria-hidden>
+                  <circle
+                    className={styles.toastCloseTrack}
+                    cx="12"
+                    cy="12"
+                    r="9"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.22)"
+                    strokeWidth="1.5"
+                  />
+                  <circle
+                    className={styles.toastCloseProgress}
+                    cx="12"
+                    cy="12"
+                    r="9"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.92)"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    pathLength="100"
+                  />
+                </svg>
               </button>
             </div>
           ) : (

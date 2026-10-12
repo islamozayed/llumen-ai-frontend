@@ -530,6 +530,66 @@
   border-radius: 6px;
 }
 
+.toastClose {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toastClose:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.toastClose:focus-visible {
+  outline: 2px solid rgba(109, 233, 225, 0.7);
+  outline-offset: 2px;
+}
+
+.toastCloseRing {
+  position: absolute;
+  inset: 0;
+  width: 24px;
+  height: 24px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.toastCloseTrack,
+.toastCloseProgress {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.toastCloseTrack {
+  stroke: rgba(255, 255, 255, 0.22);
+}
+
+.toastCloseProgress {
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  animation: toastCloseCountdown var(--toast-dismiss, 10s) linear forwards;
+}
+
+@keyframes toastCloseCountdown {
+  to {
+    stroke-dashoffset: 100;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .root,
   .toolbar,

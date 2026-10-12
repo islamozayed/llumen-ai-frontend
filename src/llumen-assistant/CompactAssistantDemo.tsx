@@ -51,6 +51,7 @@ import {
 } from './slashCommands'
 import type { HubWorkToast } from './landing/HubChatbox'
 import type { LandingTellMeMorePayload } from './landing/LandingHomeDefault'
+import { DUMPING_ALERT_BRIEFING, DUMPING_BRIEFING_SOURCES } from './landing/dumpingBriefing'
 import { CommandPalette } from './CommandPalette'
 import {
   persistLandingVariant,
@@ -1551,12 +1552,22 @@ export function CompactAssistantDemo() {
       const userText = detail
         ? `Tell me more about ${item.title}. ${detail}`
         : `Tell me more about ${item.title}`
+      const dumpingBriefing = item.id === 'dumping-alert'
       clearStream()
       setMessages([
         { id: uid(), role: 'user', text: userText },
-        { id: uid(), role: 'assistant', text: '', reply: TURN1_REPLY },
+        {
+          id: uid(),
+          role: 'assistant',
+          text: '',
+          reply: dumpingBriefing ? DUMPING_ALERT_BRIEFING : TURN1_REPLY,
+        },
       ])
-      setSources(sourcesForDemoConversation(true))
+      setSources(
+        dumpingBriefing
+          ? DUMPING_BRIEFING_SOURCES.map((source) => ({ ...source }))
+          : sourcesForDemoConversation(true),
+      )
       setSourcesPanelDismissed(false)
       setDraft('')
       setLandingChips([])
