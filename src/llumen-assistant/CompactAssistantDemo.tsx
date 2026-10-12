@@ -313,7 +313,7 @@ export function CompactAssistantDemo() {
   const findingAurora = DEFAULT_FINDING_AURORA
   const [auroraReplayKey, setAuroraReplayKey] = useState(0)
   const landingVariant = 'stories' as LandingVariant
-  const topBar = 'current' as TopBarVariant
+  const topBar = 'studio' as TopBarVariant
   const [paletteOpen, setPaletteOpen] = useState(false)
   const findingPoolIndexRef = useRef(0)
   const alertPoolIndexRef = useRef(0)

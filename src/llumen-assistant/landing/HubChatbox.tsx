@@ -14,6 +14,7 @@ import {
   type InlineContextItem,
 } from '../inlineContextData'
 import { SlashCommandMenu } from '../SlashCommandMenu'
+import { FINDING_DISMISS_MS } from './findingAuroraSettings'
 import {
   filterSlashCommands,
   getSlashMenuPosition,
@@ -248,6 +249,20 @@ export function HubChatbox({
   const [morphingOut, setMorphingOut] = useState(false)
 
   const toasting = Boolean(workToast)
+  const [workHeld, setWorkHeld] = useState(false)
+  const workToastKey = workToast?.message ?? ''
+  useEffect(() => {
+    setWorkHeld(false)
+  }, [workToastKey])
+  useEffect(() => {
+    if (!workToast || workHeld) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const timer = window.setTimeout(() => onDismissWork?.(), reduce ? 0 : FINDING_DISMISS_MS)
+    return () => window.clearTimeout(timer)
+  }, [workToast, workHeld, onDismissWork])
+  const holdWorkToast = () => {
+    if (workToast) setWorkHeld(true)
+  }
   // Story opens straight into the full chat. Landing rests on the bar until the field is used.
   const engaged =
     !editorEmpty || files.length > 0 || mentionOpen || Boolean(slashMenu) || toasting
@@ -561,6 +576,9 @@ export function HubChatbox({
         ref={boxRef}
         className={`${styles.box}${toasting ? ` ${styles.boxToast}` : ''}`}
         data-stage={stage}
+        onPointerOver={holdWorkToast}
+        onPointerDown={holdWorkToast}
+        onFocus={holdWorkToast}
         data-finding-cue={findingCue ? 'true' : 'false'}
         data-shimmer-exit={shimmerExit ? 'true' : 'false'}
         style={
@@ -773,11 +791,19 @@ export function HubChatbox({
               </button>
               <button
                 type="button"
-                className={styles.toastAction}
+                className={styles.toastClose}
+                aria-label="Dismiss"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={onDismissWork}
+                style={{ ['--toast-dismiss' as string]: `${FINDING_DISMISS_MS}ms` }}
               >
-                Dismiss
+                <X size={12} weight="bold" aria-hidden />
+                {workHeld ? null : (
+                  <svg key={workToastKey} className={styles.toastCloseRing} viewBox="0 0 24 24" aria-hidden>
+                    <circle className={styles.toastCloseTrack} cx="12" cy="12" r="9" />
+                    <circle className={styles.toastCloseProgress} cx="12" cy="12" r="9" />
+                  </svg>
+                )}
               </button>
             </div>
           ) : (
