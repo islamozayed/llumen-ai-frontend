@@ -22,8 +22,8 @@ import { type LandingContextChip } from './landing/LandingChatbox'
 import { HubChatbox } from './landing/HubChatbox'
 import { FindingReveal } from './landing/FindingReveal'
 import { FindingToastStack } from './landing/FindingToastStack'
-import { FindingAuroraPanel } from './landing/FindingAuroraPanel'
-import { DEFAULT_FINDING_AURORA, OCEAN_AURORA_STOPS, STAGED_AURORA_PHASE1_MS, type FindingAuroraSettings } from './landing/findingAuroraSettings'
+import { DEFAULT_FINDING_AURORA, OCEAN_AURORA_STOPS, STAGED_AURORA_PHASE1_MS } from './landing/findingAuroraSettings'
+import { DUMPING_ALERT_BRIEFING, DUMPING_BRIEFING_SOURCES } from './landing/dumpingBriefing'
 import {
   FINDING_TOAST_SEED_COUNT,
   isAlertFinding,
@@ -52,19 +52,8 @@ import {
 import type { HubWorkToast } from './landing/HubChatbox'
 import type { LandingTellMeMorePayload } from './landing/LandingHomeDefault'
 import { CommandPalette } from './CommandPalette'
-import {
-  persistLandingVariant,
-  persistTopBarVariant,
-  readLandingVariant,
-  readTopBarVariant,
-  type LandingVariant,
-  type TopBarVariant,
-} from './prototypeChrome'
-import {
-  persistChatInteractionModel,
-  readChatInteractionModel,
-  type ChatInteractionModel,
-} from './interactionModel'
+import type { LandingVariant, TopBarVariant } from './prototypeChrome'
+import type { ChatInteractionModel } from './interactionModel'
 import { StoryView } from './story/StoryView'
 import type { LandingStory } from './story/storyDemoData'
 import {
@@ -298,9 +287,7 @@ function UserMessageBubble({
 export function CompactAssistantDemo() {
   const previewMode = useMemo(() => readFigmaPreviewMode(), [])
   const previewForceInstant = previewMode != null
-  const [interactionModel, setInteractionModel] = useState<ChatInteractionModel>(() =>
-    readChatInteractionModel(previewMode != null),
-  )
+  const interactionModel = 'hub' as ChatInteractionModel
   const isHub = interactionModel === 'hub'
   const [open, setOpen] = useState(() => previewMode != null)
   const [expanded, setExpanded] = useState(
@@ -323,11 +310,10 @@ export function CompactAssistantDemo() {
   const [findingToasts, setFindingToasts] = useState<FindingToastInstance[]>([])
   const [findingToastIndex, setFindingToastIndex] = useState(0)
   const [alertIndex, setAlertIndex] = useState(0)
-  const [findingAurora, setFindingAurora] = useState<FindingAuroraSettings>(DEFAULT_FINDING_AURORA)
-  const [auroraPanelOpen, setAuroraPanelOpen] = useState(false)
+  const findingAurora = DEFAULT_FINDING_AURORA
   const [auroraReplayKey, setAuroraReplayKey] = useState(0)
-  const [landingVariant, setLandingVariant] = useState<LandingVariant>(() => readLandingVariant())
-  const [topBar, setTopBar] = useState<TopBarVariant>(() => readTopBarVariant())
+  const landingVariant = 'stories' as LandingVariant
+  const topBar = 'current' as TopBarVariant
   const [paletteOpen, setPaletteOpen] = useState(false)
   const findingPoolIndexRef = useRef(0)
   const alertPoolIndexRef = useRef(0)
@@ -1425,30 +1411,6 @@ export function CompactAssistantDemo() {
     setHubRailMode('thread')
   }, [])
 
-  const onInteractionModelChange = useCallback(
-    (next: ChatInteractionModel) => {
-      persistChatInteractionModel(next)
-      setInteractionModel(next)
-      closePanel()
-      setHubStoryOpen(false)
-      setHubMorphFrom(null)
-      setLandingChips([])
-      setHubWorkToast(null)
-      hubWorkUserTextRef.current = ''
-    },
-    [closePanel],
-  )
-
-  const onLandingVariantChange = useCallback((next: LandingVariant) => {
-    persistLandingVariant(next)
-    setLandingVariant(next)
-  }, [])
-
-  const onTopBarChange = useCallback((next: TopBarVariant) => {
-    persistTopBarVariant(next)
-    setTopBar(next)
-  }, [])
-
   const openConversation = useCallback(
     (id: string) => {
       openSession(id)
@@ -1551,12 +1513,22 @@ export function CompactAssistantDemo() {
       const userText = detail
         ? `Tell me more about ${item.title}. ${detail}`
         : `Tell me more about ${item.title}`
+      const dumpingBriefing = item.id === 'dumping-alert'
       clearStream()
       setMessages([
         { id: uid(), role: 'user', text: userText },
-        { id: uid(), role: 'assistant', text: '', reply: TURN1_REPLY },
+        {
+          id: uid(),
+          role: 'assistant',
+          text: '',
+          reply: dumpingBriefing ? DUMPING_ALERT_BRIEFING : TURN1_REPLY,
+        },
       ])
-      setSources(sourcesForDemoConversation(true))
+      setSources(
+        dumpingBriefing
+          ? DUMPING_BRIEFING_SOURCES.map((source) => ({ ...source }))
+          : sourcesForDemoConversation(true),
+      )
       setSourcesPanelDismissed(false)
       setDraft('')
       setLandingChips([])
@@ -1653,7 +1625,7 @@ export function CompactAssistantDemo() {
     (hubSessionsRail ||
       (!open && (!storyActive || hubStoryOpen)) ||
       (hubThreadRail && storyActive && hubStoryOpen))
-  const showAlertAurora = alertItems.length > 0 || auroraPanelOpen
+  const showAlertAurora = alertItems.length > 0
   const toastOverRail = noticeItems.length > 0 && railComposerOpen
   const toastOverHub = noticeItems.length > 0 && showHub && !toastOverRail
   const toastFallback = noticeItems.length > 0 && !toastOverRail && !toastOverHub
@@ -1755,15 +1727,6 @@ export function CompactAssistantDemo() {
       />
     </div>
   )
-
-  const replayFindingAurora = useCallback(() => {
-    setAuroraReplayKey((k) => k + 1)
-  }, [])
-
-  const onAuroraPanelOpenChange = useCallback((next: boolean) => {
-    setAuroraPanelOpen(next)
-    if (next) setAuroraReplayKey((k) => k + 1)
-  }, [])
 
   const [landingScrollEl, setLandingScrollEl] = useState<HTMLDivElement | null>(null)
 
@@ -2081,26 +2044,11 @@ export function CompactAssistantDemo() {
           />
         </div>
       ) : null}
-      <FindingAuroraPanel
-        hideTrigger
-        open={auroraPanelOpen}
-        onOpenChange={onAuroraPanelOpenChange}
-        settings={findingAurora}
-        onChange={setFindingAurora}
-        onReplay={replayFindingAurora}
-      />
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
-        landing={landingVariant}
-        topBar={topBar}
-        ux={interactionModel}
-        onLanding={onLandingVariantChange}
-        onTopBar={onTopBarChange}
-        onUx={onInteractionModelChange}
-        onOpenAurora={() => onAuroraPanelOpenChange(true)}
-        onCurrentAurora={launchCurrentAurora}
-        onDualStateAurora={launchDualStateAurora}
+        onAlertAurora={launchCurrentAurora}
+        onToastFinding={launchDualStateAurora}
       />
       <ShareModal
         open={shareOpen}
