@@ -34,7 +34,7 @@ export function readLandingVariant(): LandingVariant {
 }
 
 export function readTopBarVariant(): TopBarVariant {
-  if (typeof window === 'undefined') return 'current'
+  if (typeof window === 'undefined') return 'studio'
   const fromUrl = new URLSearchParams(window.location.search).get('bar')
   if (isTopBar(fromUrl)) return fromUrl
   try {
@@ -43,7 +43,7 @@ export function readTopBarVariant(): TopBarVariant {
   } catch {
     /* private mode */
   }
-  return 'current'
+  return 'studio'
 }
 
 function writeParam(key: string, value: string, omitWhen: string) {
@@ -70,5 +70,5 @@ export function persistTopBarVariant(variant: TopBarVariant) {
   } catch {
     /* private mode */
   }
-  writeParam('bar', variant, 'current')
+  writeParam('bar', variant, 'studio')
 }

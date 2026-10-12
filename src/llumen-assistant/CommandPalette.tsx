@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { MagnifyingGlass } from '@phosphor-icons/react'
+import { Check, MagnifyingGlass } from '@phosphor-icons/react'
+import type { ChatInteractionModel } from './interactionModel'
+import type { LandingVariant, TopBarVariant } from './prototypeChrome'
 import styles from './CommandPalette.module.css'
 
 type Command = {
@@ -8,21 +10,36 @@ type Command = {
   group: string
   label: string
   hint: string
+  active?: boolean
   run: () => void
 }
 
 export type CommandPaletteProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAlertAurora: () => void
-  onToastFinding: () => void
+  landing: LandingVariant
+  topBar: TopBarVariant
+  ux: ChatInteractionModel
+  onLanding: (next: LandingVariant) => void
+  onTopBar: (next: TopBarVariant) => void
+  onUx: (next: ChatInteractionModel) => void
+  onOpenAurora: () => void
+  onCurrentAurora: () => void
+  onDualStateAurora: () => void
 }
 
 export function CommandPalette({
   open,
   onOpenChange,
-  onAlertAurora,
-  onToastFinding,
+  landing,
+  topBar,
+  ux,
+  onLanding,
+  onTopBar,
+  onUx,
+  onOpenAurora,
+  onCurrentAurora,
+  onDualStateAurora,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(0)
@@ -36,21 +53,109 @@ export function CommandPalette({
     }
     return [
       {
+        id: 'stories',
+        group: 'Landing',
+        label: 'Carousel · Stories',
+        hint: 'Current landing, stories under the carousel',
+        active: landing === 'stories',
+        run: choose(() => onLanding('stories')),
+      },
+      {
+        id: 'conversations',
+        group: 'Landing',
+        label: 'Carousel · Conversations',
+        hint: 'Same carousel, conversation grid underneath',
+        active: landing === 'conversations',
+        run: choose(() => onLanding('conversations')),
+      },
+      {
+        id: 'feed',
+        group: 'Landing',
+        label: 'Feed · Full screen',
+        hint: 'Scroll findings over a traveling map',
+        active: landing === 'feed',
+        run: choose(() => onLanding('feed')),
+      },
+      {
+        id: 'feed-card',
+        group: 'Landing',
+        label: 'Feed · Contained',
+        hint: 'Same feed, cards at 70% width',
+        active: landing === 'feed-card',
+        run: choose(() => onLanding('feed-card')),
+      },
+      {
+        id: 'feed-chat',
+        group: 'Landing',
+        label: 'Feed · Conversational',
+        hint: 'Findings as chat bubbles over the map',
+        active: landing === 'feed-chat',
+        run: choose(() => onLanding('feed-chat')),
+      },
+      {
+        id: 'bar-current',
+        group: 'Top bar',
+        label: 'Current',
+        hint: 'Search field with Studio and Create',
+        active: topBar === 'current',
+        run: choose(() => onTopBar('current')),
+      },
+      {
+        id: 'bar-studio',
+        group: 'Top bar',
+        label: 'Studio',
+        hint: 'Workspace header',
+        active: topBar === 'studio',
+        run: choose(() => onTopBar('studio')),
+      },
+      {
+        id: 'ux-hub',
+        group: 'UX',
+        label: 'Hub',
+        hint: 'Orb in the chatbox',
+        active: ux === 'hub',
+        run: choose(() => onUx('hub')),
+      },
+      {
+        id: 'ux-classic',
+        group: 'UX',
+        label: 'Classic',
+        hint: 'Bottom-left launcher',
+        active: ux === 'classic',
+        run: choose(() => onUx('classic')),
+      },
+      {
+        id: 'aurora',
+        group: 'Aurora',
+        label: 'Aurora settings',
+        hint: 'Tune the alert aurora',
+        run: () => {
+          onOpenChange(false)
+          onOpenAurora()
+        },
+      },
+      {
         id: 'current-aurora',
         group: 'Aurora',
         label: 'Alert Aurora',
         hint: 'Intrusive alert, bottom third of the screen',
-        run: choose(onAlertAurora),
+        run: () => {
+          onOpenChange(false)
+          onCurrentAurora()
+        },
       },
       {
         id: 'dual-aurora',
         group: 'Aurora',
         label: 'Toast Finding',
         hint: 'Toast stack over the chat',
-        run: choose(onToastFinding),
+        run: () => {
+          onOpenChange(false)
+          onDualStateAurora()
+        },
       },
     ]
-  }, [onAlertAurora, onOpenChange, onToastFinding])
+  }, [landing, onCurrentAurora, onDualStateAurora, onLanding, onOpenAurora, onOpenChange, onTopBar, onUx, topBar, ux])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -137,7 +242,7 @@ export function CommandPalette({
               setQuery(event.target.value)
               setCursor(0)
             }}
-            placeholder="Alert aurora, toast finding…"
+            placeholder="Landing, top bar, UX, Aurora…"
             aria-label="Filter commands"
             aria-controls="command-palette-list"
             aria-activedescendant={filtered[activeIndex] ? `command-${filtered[activeIndex].id}` : undefined}
@@ -165,6 +270,7 @@ export function CommandPalette({
                     <span className={styles.itemLabel}>{command.label}</span>
                     <span className={styles.itemHint}>{command.hint}</span>
                   </span>
+                  {command.active ? <Check size={16} weight="bold" aria-label="Selected" /> : null}
                 </button>
               ))}
             </div>
