@@ -249,20 +249,13 @@ export function HubChatbox({
   const [morphingOut, setMorphingOut] = useState(false)
 
   const toasting = Boolean(workToast)
-  const [workHeld, setWorkHeld] = useState(false)
   const workToastKey = workToast?.message ?? ''
   useEffect(() => {
-    setWorkHeld(false)
-  }, [workToastKey])
-  useEffect(() => {
-    if (!workToast || workHeld) return
+    if (!workToast) return
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const timer = window.setTimeout(() => onDismissWork?.(), reduce ? 0 : FINDING_DISMISS_MS)
     return () => window.clearTimeout(timer)
-  }, [workToast, workHeld, onDismissWork])
-  const holdWorkToast = () => {
-    if (workToast) setWorkHeld(true)
-  }
+  }, [workToast, onDismissWork])
   // Story opens straight into the full chat. Landing rests on the bar until the field is used.
   const engaged =
     !editorEmpty || files.length > 0 || mentionOpen || Boolean(slashMenu) || toasting
@@ -576,9 +569,6 @@ export function HubChatbox({
         ref={boxRef}
         className={`${styles.box}${toasting ? ` ${styles.boxToast}` : ''}`}
         data-stage={stage}
-        onPointerOver={holdWorkToast}
-        onPointerDown={holdWorkToast}
-        onFocus={holdWorkToast}
         data-finding-cue={findingCue ? 'true' : 'false'}
         data-shimmer-exit={shimmerExit ? 'true' : 'false'}
         style={
@@ -798,12 +788,28 @@ export function HubChatbox({
                 style={{ ['--toast-dismiss' as string]: `${FINDING_DISMISS_MS}ms` }}
               >
                 <X size={12} weight="bold" aria-hidden />
-                {workHeld ? null : (
-                  <svg key={workToastKey} className={styles.toastCloseRing} viewBox="0 0 24 24" aria-hidden>
-                    <circle className={styles.toastCloseTrack} cx="12" cy="12" r="9" />
-                    <circle className={styles.toastCloseProgress} cx="12" cy="12" r="9" />
-                  </svg>
-                )}
+                <svg key={workToastKey} className={styles.toastCloseRing} viewBox="0 0 24 24" overflow="visible" aria-hidden>
+                  <circle
+                    className={styles.toastCloseTrack}
+                    cx="12"
+                    cy="12"
+                    r="9"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.22)"
+                    strokeWidth="1.5"
+                  />
+                  <circle
+                    className={styles.toastCloseProgress}
+                    cx="12"
+                    cy="12"
+                    r="9"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.92)"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    pathLength="100"
+                  />
+                </svg>
               </button>
             </div>
           ) : (

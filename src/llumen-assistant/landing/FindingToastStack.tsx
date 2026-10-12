@@ -42,23 +42,16 @@ export function FindingToastStack({
   overlay = false,
 }: FindingToastStackProps) {
   const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({})
-  const [engaged, setEngaged] = useState(false)
   const onDismissRef = useRef(onDismiss)
   onDismissRef.current = onDismiss
   const stackKey = items.map((item) => item.instanceId).join('|')
 
   useEffect(() => {
-    setEngaged(false)
-  }, [stackKey])
-
-  useEffect(() => {
-    if (items.length === 0 || engaged) return
+    if (items.length === 0) return
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const timer = window.setTimeout(() => onDismissRef.current(), reduce ? 0 : FINDING_DISMISS_MS)
     return () => window.clearTimeout(timer)
-  }, [engaged, items.length, stackKey])
-
-  const engage = () => setEngaged(true)
+  }, [items.length, stackKey])
 
   const safeIndex = items.length === 0 ? 0 : Math.min(Math.max(activeIndex, 0), items.length - 1)
   const active = items[safeIndex]
@@ -93,14 +86,9 @@ export function FindingToastStack({
     <div
       className={`${styles.root}${overlay ? ` ${styles.overChat}` : ''}`}
       data-finding-toasts=""
-      data-auto-dismiss={engaged ? 'false' : 'true'}
+      data-auto-dismiss="true"
       role="region"
       aria-label="Finding notifications"
-      onPointerOver={engage}
-      onPointerDown={engage}
-      onFocus={engage}
-      onKeyDown={engage}
-      onWheel={engage}
     >
       <button
         type="button"
@@ -151,12 +139,28 @@ export function FindingToastStack({
                             style={{ ['--toast-dismiss' as string]: `${FINDING_DISMISS_MS}ms` }}
                           >
                             <X size={12} weight="bold" aria-hidden />
-                            {engaged ? null : (
-                              <svg key={stackKey} className={styles.dismissRing} viewBox="0 0 24 24" aria-hidden>
-                                <circle className={styles.dismissRingTrack} cx="12" cy="12" r="9" />
-                                <circle className={styles.dismissRingProgress} cx="12" cy="12" r="9" />
-                              </svg>
-                            )}
+                            <svg key={stackKey} className={styles.dismissRing} viewBox="0 0 24 24" overflow="visible" aria-hidden>
+                              <circle
+                                className={styles.dismissRingTrack}
+                                cx="12"
+                                cy="12"
+                                r="9"
+                                fill="none"
+                                stroke="rgba(255,255,255,0.22)"
+                                strokeWidth="1.5"
+                              />
+                              <circle
+                                className={styles.dismissRingProgress}
+                                cx="12"
+                                cy="12"
+                                r="9"
+                                fill="none"
+                                stroke="rgba(255,255,255,0.92)"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                pathLength="100"
+                              />
+                            </svg>
                           </button>
                         </div>
 
