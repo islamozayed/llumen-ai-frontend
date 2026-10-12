@@ -51,7 +51,6 @@ import {
 } from './slashCommands'
 import type { HubWorkToast } from './landing/HubChatbox'
 import type { LandingTellMeMorePayload } from './landing/LandingHomeDefault'
-import { DUMPING_ALERT_BRIEFING, DUMPING_BRIEFING_SOURCES } from './landing/dumpingBriefing'
 import { CommandPalette } from './CommandPalette'
 import type { LandingVariant, TopBarVariant } from './prototypeChrome'
 import type { ChatInteractionModel } from './interactionModel'
