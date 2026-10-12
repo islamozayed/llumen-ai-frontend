@@ -7,25 +7,20 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Bell,
   ChatText,
-  GearSix,
   Link,
-  LockSimple,
-  MagnifyingGlass,
   Pause,
   Play,
-  Plus,
-  SquaresFour,
   ThumbsDown,
   ThumbsUp,
-  User,
-  Users,
 } from '@phosphor-icons/react'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { landingAssets as a } from './landingAssets'
+import { landingAssets as a, storyThumbLayers, type StoryThumbVariant } from './landingAssets'
+import { ConversationGrid } from './ConversationGrid'
+import { LandingTopBar, STUDIO_CATEGORIES, STUDIO_WORKSPACES, WorkspaceGlyph } from './LandingTopBar'
 import { SpecularActionButton } from './SpecularActionButton'
+import type { TopBarVariant } from '../prototypeChrome'
 import styles from './LandingHome.module.css'
 
 const AUTOPLAY_MS = 7000
@@ -127,24 +122,6 @@ function crossesOffstage(prev: CardLayout | undefined, next: CardLayout, trackWi
   const nextOffRight = next.left >= trackWidth - 1
   return (prevOffLeft && nextOffRight) || (prevOffRight && nextOffLeft)
 }
-
-const WORKSPACE_FILTERS = [
-  { label: 'All', icon: 'all' },
-  { label: 'Private', icon: 'private' },
-  { label: 'Shared With Me', icon: 'shared' },
-] as const
-
-const CATEGORY_FILTERS = [
-  'Finance',
-  'Operations',
-  'HR',
-  'Sales',
-  'Marketing',
-  'IT',
-  'Product',
-  'Engineering',
-  'Customer Success',
-] as const
 
 const AI_GRADIENTS = [
   'linear-gradient(180deg, #4a4969 0%, #7072ab 50%, #cd82a0 100%)',
@@ -302,14 +279,22 @@ const ATTENTION: AttentionItem[] = [
   },
 ]
 
-const RECOMMENDED = [
+/** Thumb order matches Figma Stories grid (1740:15946); copy stays the same. */
+const RECOMMENDED: {
+  id: string
+  category: string
+  title: string
+  kind: string
+  sections: string
+  thumb: StoryThumbVariant
+}[] = [
   {
     id: 'r1',
     category: 'Engineering',
     title: 'Building a Scalable Microservices Architecture From the Ground Up',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.slideMap,
+    thumb: 'map',
   },
   {
     id: 'r2',
@@ -317,7 +302,7 @@ const RECOMMENDED = [
     title: 'Brand Repositioning Strategy for the Next-Gen Consumer Market',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.recMapB,
+    thumb: 'chart',
   },
   {
     id: 'r3',
@@ -325,7 +310,7 @@ const RECOMMENDED = [
     title: 'User Onboarding Redesign: Reducing Time-to-Value by 40%',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.recThumbB,
+    thumb: 'satellite',
   },
   {
     id: 'r4',
@@ -333,7 +318,7 @@ const RECOMMENDED = [
     title: 'Enterprise Pipeline Acceleration: Lessons From Q3 Wins',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.recMapC,
+    thumb: 'map',
   },
   {
     id: 'r5',
@@ -341,7 +326,7 @@ const RECOMMENDED = [
     title: 'Streamlining Cross-Team Workflows With Automation',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.recMapD,
+    thumb: 'chart',
   },
   {
     id: 'r6',
@@ -349,7 +334,7 @@ const RECOMMENDED = [
     title: 'Remote Culture Playbook: Keeping Teams Connected at Scale',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.recThumbA,
+    thumb: 'satellite',
   },
   {
     id: 'r7',
@@ -357,7 +342,7 @@ const RECOMMENDED = [
     title: 'Reducing Churn Through Proactive Health Scoring',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.recThumbC,
+    thumb: 'chart',
   },
   {
     id: 'r8',
@@ -365,7 +350,7 @@ const RECOMMENDED = [
     title: 'Annual Budget Planning Framework for Hypergrowth Startups',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.image118,
+    thumb: 'map',
   },
   {
     id: 'r9',
@@ -373,7 +358,7 @@ const RECOMMENDED = [
     title: 'Zero-Trust Security Rollout: A 90-Day Implementation Guide',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.recThumbD,
+    thumb: 'satellite',
   },
   {
     id: 'r10',
@@ -381,7 +366,7 @@ const RECOMMENDED = [
     title: 'Migrating Legacy Systems to Cloud-Native Infrastructure',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.image117,
+    thumb: 'map',
   },
   {
     id: 'r11',
@@ -389,7 +374,7 @@ const RECOMMENDED = [
     title: 'Content-Led Growth: Driving Organic Acquisition at Scale',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.image119,
+    thumb: 'chart',
   },
   {
     id: 'r12',
@@ -397,15 +382,9 @@ const RECOMMENDED = [
     title: 'Feature Prioritization With Impact vs Effort Scoring',
     kind: 'Story',
     sections: '19 Sections',
-    image: a.image120,
+    thumb: 'satellite',
   },
-] as const
-
-function FilterIcon({ name }: { name: (typeof WORKSPACE_FILTERS)[number]['icon'] }) {
-  if (name === 'all') return <SquaresFour size={20} weight="regular" aria-hidden />
-  if (name === 'private') return <LockSimple size={20} weight="regular" aria-hidden />
-  return <Users size={20} weight="regular" aria-hidden />
-}
+]
 
 function Finding({
   before,
@@ -553,6 +532,7 @@ function AttentionCard({
   onExpand,
   vote,
   onVote,
+  onTellMeMore,
 }: {
   item: AttentionItem
   expanded: boolean
@@ -565,6 +545,7 @@ function AttentionCard({
   onExpand?: () => void
   vote: 'up' | 'down' | null
   onVote: (value: 'up' | 'down') => void
+  onTellMeMore?: (item: LandingTellMeMorePayload) => void
 }) {
   const slidesTip = useAnchoredTooltip(
     (iconOnlySlides || !expanded) && !offstage && !snap && !park && item.type === 'slides',
@@ -623,6 +604,14 @@ function AttentionCard({
               enabled={!offstage && !snap && !park}
               motionKey={`${Math.round(layout.left)}:${Math.round(layout.width)}:${expanded ? 'x' : 'c'}`}
               settleMs={CAROUSEL_MS}
+              onClick={() =>
+                onTellMeMore?.({
+                  id: item.id,
+                  title: item.title,
+                  domain: item.domain,
+                  finding: `${item.before}${item.highlight}${item.after}`.trim(),
+                })
+              }
             >
               <ChatText size={20} weight="regular" aria-hidden />
               <span className={styles.actionLabel}>Tell Me More</span>
@@ -671,8 +660,35 @@ function AttentionCard({
   )
 }
 
-export default function LandingHomeDefault() {
-  const [filter, setFilter] = useState('All')
+export type LandingTellMeMorePayload = {
+  id: string
+  title: string
+  domain: string
+  finding: string
+}
+
+export type LandingHomeDefaultProps = {
+  /** Open a Recommended story card as full-page Story content. */
+  onOpenStory?: (storyId: string) => void
+  /** Add the attention card as a context chip in the landing chatbox. */
+  onTellMeMore?: (item: LandingTellMeMorePayload) => void
+  /** Extra bottom inset so stories clear a center composer (Hub). Current uses the FAB only. */
+  reserveComposer?: boolean
+  topBar?: TopBarVariant
+  /** What sits under the attention carousel. */
+  listing?: 'stories' | 'conversations'
+  onOpenConversation?: (id: string) => void
+}
+
+export default function LandingHomeDefault({
+  onOpenStory,
+  onTellMeMore,
+  reserveComposer = true,
+  topBar = 'current',
+  listing = 'stories',
+  onOpenConversation,
+}: LandingHomeDefaultProps = {}) {
+  const [filter, setFilter] = useState<string>(STUDIO_CATEGORIES[0])
   const [active, setActive] = useState(0)
   const [playing, setPlaying] = useState(true)
   const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({})
@@ -780,58 +796,41 @@ export default function LandingHomeDefault() {
   return (
     <div className={styles.root} data-name="Landing">
       <header className={styles.nav}>
-        <div className={styles.navTop}>
-          <a className={styles.logo} href="#top" aria-label="Llumen home">
-            <img className={styles.logoMark} src={a.logoMark} alt="" />
-            <img className={styles.logoWord} src={a.wordmark} alt="Llumen" />
-          </a>
-          <label className={styles.search}>
-            <MagnifyingGlass size={16} weight="regular" aria-hidden />
-            <input type="search" placeholder="Search..." aria-label="Search" />
-          </label>
-          <div className={styles.navActions}>
-            <button type="button" className={styles.pillBtn}>
-              <GearSix size={20} weight="regular" aria-hidden />
-              Studio
-            </button>
-            <button type="button" className={styles.pillBtn}>
-              <Plus size={20} weight="regular" aria-hidden />
-              Create
-            </button>
-            <button type="button" className={styles.iconBtn} aria-label="Notifications">
-              <Bell size={20} weight="regular" />
-            </button>
-            <button type="button" className={styles.iconBtn} aria-label="Account">
-              <User size={20} weight="regular" />
-            </button>
+        <LandingTopBar
+          variant={topBar}
+          workspace={filter}
+          workspaces={STUDIO_WORKSPACES}
+          categories={STUDIO_CATEGORIES}
+          onWorkspaceChange={setFilter}
+        />
+        {topBar === 'studio' ? null : (
+          <div className={styles.filters} aria-label="Workspace filters">
+            {STUDIO_WORKSPACES.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className={`${styles.pill}${filter === item.label ? ` ${styles.pillActive}` : ''}`}
+                aria-pressed={filter === item.label}
+                onClick={() => setFilter(item.label)}
+              >
+                <WorkspaceGlyph name={item.icon} />
+                {item.label}
+              </button>
+            ))}
+            <span className={styles.filterRule} aria-hidden />
+            {STUDIO_CATEGORIES.map((label) => (
+              <button
+                key={label}
+                type="button"
+                className={`${styles.pill}${filter === label ? ` ${styles.pillActive}` : ''}`}
+                aria-pressed={filter === label}
+                onClick={() => setFilter(label)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        </div>
-        <div className={styles.filters} aria-label="Workspace filters">
-          {WORKSPACE_FILTERS.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              className={`${styles.pill}${filter === item.label ? ` ${styles.pillActive}` : ''}`}
-              aria-pressed={filter === item.label}
-              onClick={() => setFilter(item.label)}
-            >
-              <FilterIcon name={item.icon} />
-              {item.label}
-            </button>
-          ))}
-          <span className={styles.filterRule} aria-hidden />
-          {CATEGORY_FILTERS.map((label) => (
-            <button
-              key={label}
-              type="button"
-              className={`${styles.pill}${filter === label ? ` ${styles.pillActive}` : ''}`}
-              aria-pressed={filter === label}
-              onClick={() => setFilter(label)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        )}
       </header>
 
       <main>
@@ -873,6 +872,7 @@ export default function LandingHomeDefault() {
                         [item.id]: prev[item.id] === value ? null : value,
                       }))
                     }
+                    onTellMeMore={onTellMeMore}
                   />
                 )
               })}
@@ -939,26 +939,60 @@ export default function LandingHomeDefault() {
           </div>
         </section>
 
-        <section className={styles.section} aria-labelledby="recommended">
+        <section
+          className={`${styles.section}${reserveComposer ? '' : ` ${styles.sectionCompact}`}`}
+          aria-labelledby={listing === 'conversations' ? 'conversations-heading' : 'recommended'}
+        >
+          {listing === 'conversations' ? (
+            <ConversationGrid onOpen={onOpenConversation} />
+          ) : (
+          <>
           <h2 id="recommended" className={styles.sectionEyebrow}>
             Recommended For you
           </h2>
           <div className={styles.storyGrid}>
-            {RECOMMENDED.map((story) => (
-              <article key={story.id} className={styles.storyCard}>
-                <div className={styles.storyMedia}>
-                  <img src={story.image} alt="" />
-                </div>
-                <div className={styles.storyBody}>
-                  <span className={styles.storyCategory}>{story.category}</span>
-                  <h3 className={styles.storyTitle}>{story.title}</h3>
-                  <p className={styles.storyKind}>
-                    {story.kind} / {story.sections}
-                  </p>
-                </div>
-              </article>
-            ))}
+            {RECOMMENDED.map((story) => {
+              const layers = storyThumbLayers(story.thumb)
+              return (
+                <article key={story.id} className={styles.storyCard}>
+                  <button
+                    type="button"
+                    className={styles.storyCardBtn}
+                    onClick={() => onOpenStory?.(story.id)}
+                    aria-label={`Open story: ${story.title}`}
+                  >
+                    <div className={styles.storyMedia}>
+                      <div className={styles.storyMediaLayers} aria-hidden>
+                        <img
+                          className={styles.storyMediaImg}
+                          src={layers.image}
+                          alt=""
+                        />
+                        {layers.overlay ? (
+                          <img
+                            className={styles.storyMediaOverlay}
+                            src={layers.overlay}
+                            alt=""
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className={styles.storyBody}>
+                      <div className={styles.storyCopy}>
+                        <span className={styles.storyCategory}>{story.category}</span>
+                        <h3 className={styles.storyTitle}>{story.title}</h3>
+                      </div>
+                      <p className={styles.storyKind}>
+                        {story.kind} / {story.sections}
+                      </p>
+                    </div>
+                  </button>
+                </article>
+              )
+            })}
           </div>
+          </>
+          )}
         </section>
       </main>
     </div>

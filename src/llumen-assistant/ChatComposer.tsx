@@ -18,6 +18,7 @@ import {
   forwardRef,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -31,12 +32,22 @@ import {
   type InlineContextItem,
 } from './inlineContextData'
 import { InlineContextMenu, type InlineContextMenuStage } from './InlineContextMenu'
+import { SlashCommandMenu } from './SlashCommandMenu'
+import {
+  filterSlashCommands,
+  getSlashMenuPosition,
+  getSlashTrigger,
+  insertSlashCommand,
+  type SlashCommand,
+} from './slashCommands'
 import type { SendVisualState } from './SendButton'
 import { SendButton } from './SendButton'
 import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
 
 /** Matches reference LlumenChatInput textarea max-height */
 const MAX_COMPOSER_PX = 120
+/** One line + vertical padding on `.composerInput` (7 + 22 + 7). */
+const MIN_EDITOR_PX = 36
 const COMPOSER_HEIGHT_DURATION = 0.38
 const COMPOSER_HEIGHT_EASE = 'power2.inOut'
 
@@ -68,6 +79,13 @@ type MentionMenuPosition = {
 type MentionMenuState = {
   stage: InlineContextMenuStage
   categoryId: InlineContextCategoryId | null
+  query: string
+  activeIndex: number
+  triggerLength: number
+  position: MentionMenuPosition
+}
+
+type SlashMenuState = {
   query: string
   activeIndex: number
   triggerLength: number
@@ -363,6 +381,13 @@ export type ChatComposerProps = {
   onAttachClick?: () => void
   disabled?: boolean
   hasThreadMessages?: boolean
+  /** Finding intro + toast stack, rendered above the composer (hub parity). */
+  findingSlot?: ReactNode
+  /** Agent question attached above the input while one is pending. */
+  questionSlot?: ReactNode
+  /** Aurora border shimmer while the first finding reveal is on screen. */
+  findingCue?: boolean
+  findingCueColors?: { stop1: string; stop2: string; stop3: string }
 }
 
 export type ChatComposerHandle = {
@@ -381,19 +406,28 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     onAttachClick,
     disabled = false,
     hasThreadMessages = false,
+    findingSlot = null,
+    questionSlot = null,
+    findingCue = false,
+    findingCueColors,
   },
   ref,
 ) {
   const editorRef = useRef<HTMLDivElement>(null)
   const chatBoxRef = useRef<HTMLDivElement>(null)
+  const dockRef = useRef<HTMLDivElement>(null)
   const composerHeightRef = useRef<number | null>(null)
   const mentionMenuRef = useRef<HTMLDivElement>(null)
+  const slashMenuRef = useRef<HTMLDivElement>(null)
+  const mentionBtnRef = useRef<HTMLButtonElement>(null)
   const fileCounterRef = useRef(0)
   const uid = useId()
   const [contexts, setContexts] = useState<ComposerContext[]>([])
   const [mentionMenu, setMentionMenu] = useState<MentionMenuState | null>(null)
+  const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null)
   const [editorEmpty, setEditorEmpty] = useState(true)
   const chatScrollRef = useRevealScrollbarOnScroll()
+  const hasContexts = contexts.length > 0
 
   const filteredCategories = useMemo(
     () => filterCategories(mentionMenu?.query ?? ''),
@@ -403,20 +437,30 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     if (!mentionMenu?.categoryId) return []
     return filterItems(mentionMenu.categoryId, mentionMenu.query)
   }, [mentionMenu?.categoryId, mentionMenu?.query])
+  const filteredSlashCommands = useMemo(
+    () => filterSlashCommands(slashMenu?.query ?? ''),
+    [slashMenu?.query],
+  )
 
-  const syncComposerReserve = useCallback((heightPx: number) => {
-    const el = chatBoxRef.current
-    const middle = el?.parentElement
-    if (!middle) return
-    middle.style.setProperty('--lc-composer-reserve', `${Math.ceil(heightPx)}px`)
+  const syncComposerReserve = useCallback((heightPx?: number) => {
+    const dock = dockRef.current
+    const middle = dock?.parentElement
+    if (!dock || !middle) return
+    const px = heightPx ?? dock.offsetHeight
+    middle.style.setProperty('--lc-composer-reserve', `${Math.ceil(px)}px`)
   }, [])
 
   const syncEditorHeight = useCallback(() => {
     const el = editorRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, MAX_COMPOSER_PX)}px`
-  }, [])
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, MIN_EDITOR_PX), MAX_COMPOSER_PX)}px`
+    const box = chatBoxRef.current
+    if (!box) return
+    const heightPx = box.offsetHeight
+    composerHeightRef.current = heightPx
+    syncComposerReserve()
+  }, [syncComposerReserve])
 
   const emitChange = useCallback(() => {
     const el = editorRef.current
@@ -428,6 +472,10 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
 
   const closeMentionMenu = useCallback(() => {
     setMentionMenu(null)
+  }, [])
+
+  const closeSlashMenu = useCallback(() => {
+    setSlashMenu(null)
   }, [])
 
   const editorDisabled = disabled || sendState === 'stop'
@@ -460,6 +508,57 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
       }
     })
   }, [])
+
+  const refreshSlashMenu = useCallback(() => {
+    const editor = editorRef.current
+    const box = chatBoxRef.current
+    if (!editor || editorDisabled) {
+      setSlashMenu(null)
+      return
+    }
+    const trigger = getSlashTrigger(editor)
+    if (!trigger) {
+      setSlashMenu(null)
+      return
+    }
+    closeMentionMenu()
+    const listLength = filterSlashCommands(trigger.query).length
+    setSlashMenu((prev) => ({
+      query: trigger.query,
+      triggerLength: trigger.triggerLength,
+      activeIndex: Math.min(prev?.activeIndex ?? 0, Math.max(0, listLength - 1)),
+      position: getSlashMenuPosition(box ?? editor),
+    }))
+  }, [closeMentionMenu, editorDisabled])
+
+  useLayoutEffect(() => {
+    if (!slashMenu) return
+    const sync = () => {
+      const box = chatBoxRef.current
+      if (!box) return
+      const next = getSlashMenuPosition(box)
+      setSlashMenu((prev) => {
+        if (!prev) return prev
+        const p = prev.position
+        if (p.left === next.left && p.bottom === next.bottom && p.width === next.width) return prev
+        return { ...prev, position: next }
+      })
+    }
+    sync()
+    window.addEventListener('resize', sync)
+    return () => window.removeEventListener('resize', sync)
+  }, [slashMenu, value, contexts.length])
+
+  const selectSlashCommand = useCallback(
+    (command: SlashCommand) => {
+      const editor = editorRef.current
+      if (!editor || editorDisabled) return
+      insertSlashCommand(editor, command.id, slashMenu?.triggerLength ?? 1)
+      closeSlashMenu()
+      emitChange()
+    },
+    [closeSlashMenu, editorDisabled, emitChange, slashMenu?.triggerLength],
+  )
 
   const insertMentionChip = useCallback(
     (item: InlineContextItem, options?: { replaceTriggerLength?: number }) => {
@@ -575,6 +674,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     if (editorDisabled) return
     const editor = editorRef.current
     if (!editor) return
+    closeSlashMenu()
     ensureCaretInEditor(editor)
     const existing = getMentionTrigger(editor)
     if (!existing) {
@@ -582,57 +682,55 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
       emitChange()
     }
     requestAnimationFrame(refreshMentionMenu)
-  }, [editorDisabled, emitChange, refreshMentionMenu])
+  }, [closeSlashMenu, editorDisabled, emitChange, refreshMentionMenu])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = editorRef.current
     if (!el) return
     if (value === '' && !editorIsEmpty(el)) {
       el.innerHTML = ''
       setEditorEmpty(true)
       closeMentionMenu()
+      closeSlashMenu()
       syncEditorHeight()
     }
-  }, [value, closeMentionMenu, syncEditorHeight])
-
-  useEffect(() => {
-    syncEditorHeight()
-  }, [value, syncEditorHeight])
+  }, [value, closeMentionMenu, closeSlashMenu, syncEditorHeight])
 
   useLayoutEffect(() => {
     const el = chatBoxRef.current
     if (!el) return
 
+    const maxHeight = contexts.length > 0 ? 340 : 240
     gsap.killTweensOf(el)
-    gsap.set(el, { height: 'auto', maxHeight: contexts.length > 0 ? 320 : 200 })
+    gsap.set(el, { height: 'auto', maxHeight })
     const nextHeight = el.offsetHeight
     const prevHeight = composerHeightRef.current
 
     if (prevHeight == null || Math.abs(prevHeight - nextHeight) < 1) {
       composerHeightRef.current = nextHeight
       gsap.set(el, { clearProps: 'height,maxHeight' })
-      syncComposerReserve(nextHeight)
+      syncComposerReserve()
       return
     }
 
     gsap.set(el, {
       height: prevHeight,
-      maxHeight: Math.max(prevHeight, nextHeight, 320),
+      maxHeight: Math.max(prevHeight, nextHeight, maxHeight),
       overflow: 'hidden',
     })
-    syncComposerReserve(prevHeight)
+    syncComposerReserve()
 
     const tween = gsap.to(el, {
       height: nextHeight,
       duration: COMPOSER_HEIGHT_DURATION,
       ease: COMPOSER_HEIGHT_EASE,
       onUpdate: () => {
-        syncComposerReserve(el.offsetHeight)
+        syncComposerReserve()
       },
       onComplete: () => {
         gsap.set(el, { clearProps: 'height,maxHeight,overflow' })
         composerHeightRef.current = el.offsetHeight
-        syncComposerReserve(el.offsetHeight)
+        syncComposerReserve()
       },
     })
 
@@ -641,21 +739,38 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
       tween.kill()
       gsap.set(el, { clearProps: 'height,maxHeight,overflow' })
     }
-  }, [contexts, value, syncComposerReserve])
+  }, [contexts, syncComposerReserve])
+
+  useLayoutEffect(() => {
+    const dock = dockRef.current
+    if (!dock) return
+    syncComposerReserve()
+    const ro = new ResizeObserver(() => syncComposerReserve())
+    ro.observe(dock)
+    return () => ro.disconnect()
+  }, [syncComposerReserve])
 
   useEffect(() => {
-    if (!mentionMenu) return
+    if (!mentionMenu && !slashMenu) return
     const onDoc = (e: MouseEvent) => {
       const target = e.target as Node
       if (editorRef.current?.contains(target) || mentionMenuRef.current?.contains(target)) return
+      if (slashMenuRef.current?.contains(target)) return
       closeMentionMenu()
+      closeSlashMenu()
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
-  }, [mentionMenu, closeMentionMenu])
+  }, [mentionMenu, slashMenu, closeMentionMenu, closeSlashMenu])
 
   const onEditorInput = (_e: FormEvent<HTMLDivElement>) => {
     emitChange()
+    const editor = editorRef.current
+    if (editor && getSlashTrigger(editor)) {
+      refreshSlashMenu()
+      return
+    }
+    setSlashMenu(null)
     refreshMentionMenu()
   }
 
@@ -666,6 +781,45 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         e.preventDefault()
         emitChange()
         refreshMentionMenu()
+        return
+      }
+    }
+
+    if (slashMenu) {
+      const listLength = filteredSlashCommands.length
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        if (listLength === 0) return
+        setSlashMenu((prev) =>
+          prev ? { ...prev, activeIndex: (prev.activeIndex + 1) % listLength } : prev,
+        )
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        if (listLength === 0) return
+        setSlashMenu((prev) =>
+          prev
+            ? { ...prev, activeIndex: (prev.activeIndex - 1 + listLength) % listLength }
+            : prev,
+        )
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        closeSlashMenu()
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        if (listLength === 0) {
+          closeSlashMenu()
+          if (e.key === 'Enter' && !e.shiftKey && sendState === 'active') onSend()
+          return
+        }
+        const item = filteredSlashCommands[slashMenu.activeIndex]
+        if (item) selectSlashCommand(item)
         return
       }
     }
@@ -751,15 +905,30 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     setContexts((prev) => prev.filter((item) => item.id !== id))
   }
 
-  const hasContexts = contexts.length > 0
-  const placeholder = hasThreadMessages ? 'Reply...' : 'Ask about anything'
+  const showPlaceholder = editorEmpty
+  const placeholder = hasThreadMessages ? 'Reply…' : 'Ask Llumen anything…'
 
   return (
-    <div
-      ref={chatBoxRef}
-      className={`${styles.chatBox}${hasContexts ? ` ${styles.chatBoxWithContexts}` : ''}`}
-      data-lc-composer=""
-    >
+    <div ref={dockRef} className={styles.composerFindingDock} data-lc-composer-dock="">
+      {findingSlot}
+      {questionSlot}
+      <div
+        ref={chatBoxRef}
+        className={`${styles.chatBox} ${styles.chatBoxExpanded}${
+          hasContexts ? ` ${styles.chatBoxWithContexts}` : ''
+        }`}
+        data-lc-composer=""
+        data-finding-cue={findingCue ? 'true' : 'false'}
+        style={
+          findingCue
+            ? {
+                ['--orb-shimmer-1' as string]: findingCueColors?.stop1,
+                ['--orb-shimmer-2' as string]: findingCueColors?.stop2,
+                ['--orb-shimmer-3' as string]: findingCueColors?.stop3,
+              }
+            : undefined
+        }
+      >
       {hasContexts ? (
         <div className={styles.contextChipRow} aria-label="Attached files">
           {contexts.map((item) => (
@@ -767,94 +936,80 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           ))}
         </div>
       ) : null}
-      <div className={styles.textAreaWrap}>
+
+      <div className={styles.composeRow}>
         <div
           ref={(el) => {
             editorRef.current = el
             chatScrollRef(el)
           }}
-          className={`${styles.textArea} ${styles.composerEditor}${
-            editorEmpty ? ` ${styles.composerEditorEmpty}` : ''
+          className={`${styles.composerInput} ${styles.composerEditor}${
+            showPlaceholder ? ` ${styles.composerEditorEmpty}` : ''
           }`}
           contentEditable={!editorDisabled}
           role="textbox"
           aria-multiline="true"
-          aria-label={hasThreadMessages ? 'Reply' : 'Message'}
-          aria-placeholder={placeholder}
-          data-placeholder={placeholder}
+          aria-label={hasThreadMessages ? 'Reply' : 'Ask Llumen'}
+          aria-placeholder={showPlaceholder ? placeholder : undefined}
+          data-placeholder={showPlaceholder ? placeholder : undefined}
           data-lc-composer-editor=""
           suppressContentEditableWarning
           onInput={onEditorInput}
           onKeyDown={onKeyDown}
           onClick={() => {
-            requestAnimationFrame(refreshMentionMenu)
+            requestAnimationFrame(() => {
+              const editor = editorRef.current
+              if (editor && getSlashTrigger(editor)) refreshSlashMenu()
+              else refreshMentionMenu()
+            })
           }}
           onKeyUp={() => {
-            if (!mentionMenu) requestAnimationFrame(refreshMentionMenu)
+            if (slashMenu || mentionMenu) return
+            requestAnimationFrame(() => {
+              const editor = editorRef.current
+              if (editor && getSlashTrigger(editor)) refreshSlashMenu()
+              else refreshMentionMenu()
+            })
           }}
         />
       </div>
-      <div className={styles.paramsCol}>
-        <div className={styles.rowPrimary}>
-          <div className={styles.rowPrimaryLeft}>
-            {showParameters && (
-              <>
-                {mentionMenu &&
-                  createPortal(
-                    <InlineContextMenu
-                      menuRef={mentionMenuRef}
-                      position={mentionMenu.position}
-                      stage={mentionMenu.stage}
-                      categoryId={mentionMenu.categoryId}
-                      categories={filteredCategories}
-                      items={filteredItems}
-                      activeIndex={mentionMenu.activeIndex}
-                      query={mentionMenu.query}
-                      onHoverIndex={(index) =>
-                        setMentionMenu((prev) => (prev ? { ...prev, activeIndex: index } : prev))
-                      }
-                      onSelectCategory={selectCategory}
-                      onSelectItem={insertMention}
-                      onBack={() =>
-                        setMentionMenu((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                stage: 'categories',
-                                categoryId: null,
-                                activeIndex: 0,
-                              }
-                            : prev,
-                        )
-                      }
-                    />,
-                    document.body,
-                  )}
-                <button
-                  type="button"
-                  className={styles.contextBtn}
-                  aria-label="Attach file"
-                  onClick={addFileAttachment}
-                  disabled={editorDisabled}
-                >
-                  <Paperclip className={styles.contextBtnIcon} size={18} weight="regular" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.contextBtn}${mentionMenu ? ` ${styles.contextBtnActive}` : ''}`}
-                  aria-label="Add context mention"
-                  aria-expanded={Boolean(mentionMenu)}
-                  aria-haspopup="listbox"
-                  onClick={openContextMentionPicker}
-                  disabled={editorDisabled}
-                >
-                  <At className={styles.contextBtnIcon} size={18} weight="regular" aria-hidden />
-                </button>
-              </>
-            )}
-          </div>
-          <button type="button" className={styles.iconBtn} aria-label="Voice input">
-            <Microphone className={styles.iconBtnImg} size={20} weight="regular" aria-hidden />
+
+      <div className={styles.composerToolbar}>
+        <div className={styles.composerToolbarLeft}>
+          {showParameters ? (
+            <>
+              <button
+                type="button"
+                className={styles.composerIconAction}
+                aria-label="Attach file"
+                disabled={editorDisabled}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={addFileAttachment}
+              >
+                <Paperclip size={18} weight="regular" aria-hidden />
+              </button>
+              <button
+                ref={mentionBtnRef}
+                type="button"
+                className={`${styles.composerLabelAction}${
+                  mentionMenu ? ` ${styles.composerLabelActionActive}` : ''
+                }`}
+                aria-label="Add context"
+                aria-expanded={Boolean(mentionMenu)}
+                aria-haspopup="listbox"
+                disabled={editorDisabled}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={openContextMentionPicker}
+              >
+                <At size={16} weight="regular" aria-hidden />
+                Add context
+              </button>
+            </>
+          ) : null}
+        </div>
+        <div className={styles.composerToolbarRight}>
+          <button type="button" className={styles.composerIconAction} aria-label="Voice input">
+            <Microphone size={18} weight="regular" aria-hidden />
           </button>
           <SendButton
             state={sendState}
@@ -864,6 +1019,57 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
             }}
           />
         </div>
+      </div>
+
+      {slashMenu
+        ? createPortal(
+            <SlashCommandMenu
+              menuRef={slashMenuRef}
+              position={slashMenu.position}
+              commands={filteredSlashCommands}
+              activeIndex={slashMenu.activeIndex}
+              query={slashMenu.query}
+              onHoverIndex={(index) =>
+                setSlashMenu((prev) => (prev ? { ...prev, activeIndex: index } : prev))
+              }
+              onSelect={selectSlashCommand}
+            />,
+            document.body,
+          )
+        : null}
+
+      {mentionMenu
+        ? createPortal(
+            <InlineContextMenu
+              menuRef={mentionMenuRef}
+              position={mentionMenu.position}
+              stage={mentionMenu.stage}
+              categoryId={mentionMenu.categoryId}
+              categories={filteredCategories}
+              items={filteredItems}
+              activeIndex={mentionMenu.activeIndex}
+              query={mentionMenu.query}
+              onHoverIndex={(index) =>
+                setMentionMenu((prev) => (prev ? { ...prev, activeIndex: index } : prev))
+              }
+              onSelectCategory={selectCategory}
+              onSelectItem={insertMention}
+              onBack={() =>
+                setMentionMenu((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        stage: 'categories',
+                        categoryId: null,
+                        activeIndex: 0,
+                      }
+                    : prev,
+                )
+              }
+            />,
+            document.body,
+          )
+        : null}
       </div>
     </div>
   )

@@ -27,9 +27,16 @@
 }
 
 /* Landing is the page scrollport — document itself does not scroll */
-.demoLandingLayer {
+.demoLandingFrame {
   position: relative;
   z-index: 1;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+}
+
+.demoLandingLayer {
+  position: relative;
   height: 100%;
   width: 100%;
   max-width: 100%;
@@ -39,6 +46,32 @@
   overscroll-behavior: contain;
   pointer-events: auto;
   -webkit-overflow-scrolling: touch;
+  transition: padding-left var(--lc-rail-enter-duration, 320ms) var(--lc-ease);
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: auto;
+}
+
+.demoLandingLayer::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
+.demoPageRailOpen .demoLandingLayer {
+  padding-left: var(--lc-rail-width);
+}
+
+.demoPageStory .demoLandingLayer {
+  overflow: hidden;
+}
+
+.headerTools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
 }
 
 .demoLandingLayer > * {
@@ -62,19 +95,200 @@
 
 .fabColumn {
   position: fixed;
-  right: var(--space-3xl);
+  left: var(--space-3xl);
+  right: auto;
   bottom: var(--space-3xl);
   z-index: 2;
-  width: var(--lc-panel-width);
-  min-width: var(--lc-panel-min-width);
+  width: auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  align-items: stretch;
+  align-items: flex-start;
   gap: var(--space-lg);
   box-sizing: border-box;
   pointer-events: none;
-  transition: width var(--lc-search-expand-duration) var(--lc-search-expand-ease);
+  /* No width/left morph — docked rail slides in instead of growing from the FAB */
+}
+
+@property --orb-shimmer-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* Stays above the alert glow during phase 1, then the chatbox replaces it. */
+.compactOrbHold {
+  position: fixed;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--lc-bg-launcher, rgba(26, 26, 26, 0.55));
+  backdrop-filter: blur(var(--lc-blur-launcher, 30px));
+  -webkit-backdrop-filter: blur(var(--lc-blur-launcher, 30px));
+  pointer-events: none;
+  overflow: visible;
+}
+
+.compactOrbRing {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--orb-shimmer-angle),
+    var(--orb-shimmer-2, #2a4098) 0deg,
+    var(--orb-shimmer-1, #3c78ff) 70deg,
+    var(--orb-shimmer-3, #6beeff) 120deg,
+    var(--orb-shimmer-1, #3c78ff) 170deg,
+    var(--orb-shimmer-2, #2a4098) 240deg,
+    var(--orb-shimmer-2, #2a4098) 360deg
+  );
+  mask-image: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2px),
+    #000 calc(100% - 1px)
+  );
+  opacity: 1;
+  transition: opacity 280ms ease;
+  animation: compactOrbShimmer 1s linear infinite;
+  pointer-events: none;
+}
+
+.compactOrbHold[data-shimmer-exit='true'] .compactOrbRing {
+  opacity: 0;
+}
+
+@keyframes compactOrbShimmer {
+  to {
+    --orb-shimmer-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compactOrbRing {
+    animation: none;
+    transition: none;
+  }
+}
+
+.compactOrbHold img {
+  position: relative;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.compactOrbHoldDot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff3b30;
+  box-shadow: 0 0 0 2px rgba(12, 14, 18, 0.95);
+}
+
+/* Fallback when neither the hub composer nor the rail is on screen. */
+.findingToastDock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--space-3xl);
+  z-index: 8;
+  width: min(640px, calc(100vw - 48px));
+  margin-inline: auto;
+  pointer-events: none;
+}
+
+.findingToastDockStory {
+  bottom: 88px;
+}
+
+/* Hub composer sits in the bottom dock, above the alert aurora (6) and finding copy (7).
+   Notice toasts overlay this box and do not spawn an aurora.
+   Center with inset/margin (not transform) so backdrop-filter can sample the landing. */
+.composerDock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--space-3xl);
+  z-index: 8;
+  width: min(640px, calc(100vw - 48px));
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-lg);
+  pointer-events: none;
+  overflow: visible;
+  transition:
+    left var(--lc-rail-enter-duration, 320ms) var(--lc-ease),
+    right var(--lc-rail-enter-duration, 320ms) var(--lc-ease),
+    bottom var(--lc-rail-enter-duration, 320ms) var(--lc-ease);
+}
+
+.composerDockStory {
+  bottom: 88px;
+}
+
+.composerDockShifted {
+  left: var(--lc-rail-width, 400px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composerDock {
+    transition: none;
+  }
+}
+
+/* Full-height left agent rail — pushes page via demoPageRailOpen padding */
+.fabColumnDocked {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--lc-rail-width);
+  min-width: var(--lc-rail-width);
+  max-width: var(--lc-rail-width);
+  height: 100dvh;
+  justify-content: stretch;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--lc-surface-0, #0e1014);
+  z-index: 7;
+  /* Animate `left` (not transform) so position:fixed subcontext stays viewport-relative */
+  transform: none;
+  animation: lcRailSlideIn var(--lc-rail-enter-duration, 320ms) var(--lc-ease) both;
+}
+
+@keyframes lcRailSlideIn {
+  from {
+    left: calc(-1 * var(--lc-rail-width));
+  }
+  to {
+    left: 0;
+  }
+}
+
+.fabColumnDocked.fabColumnSplit {
+  /* Chat stays in the rail; detail overlays the remaining page */
+  width: var(--lc-rail-width);
+  min-width: var(--lc-rail-width);
+  max-width: var(--lc-rail-width);
+}
+
+.fabColumnHidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .fabColumnSplit {
@@ -99,6 +313,20 @@
     transform var(--lc-duration) var(--lc-ease);
 }
 
+.fabColumnDocked .panelWrap {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  /* Rail owns the motion — don't fade/rise the panel independently */
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+.fabColumnDocked .panelWrapHidden {
+  display: none;
+}
+
 .panelWrap > * {
   flex: 1 1 auto;
   width: 100%;
@@ -117,7 +345,7 @@
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: var(--space-xl) var(--space-xl) var(--space-xl) var(--space-3xl);
+  padding: var(--space-xl) 0 var(--space-xl) var(--space-3xl);
   border-radius: var(--lc-radius-panel-shell);
   border: 1px solid color-mix(in srgb, var(--lc-surface-3) 40%, transparent);
   display: flex;
@@ -128,6 +356,25 @@
   overscroll-behavior: contain;
   box-shadow: var(--lc-shadow-4);
   box-sizing: border-box;
+}
+
+.fabColumnDocked .requestBox {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  /* Left + bottom gutter; no right pad so the transcript scrollbar hugs the rail edge */
+  padding: var(--space-md) 0 var(--lc-transcript-gutter) var(--lc-transcript-gutter);
+}
+
+.fabColumnDocked .panelBackdrop {
+  border-radius: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.fabColumnDocked .requestBoxSplit {
+  /* Beat `.requestBoxSplit { padding: 0 }` so the rail doesn't jump */
+  padding: var(--space-md) 0 var(--lc-transcript-gutter) var(--lc-transcript-gutter);
 }
 
 .requestBoxAllowOverflow,
@@ -163,7 +410,7 @@
 }
 
 .panelExpanded:has(.sessionsSidebar) .chatColumn {
-  padding: var(--space-xl) var(--space-xl) var(--space-xl) var(--space-3xl);
+  padding: var(--space-xl) 0 var(--space-xl) var(--space-3xl);
 }
 
 .panelExpanded:has(.sessionsSidebar) .separator {
@@ -270,6 +517,14 @@
   align-self: stretch;
 }
 
+.hubSessionsFill {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
 /* Fullscreen + no subcontext: header spans full width; chat body stays 900px centered */
 .panelExpanded:not(.requestBoxSplit) .panelViewStack {
   position: relative;
@@ -338,6 +593,52 @@
   overscroll-behavior: contain;
 }
 
+/* Agent subcontext overlays the page to the right of the docked rail.
+   Prefer the portaled `.detailOverlay` (sibling of the rail) so it never
+   inherits overflow/containing-block from `.requestBox`. */
+.fabColumnDocked .detailColumn {
+  display: none;
+}
+
+.detailOverlay {
+  position: fixed;
+  top: 0;
+  left: var(--lc-rail-width);
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: var(--lc-surface-0, #0e1014);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.detailOverlay.detailColumnEnter {
+  animation: detailColumnSlideIn 360ms var(--lc-ease) both;
+}
+
+.detailOverlay.detailColumnExit {
+  pointer-events: none;
+  animation: detailColumnSlideOut 280ms var(--lc-ease) both;
+}
+
+.fabColumnDocked .chatColumnSplit {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+  border-right: none;
+  /* Gutters live on `.requestBox` — don't stack floating-panel chat padding */
+  padding: 0;
+}
+
+.fabColumnDocked .requestBox .chatColumn {
+  padding: 0;
+}
+
 .detailColumnEnter {
   animation: detailColumnSlideIn 360ms var(--lc-ease) both;
 }
@@ -350,7 +651,8 @@
 @keyframes detailColumnSlideIn {
   from {
     opacity: 0;
-    transform: translateX(32px);
+    /* Enter from the rail (left), not from off-screen right */
+    transform: translateX(-40px);
   }
   to {
     opacity: 1;
@@ -365,7 +667,7 @@
   }
   to {
     opacity: 0;
-    transform: translateX(32px);
+    transform: translateX(-40px);
   }
 }
 
@@ -376,7 +678,8 @@
   max-width: none;
 }
 
-.detailColumn .componentDetail {
+.detailColumn .componentDetail,
+.detailOverlay .componentDetail {
   flex: 1;
   height: 100%;
   min-height: 100%;
@@ -386,13 +689,16 @@
   padding: var(--space-3xl) var(--space-4xl);
 }
 
-.detailColumn .componentDetailMap {
+.detailColumn .componentDetailMap,
+.detailOverlay .componentDetailMap {
   padding: 0;
   background: transparent;
 }
 
 .detailColumn .componentDetail.componentDetailMapShell,
-.detailColumn .componentDetail.componentDetailMapBleed {
+.detailColumn .componentDetail.componentDetailMapBleed,
+.detailOverlay .componentDetail.componentDetailMapShell,
+.detailOverlay .componentDetail.componentDetailMapBleed {
   padding: 0;
   background: transparent;
 }
@@ -544,7 +850,7 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--lc-text-primary);
+  color: var(--color-primary-500);
   font-family: var(--lc-font-sans);
   font-size: 14px;
   font-weight: var(--lc-weight-regular);
@@ -553,7 +859,7 @@
 }
 
 .saveToAssetsBtn:hover {
-  opacity: 0.72;
+  color: var(--color-primary-300);
 }
 
 .saveToAssetsBtn:focus-visible {
@@ -563,10 +869,12 @@
 }
 
 .saveToAssetsBtnSaved {
+  color: var(--lc-text-primary);
   cursor: default;
 }
 
 .saveToAssetsBtnSaved:hover {
+  color: var(--lc-text-primary);
   opacity: 1;
 }
 
@@ -631,7 +939,8 @@
   z-index: 3;
   display: flex;
   flex-direction: column;
-  padding: calc(var(--space-3xl) + 148px) var(--space-4xl) var(--space-3xl);
+  /* No bottom padding — Data / Source panels fill to the viewport edge */
+  padding: calc(var(--space-3xl) + 148px) var(--space-4xl) 0;
   overflow: hidden;
   min-height: 0;
   background: var(--lc-surface-0);
@@ -997,10 +1306,22 @@
   width: 100%;
   min-height: 0;
   overflow: auto;
-  border-radius: 14px;
+  overflow-y: overlay;
+  padding: 0;
+  /* Square the scrollbar side so the overlay thumb is not inset by the radius */
+  border-radius: 14px 0 0 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.18);
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: auto;
+}
+
+@supports (overflow: overlay) {
+  .componentDetailDataTableWrap {
+    overflow-y: overlay;
+  }
 }
 
 .dataTabRoot {
@@ -1207,6 +1528,12 @@
   gap: var(--space-md);
   width: 100%;
   flex-shrink: 0;
+  padding-right: var(--space-xl);
+  box-sizing: border-box;
+}
+
+.fabColumnDocked .headerRow {
+  padding-right: var(--lc-transcript-gutter);
 }
 
 .headerActions {
@@ -1741,7 +2068,7 @@
 }
 
 .middle:not(.middleEmpty) > .transcript,
-.middle:not(.middleEmpty) > .chatBox {
+.middle:not(.middleEmpty) > .composerFindingDock {
   grid-area: chat-stack;
 }
 
@@ -1751,10 +2078,9 @@
   padding-top: 8px;
 }
 
-.middleEmpty .chatBox {
+.middleEmpty .composerFindingDock {
   margin-top: auto;
   align-self: flex-start;
-  width: calc(100% - var(--lc-transcript-scrollbar-inset) - var(--lc-transcript-gutter));
   box-sizing: border-box;
 }
 
@@ -1841,14 +2167,32 @@
   gap: var(--space-lg);
   margin: 0 0 var(--space-lg);
   padding: 0;
-  padding-right: var(--lc-transcript-gutter);
-  scrollbar-gutter: stable;
+  /* No padding-right: overlay scrollbars sit on the padding edge and ate the
+     chatbox↔scrollbar gap. Inset content/composer via width instead. */
+  /* Avoid scrollbar-gutter:stable — it reserves more than --lc-scrollbar-size and
+     shrinks the composer when the first answer appears (empty → filled jump). */
+  scrollbar-gutter: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--lc-scrollbar-thumb) transparent;
   box-sizing: border-box;
 }
 
-/* Transcript + composer share the exact same content rail width */
+/*
+ * Right-rail rhythm (docked + floating):
+ *   content/chatbox | gutter (12) | scrollbar (4) | rail edge
+ * Overlay scrollbar hugs the panel edge; composer + turns stop 12px before the thumb.
+ */
+.middleEmpty .composerFindingDock,
+.middle:not(.middleEmpty) > .composerFindingDock {
+  width: calc(100% - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
+}
+
+.fabColumnDocked .middleEmpty .composerFindingDock,
+.fabColumnDocked .middle:not(.middleEmpty) > .composerFindingDock {
+  margin-left: var(--space-xl);
+  width: calc(100% - var(--space-xl) - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
+}
+
 .middle:not(.middleEmpty) > .transcript {
   align-self: stretch;
   justify-self: stretch;
@@ -1857,7 +2201,6 @@
   height: 100%;
   margin: 0;
   padding: 0;
-  padding-right: var(--lc-transcript-gutter);
   padding-bottom: calc(var(--lc-composer-reserve, 200px) + var(--space-lg));
   border-bottom-left-radius: var(--radius-3xl);
   border-bottom-right-radius: var(--radius-3xl);
@@ -1868,18 +2211,17 @@
   mask-image: none;
 }
 
-.middle:not(.middleEmpty) > .chatBox {
+.middle:not(.middleEmpty) > .composerFindingDock {
   align-self: end;
   justify-self: start;
   z-index: 5;
-  width: calc(100% - var(--lc-transcript-scrollbar-inset) - var(--lc-transcript-gutter));
   max-width: none;
   margin: 0;
   box-sizing: border-box;
 }
 
 .chatColumnSplit .middle:not(.middleEmpty) > .transcript,
-.chatColumnSplit .middle:not(.middleEmpty) > .chatBox {
+.chatColumnSplit .middle:not(.middleEmpty) > .composerFindingDock {
   margin-left: 0;
   margin-right: 0;
 }
@@ -1889,9 +2231,14 @@
   max-width: none;
 }
 
-.chatColumnSplit .middle:not(.middleEmpty) > .chatBox {
-  width: calc(100% - var(--lc-transcript-scrollbar-inset) - var(--lc-transcript-gutter));
+.chatColumnSplit .middle:not(.middleEmpty) > .composerFindingDock {
+  width: calc(100% - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
   max-width: none;
+}
+
+.fabColumnDocked .chatColumnSplit .middle:not(.middleEmpty) > .composerFindingDock {
+  margin-left: var(--space-xl);
+  width: calc(100% - var(--space-xl) - var(--lc-transcript-gutter) - var(--lc-transcript-scrollbar-inset));
 }
 
 @supports (overflow: overlay) {
@@ -1928,7 +2275,9 @@
   flex-direction: column;
   gap: var(--space-lg);
   width: 100%;
-  padding-inline: var(--space-xl);
+  padding-left: var(--space-xl);
+  /* Match composer: stop 12px before the overlay scrollbar on the rail edge */
+  padding-right: calc(var(--lc-transcript-gutter) + var(--lc-transcript-scrollbar-inset));
   box-sizing: border-box;
 }
 
@@ -1965,6 +2314,7 @@
 .msgUserText {
   min-width: 0;
   flex: 1;
+  white-space: pre-wrap;
 }
 
 .msgUserJumpWrap {
@@ -2133,16 +2483,44 @@
   .launcherIcon {
     animation: none;
   }
+
+  .composerOrb,
+  .composerInput,
+  .composerToolbar,
+  .composerEditorEmpty:before {
+    transition: none;
+  }
 }
 
-/* ChatComposer / ChatBox — matches reference LlumenChatInput .inputContainer */
+/* ChatComposer / ChatBox — Hub parity layout with surface tokens */
+.composerFindingDock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-lg);
+  overflow: visible;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.composerFindingDock > .chatBox {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  align-self: stretch;
+}
+
 .chatBox {
   width: 100%;
   max-width: none;
   align-self: stretch;
   flex-shrink: 0;
   box-sizing: border-box;
-  padding: var(--space-xl);
+  padding: 12px;
   border-radius: var(--radius-3xl);
   border: 1px solid var(--lc-border-default);
   background: var(--lc-surface-2);
@@ -2152,14 +2530,221 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-end;
-  gap: var(--space-md);
-  max-height: 200px;
+  gap: 0;
+  max-height: 220px;
   overflow: hidden;
 }
 
-.chatBoxWithContexts {
-  max-height: 320px;
+.chatBoxExpanded {
+  max-height: 240px;
+  min-height: 96px;
 }
+
+.chatBoxWithContexts {
+  max-height: 340px;
+}
+
+.chatBox[data-finding-cue='true'] {
+  position: relative;
+  border-color: transparent;
+}
+
+.chatBox[data-finding-cue='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--orb-shimmer-angle, 0deg),
+    var(--orb-shimmer-2, #2a4098) 0deg,
+    var(--orb-shimmer-1, #3c78ff) 70deg,
+    var(--orb-shimmer-3, #6beeff) 120deg,
+    var(--orb-shimmer-1, #3c78ff) 170deg,
+    var(--orb-shimmer-2, #2a4098) 240deg,
+    var(--orb-shimmer-2, #2a4098) 360deg
+  );
+  mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+  mask-clip: content-box, border-box;
+  mask-origin: border-box, border-box;
+  mask-composite: exclude;
+  mask-repeat: no-repeat;
+  animation: findingBorderShimmer 1s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes findingBorderShimmer {
+  to {
+    --orb-shimmer-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatBox[data-finding-cue='true']::after {
+    animation: none;
+  }
+}
+
+.composeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  flex-shrink: 0;
+}
+
+.composerOrb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 1;
+  transition:
+    width 220ms var(--lc-ease),
+    opacity 180ms var(--lc-ease),
+    margin 220ms var(--lc-ease);
+}
+
+.composerOrbCollapsed {
+  width: 0;
+  margin: 0;
+  opacity: 0;
+}
+
+.composerOrb .launcherIcon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.composerInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 36px;
+  max-height: 96px;
+  margin: 0;
+  padding: 7px 0;
+  border: none;
+  background: transparent;
+  color: var(--lc-text-primary);
+  font: inherit;
+  font-size: 15px;
+  line-height: 22px;
+  outline: none;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  transition: transform 220ms var(--lc-ease);
+}
+
+.composerInputEngaged.composerEditorEmpty:before {
+  transform: translateX(-2px);
+}
+
+.composerIconAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--lc-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.composerIconAction:hover:not(:disabled) {
+  color: var(--lc-text-primary);
+}
+
+.composerIconAction:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.composerIconAction:focus-visible {
+  outline: 2px solid rgba(132, 177, 245, 0.8);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.composerLabelAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin: 0;
+  padding: 0 2px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--lc-text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.composerLabelAction:hover:not(:disabled),
+.composerLabelActionActive:not(:disabled) {
+  color: var(--lc-text-primary);
+}
+
+.composerLabelAction:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.composerLabelAction:focus-visible {
+  outline: 2px solid rgba(132, 177, 245, 0.8);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.composerToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-height: 28px;
+  max-height: 44px;
+  margin-top: 8px;
+  overflow: hidden;
+  opacity: 1;
+  flex-shrink: 0;
+}
+
+.composerToolbarLeft,
+.composerToolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.composerToolbarRight {
+  margin-left: auto;
+}
+
 
 .contextChipRow {
   display: flex;
@@ -2332,10 +2917,12 @@
 
 .composerEditorEmpty:before {
   content: attr(data-placeholder);
-  color: var(--lc-text-secondary);
+  color: var(--lc-text-placeholder);
   pointer-events: none;
   float: left;
   height: 0;
+  transform: translateX(0);
+  transition: transform 220ms var(--lc-ease);
 }
 
 .inlineMention {
@@ -2541,6 +3128,32 @@
 .inlineContextMenuItemDesc {
   font-size: var(--lc-text-caption);
   color: var(--lc-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slashCommandMenu {
+  width: auto;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  border-radius: var(--radius-3xl, 24px);
+}
+
+.slashCommandMenu .inlineContextMenuItemText {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-md);
+  flex: 1;
+}
+
+.slashCommandMenu .inlineContextMenuItemLabel {
+  flex-shrink: 0;
+}
+
+.slashCommandMenu .inlineContextMenuItemDesc {
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2826,7 +3439,7 @@
   white-space: nowrap;
 }
 
-/* Send control — Figma ChatBox Send (678:7024): ArrowRight; inactive vs Active/Stop */
+/* Send control — match HubChatbox .send (inactive / active / stop) */
 .sendRotate {
   display: flex;
   align-items: center;
@@ -2834,61 +3447,51 @@
 }
 
 .sendBtn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
+  margin: 0;
   padding: 0;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--lc-border-subtle);
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
   cursor: pointer;
   flex-shrink: 0;
-  transition:
-    background var(--lc-duration) var(--lc-ease),
-    border-color var(--lc-duration) var(--lc-ease);
+  transition: background var(--lc-duration) var(--lc-ease);
+}
+
+.sendBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .sendBtn:focus-visible {
-  outline: 2px solid rgba(132, 177, 245, 0.8);
+  outline: 2px solid rgba(109, 233, 225, 0.7);
   outline-offset: 2px;
 }
 
-.sendInactive {
-  background: var(--lc-bg-control);
-}
-
 .sendInactive:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.35;
+  cursor: default;
 }
 
-.sendActive {
-  background: rgba(132, 177, 245, 0.8);
-  border-color: #ffffff;
-}
-
+.sendActive,
 .sendStop {
-  background: rgba(132, 177, 245, 0.8);
-  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 
 .sendStopInner {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   background: #fff;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 .sendArrow {
   flex-shrink: 0;
   display: block;
-}
-
-.sendInactive .sendArrow {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.sendActive .sendArrow {
-  color: #ffffff;
+  color: #fff;
 }

@@ -176,14 +176,58 @@
   position: relative;
   list-style: none;
   margin: 0;
-  padding: var(--space-lg) var(--space-xl) var(--space-2xl);
+  padding-block: var(--space-lg) var(--space-2xl);
+  padding-inline-start: var(--space-xl);
+  padding-inline-end: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   min-height: 0;
   flex: 1;
+  scrollbar-gutter: auto;
   scrollbar-width: thin;
+  scrollbar-color: var(--lc-scrollbar-thumb) transparent;
+  box-sizing: border-box;
+}
+
+@supports (overflow: overlay) {
+  .thinkingStepList {
+    overflow-y: overlay;
+  }
+}
+
+/* Chromium drops ::-webkit-scrollbar sizing when scrollbar-color is set, which
+   brings back the thick system bar. Reset the standard props so the 4px thumb wins. */
+@supports selector(::-webkit-scrollbar) {
+  .thinkingStepList {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+}
+
+.thinkingStepList::-webkit-scrollbar {
+  width: var(--lc-scrollbar-size);
+}
+
+.thinkingStepList::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.thinkingStepList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thinkingStepList::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: var(--lc-scrollbar-thumb);
+}
+
+.thinkingStepList::-webkit-scrollbar-thumb:hover {
+  background: var(--lc-scrollbar-thumb-hover);
 }
 
 .thinkingStepItem {
@@ -191,7 +235,8 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-md);
-  padding: 0 0 var(--space-2xl);
+  padding-block: 0 var(--space-2xl);
+  padding-inline: 0 var(--space-xl);
   animation: thinkingStepIn 0.36s var(--lc-ease) both;
 }
 

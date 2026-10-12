@@ -23,10 +23,12 @@ import type {
   AssistantReplyPayload,
   CreatedComponent,
   ThinkingStep,
+  WorkflowProposal,
 } from './assistantReplyTypes'
 import { thinkingStepsFromTimeline } from './thinkingSteps'
 import { InlineVisualCard } from './InlineVisualCard'
 import { ReportThumbnail } from './ReportThumbnail'
+import { WorkflowProposalCard } from './WorkflowProposalCard'
 import { useRevealScrollbarOnScroll } from './useRevealScrollbarOnScroll'
 import styles from './AssistantTimelineReply.module.css'
 
@@ -44,6 +46,12 @@ export type AssistantTimelineReplyProps = {
   onOpenSubcontext?: (block: AgentResponseBlock) => void
   /** Fired after the thinking sequence and all reply blocks finish rendering. */
   onReplyComplete?: () => void
+  /** A workflow run failed. The failure chip stays on the card; any question is asked from the composer. */
+  onWorkflowRunFailed?: (proposal: WorkflowProposal) => void
+  /** Open the workflow graph in the subcontext panel. */
+  onOpenWorkflow?: (proposal: WorkflowProposal) => void
+  /** Proposal currently open in the subcontext panel. */
+  activeWorkflowId?: string | null
   /** Highlights the chip for the component currently open in the detail panel. */
   selectedComponentId?: string | null
   /** When true, skip step animation (used for older turns in the transcript). */
@@ -425,12 +433,21 @@ export function AssistantTimelineReply({
   onReportOpen,
   onOpenSubcontext,
   onReplyComplete,
+  onWorkflowRunFailed,
+  onOpenWorkflow,
+  activeWorkflowId = null,
   selectedComponentId = null,
   instantTimeline = false,
   conversationPanelRef,
   className,
 }: AssistantTimelineReplyProps) {
-  const { confirmation, timeline, createdComponents = [], blocks = [], reports = [] } = reply
+  const { confirmation, timeline, createdComponents = [], blocks: replyBlocks = [], reports = [] } = reply
+  const blocks = useMemo(
+    () => replyBlocks.filter((block) => block.type !== 'question'),
+    [replyBlocks],
+  )
+  const questionOnly =
+    replyBlocks.length > 0 && replyBlocks.every((block) => block.type === 'question')
   const thinkingSteps = useMemo(
     () => reply.thinkingSteps ?? thinkingStepsFromTimeline(timeline),
     [reply.thinkingSteps, timeline],
@@ -776,6 +793,26 @@ export function AssistantTimelineReply({
               )
             }
 
+            if (block.type === 'workflow') {
+              return (
+                <AnswerBlockShell
+                  key={`workflow-${block.proposal.id}`}
+                  animating={isAnimating}
+                  reduceMotion={reduceMotion}
+                  onComplete={isAnimating ? onActiveBlockComplete : undefined}
+                >
+                  <WorkflowProposalCard
+                    proposal={block.proposal}
+                    active={activeWorkflowId === block.proposal.id}
+                    panelRef={conversationPanelRef}
+                    onRunFailed={onWorkflowRunFailed}
+                    onExpand={onOpenWorkflow}
+                  />
+                </AnswerBlockShell>
+              )
+            }
+
+            if (block.type !== 'report') return null
             const report = reportById.get(block.reportId)
             if (!report) return null
             return (
@@ -794,7 +831,7 @@ export function AssistantTimelineReply({
         </div>
       ) : null}
 
-      {!useBlocks && sequenceComplete ? (
+      {!useBlocks && sequenceComplete && !questionOnly ? (
         <div className={styles.finalReply} aria-live="polite">
           {streamingText && streamingText.length > 0 ? (
             <AnimatedWordsParagraph

@@ -122,6 +122,46 @@ export type AgentResponseBlock =
       openSubcontext: true
       subcontextView: 'slides'
     }
+  | {
+      type: 'workflow'
+      proposal: WorkflowProposal
+    }
+  | {
+      type: 'question'
+      id: string
+      prompt: string
+      options: { id: string; label: string }[]
+    }
+
+/** A clause the agent cites back to the user's request. Order is citation order, not step order. */
+export type WorkflowClause = {
+  id: string
+  label: string
+}
+
+export type WorkflowStepTone = 'trigger' | 'step' | 'asset' | 'agent' | 'delivery'
+
+/** Where the step sits in the labeled graph. */
+export type WorkflowStepLane = 'spine' | 'left' | 'right' | 'join'
+
+export type WorkflowStep = {
+  id: string
+  label: string
+  tone: WorkflowStepTone
+  lane: WorkflowStepLane
+}
+
+export type WorkflowProposal = {
+  id: string
+  /** Short agent line above the citation chips. */
+  intro: string
+  clauses: WorkflowClause[]
+  title: string
+  summary: string
+  steps: WorkflowStep[]
+  /** Directed links used to highlight neighbors when a step is selected. */
+  edges: [string, string][]
+}
 
 export type ReportSlide = {
   id: string
@@ -146,6 +186,7 @@ export type SubcontextState =
   | { view: 'closed' }
   | { view: 'map' | 'chart'; componentId: string }
   | { view: 'slides'; reportId: string; activeSlide: number }
+  | { view: 'workflow'; proposal: WorkflowProposal }
 
 export type AssistantReplyPayload = {
   /**

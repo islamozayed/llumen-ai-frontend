@@ -6,6 +6,7 @@ import {
   PencilSimple,
   Trash,
   User,
+  X,
 } from '@phosphor-icons/react'
 import styles from './SessionsPanel.module.css'
 
@@ -19,7 +20,7 @@ export type SessionSummary = {
 /** Preloaded demo session — turn 1 question + agent reply. */
 export const DEMO_SESSION_ID = 'aq-corridor'
 
-const MOCK_SESSIONS: SessionSummary[] = [
+export const DEMO_SESSIONS: SessionSummary[] = [
   {
     id: DEMO_SESSION_ID,
     title: 'Air quality corridor review',
@@ -87,6 +88,7 @@ export type SessionsPanelProps = {
   onOpenSession: (id: string) => void
   onShareSession?: (id: string) => void
   variant?: 'dropdown' | 'fullscreen'
+  onClose?: () => void
 }
 
 const SESSION_MENU_ITEMS = [
@@ -231,6 +233,7 @@ export function SessionsPanel({
   onOpenSession,
   onShareSession,
   variant = 'dropdown',
+  onClose,
 }: SessionsPanelProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -246,8 +249,8 @@ export function SessionsPanel({
 
   const filteredSessions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return MOCK_SESSIONS
-    return MOCK_SESSIONS.filter(
+    if (!q) return DEMO_SESSIONS
+    return DEMO_SESSIONS.filter(
       (s) => s.title.toLowerCase().includes(q) || s.preview.toLowerCase().includes(q),
     )
   }, [searchQuery])
@@ -308,6 +311,16 @@ export function SessionsPanel({
               </div>
             ) : null}
           </div>
+          {onClose ? (
+            <button
+              type="button"
+              className={styles.headerIconBtn}
+              onClick={onClose}
+              aria-label="Close conversations"
+            >
+              <X size={20} weight="regular" aria-hidden />
+            </button>
+          ) : null}
         </div>
       </div>
 
